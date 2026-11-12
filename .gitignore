@@ -1,0 +1,20 @@
+# rust
+target/
+
+# node
+node_modules/
+dist/
+
+# ai models are downloaded, not committed
+models/*
+!models/.gitkeep
+
+# os and editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# env
+.env
+.env.*
