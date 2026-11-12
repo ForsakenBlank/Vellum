@@ -1,5 +1,11 @@
 # Vellum
 
+> [!WARNING]
+> **This app is vibe coded.** It is being built mostly by chatting with an AI coding assistant, not written
+> line by line by an experienced developer. Expect rough edges and bugs.
+> **Keep backups of your files:** Vellum is designed never to overwrite your originals, but keep your own copies
+> of anything important anyway.
+
 An all-in-one desktop media editor. Drop any file in and get the right tools straight away.
 
 Vellum aims to replace a stack of separate apps and websites (image editors, video editors, audio editors, converters, GIF makers, screen capture tools) with one fast, local app. Every common job, like shrinking a clip for Discord, turning a video into a GIF or cutting the background out of a photo, should take one drag and one click.
