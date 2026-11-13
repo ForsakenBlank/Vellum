@@ -1,0 +1,13 @@
+target
+dist
+node_modules
+pnpm-lock.yaml
+Cargo.lock
+
+# generated
+ui/src/bindings
+apps/desktop/gen
+apps/desktop/icons
+
+# written by hand, tables and all
+*.md

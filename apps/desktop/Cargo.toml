@@ -1,0 +1,27 @@
+[package]
+name = "vellum-desktop"
+description = "the vellum desktop app"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[lib]
+# not the package name, so the lib and the binary do not fight over one .pdb on windows
+name = "vellum_app"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+vellum-core.workspace = true
+
+serde.workspace = true
+serde_json.workspace = true
+tauri = { version = "2", features = [] }
+tracing.workspace = true
+tracing-subscriber.workspace = true
+ts-rs.workspace = true

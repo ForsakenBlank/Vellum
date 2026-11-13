@@ -1,0 +1,13 @@
+[package]
+name = "vellum-media"
+description = "ffmpeg decode and encode, probing, thumbnails and proxies"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+vellum-core.workspace = true

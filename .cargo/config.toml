@@ -1,0 +1,4 @@
+[env]
+# ts-rs writes the typescript bindings here when `cargo test` runs
+TS_RS_EXPORT_DIR = { value = "ui/src/bindings", relative = true }
+TS_RS_LARGE_INT = "number"

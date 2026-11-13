@@ -1,0 +1,6 @@
+# one line ending everywhere, so prettier and the generated bindings agree on windows too
+* text=auto eol=lf
+
+*.png binary
+*.ico binary
+*.icns binary

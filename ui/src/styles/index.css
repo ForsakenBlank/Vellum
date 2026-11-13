@@ -1,0 +1,98 @@
+@import "tailwindcss";
+
+/*
+ * design tokens. components only ever use the names on the left, a theme
+ * only changes the --v-* values, so nothing needs a per theme class
+ */
+@theme inline {
+  --color-canvas: var(--v-canvas);
+  --color-surface: var(--v-surface);
+  --color-raised: var(--v-raised);
+  --color-line: var(--v-line);
+  --color-ink: var(--v-ink);
+  --color-ink-soft: var(--v-ink-soft);
+  --color-accent: var(--v-accent);
+  --color-on-accent: var(--v-on-accent);
+  --color-good: var(--v-good);
+  --color-warn: var(--v-warn);
+  --color-bad: var(--v-bad);
+
+  --font-sans:
+    "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
+    sans-serif;
+}
+
+:root {
+  color-scheme: dark;
+  --v-canvas: #0f1014;
+  --v-surface: #16181f;
+  --v-raised: #1f222c;
+  --v-line: #2a2e3a;
+  --v-ink: #eceef4;
+  --v-ink-soft: #9299ab;
+  --v-accent: #7c6cff;
+  --v-on-accent: #ffffff;
+  --v-good: #4cc38a;
+  --v-warn: #e5a13c;
+  --v-bad: #f2686b;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --v-canvas: #f3f4f7;
+  --v-surface: #ffffff;
+  --v-raised: #eceef3;
+  --v-line: #d9dce5;
+  --v-ink: #171a22;
+  --v-ink-soft: #5b6273;
+  --v-good: #1f8a58;
+  --v-warn: #a86a08;
+  --v-bad: #c93437;
+}
+
+:root[data-theme="highContrast"] {
+  color-scheme: dark;
+  --v-canvas: #000000;
+  --v-surface: #000000;
+  --v-raised: #14141a;
+  --v-line: #ffffff;
+  --v-ink: #ffffff;
+  --v-ink-soft: #e2e2e2;
+  --v-good: #5cffa9;
+  --v-warn: #ffd166;
+  --v-bad: #ff8a8c;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  overflow: hidden;
+  background: var(--v-canvas);
+  color: var(--v-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  /* app chrome is not a document, text is only selectable where it helps */
+  user-select: none;
+  cursor: default;
+}
+
+:root[data-reduced-motion="true"] *,
+:root[data-reduced-motion="true"] *::before,
+:root[data-reduced-motion="true"] *::after {
+  animation-duration: 0.01ms !important;
+  transition-duration: 0.01ms !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

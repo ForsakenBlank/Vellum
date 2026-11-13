@@ -10,7 +10,7 @@ An all-in-one desktop media editor. Drop any file in and get the right tools str
 
 Vellum aims to replace a stack of separate apps and websites (image editors, video editors, audio editors, converters, GIF makers, screen capture tools) with one fast, local app. Every common job, like shrinking a clip for Discord, turning a video into a GIF or cutting the background out of a photo, should take one drag and one click.
 
-> **Status:** early planning. The repo currently holds the folder skeleton and the project plan. No code yet.
+> **Status:** phase 0 of 18 is done. The app opens and the foundations are in place (commands, undo history, events, settings, job queue), but there are no editing tools yet. See [CHANGELOG.md](CHANGELOG.md).
 
 ## Planned features
 
@@ -60,6 +60,30 @@ models/                  downloaded ai models (gitignored)
 tests/golden/            reference images and videos for regression tests
 ```
 
+## Running it
+
+You need [Rust](https://rustup.rs), [Node.js](https://nodejs.org) 22 or newer, [pnpm](https://pnpm.io) and the [Tauri prerequisites](https://tauri.app/start/prerequisites/) for your system.
+
+```bash
+pnpm install
+```
+
+```bash
+pnpm tauri dev
+```
+
+To run the checks that CI runs:
+
+```bash
+pnpm format:check && pnpm lint && pnpm typecheck && pnpm test
+```
+
+```bash
+cargo fmt --all --check && cargo clippy --workspace --all-targets -- -D warnings && cargo test --workspace
+```
+
+`cargo test` also regenerates the TypeScript types in `ui/src/bindings` from the Rust types. Commit them when they change.
+
 ## Roadmap
 
-The full plan, broken into phases, lives in [PLAN.md](PLAN.md).
+The full plan, broken into phases, lives in [PLAN.md](PLAN.md). How the foundations work and why is in [ARCHITECTURE.md](ARCHITECTURE.md).
