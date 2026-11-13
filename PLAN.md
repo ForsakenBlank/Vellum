@@ -427,12 +427,12 @@ Each prompt is self-contained. Paste it into a fresh session opened in the proje
 **Goal:** a running Tauri app with the full folder structure, core crates stubbed, CI, and the Command, Job and Event systems designed properly.
 
 **Done when:**
-- [ ] `pnpm tauri dev` opens a window on Windows, macOS and Linux
-- [ ] Cargo workspace with every crate from section 4 (stubs are fine)
-- [ ] `vellum-core` has a working Command trait, undo/redo stack, event bus and settings store, with tests
-- [ ] Job queue with progress, cancel and pause, with tests
-- [ ] CI runs fmt, clippy, tests, ESLint and Vitest on all three OSes
-- [ ] `ARCHITECTURE.md` explains the design decisions
+- [x] `pnpm tauri dev` opens a window on Windows, macOS and Linux
+- [x] Cargo workspace with every crate from section 4 (stubs are fine)
+- [x] `vellum-core` has a working Command trait, undo/redo stack, event bus and settings store, with tests
+- [x] Job queue with progress, cancel and pause, with tests
+- [x] CI runs fmt, clippy, tests, ESLint and Vitest on all three OSes
+- [x] `ARCHITECTURE.md` explains the design decisions
 
 **Model:** Fable 5.2 · **Effort:** high
 
