@@ -13,7 +13,7 @@
 use std::any::{Any, TypeId};
 use std::collections::{BTreeMap, HashMap};
 use std::fs;
-use std::io::{self, Write};
+use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -24,6 +24,7 @@ use serde_json::Value;
 use ts_rs::TS;
 
 use crate::event::{Event, EventBus};
+use crate::fs::write_atomically;
 use crate::time::unix_ms;
 
 /// version of the file layout itself, not of any section
@@ -476,20 +477,6 @@ fn read_file(
             Ok((BTreeMap::new(), Some(aside)))
         }
     }
-}
-
-/// writes next to the target and renames over it, so a crash mid write
-/// leaves either the old file or the new one, never half of each
-fn write_atomically(path: &Path, bytes: &[u8]) -> io::Result<()> {
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)?;
-    }
-    let temp = path.with_extension("json.tmp");
-    let mut file = fs::File::create(&temp)?;
-    file.write_all(bytes)?;
-    file.sync_all()?;
-    drop(file);
-    fs::rename(&temp, path)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, TS)]

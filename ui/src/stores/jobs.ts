@@ -9,13 +9,25 @@ interface JobsState {
   jobs: Record<JobId, JobSnapshot>;
   /** waiting jobs in the order the queue last told us about */
   pending: JobId[];
+  /** jobs whose result opens by itself when they finish. kept in this window only */
+  openWhenDone: JobId[];
   applyOverview: (overview: JobsOverview) => void;
   applyEvent: (event: JobEvent) => void;
+  toggleOpenWhenDone: (id: JobId) => void;
 }
 
 export const useJobs = create<JobsState>()((set) => ({
   jobs: {},
   pending: [],
+  openWhenDone: [],
+
+  toggleOpenWhenDone: (id) => {
+    set((state) => ({
+      openWhenDone: state.openWhenDone.includes(id)
+        ? state.openWhenDone.filter((other) => other !== id)
+        : [...state.openWhenDone, id],
+    }));
+  },
 
   applyOverview: (overview) => {
     set({ jobs: byId(overview.jobs), pending: overview.pending });
@@ -50,6 +62,25 @@ const FINISHED = new Set<JobSnapshot["state"]>(["succeeded", "failed", "cancelle
 
 export function isFinished(job: JobSnapshot): boolean {
   return FINISHED.has(job.state);
+}
+
+export function isWaiting(job: JobSnapshot): boolean {
+  return WAITING.has(job.state);
+}
+
+/**
+ * jobs that were known and unfinished in `before` and are finished in `after`.
+ * jobs seen for the first time do not count, so loading the queue at startup
+ * does not announce work that finished long ago
+ */
+export function newlyFinished(
+  before: Record<JobId, JobSnapshot>,
+  after: Record<JobId, JobSnapshot>,
+): JobSnapshot[] {
+  return Object.values(after).filter((job) => {
+    const previous = before[job.id];
+    return previous !== undefined && !isFinished(previous) && isFinished(job);
+  });
 }
 
 /**

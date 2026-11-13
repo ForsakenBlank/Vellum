@@ -10,7 +10,7 @@ An all-in-one desktop media editor. Drop any file in and get the right tools str
 
 Vellum aims to replace a stack of separate apps and websites (image editors, video editors, audio editors, converters, GIF makers, screen capture tools) with one fast, local app. Every common job, like shrinking a clip for Discord, turning a video into a GIF or cutting the background out of a photo, should take one drag and one click.
 
-> **Status:** phase 0 of 18 is done. The app opens and the foundations are in place (commands, undo history, events, settings, job queue), but there are no editing tools yet. See [CHANGELOG.md](CHANGELOG.md).
+> **Status:** phases 0 and 1 of 18 are done. The app shell is in place (home screen, drag and drop, tabs and tear-off windows, docking panels, command palette, settings and shortcuts, themes, autosave and crash recovery), but the editors are still placeholders. See [CHANGELOG.md](CHANGELOG.md).
 
 ## Planned features
 

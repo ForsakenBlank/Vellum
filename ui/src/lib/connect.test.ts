@@ -3,8 +3,7 @@ import { describe, expect, it } from "vitest";
 import { useApp } from "../stores/app";
 import { useJobs } from "../stores/jobs";
 import { useSettings } from "../stores/settings";
-import { appInfo, job, readyBackend, settings } from "../test/fakes";
-import { connect } from "./connect";
+import { appInfo, job, readyBackend, settings, connectTo } from "../test/fakes";
 
 describe("connect", () => {
   it("loads state, follows events and reports ready last", async () => {
@@ -12,7 +11,7 @@ describe("connect", () => {
       jobs: [job({ id: 1 })],
       pending: [],
     }));
-    await connect(backend);
+    await connectTo(backend);
 
     expect(useApp.getState()).toMatchObject({ status: "ready", info: appInfo });
     expect(useSettings.getState().sections).toEqual(settings);
@@ -25,7 +24,7 @@ describe("connect", () => {
 
   it("applies the theme whenever appearance settings change", async () => {
     const backend = readyBackend();
-    await connect(backend);
+    await connectTo(backend);
     expect(document.documentElement.dataset.theme).toBe("dark");
 
     backend.emit("settings.changed", {
@@ -37,7 +36,7 @@ describe("connect", () => {
 
   it("stops following events after disconnect", async () => {
     const backend = readyBackend();
-    const disconnect = await connect(backend);
+    const disconnect = await connectTo(backend);
     disconnect();
 
     backend.emit("jobs", { type: "updated", job: job({ id: 9 }) });
@@ -47,7 +46,7 @@ describe("connect", () => {
   });
 
   it("says so when there is no desktop backend", async () => {
-    await connect(null);
+    await connectTo(null);
     expect(useApp.getState().status).toBe("browser");
   });
 
@@ -56,7 +55,7 @@ describe("connect", () => {
       code: "settings.io",
       message: "Your settings could not be read.",
     });
-    await connect(backend);
+    await connectTo(backend);
 
     expect(useApp.getState()).toMatchObject({
       status: "failed",

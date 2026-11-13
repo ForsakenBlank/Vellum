@@ -11,6 +11,10 @@ interface AppState {
   status: ConnectionStatus;
   info: AppInfo | null;
   api: Api | null;
+  /** label of the window this ui runs in */
+  windowLabel: string;
+  /** turns a local path into an image url, null without the desktop app */
+  previewUrl: ((path: string) => string) | null;
   /** the last thing that went wrong, shown until dismissed */
   notice: string | null;
   setNotice: (notice: string | null) => void;
@@ -20,6 +24,8 @@ export const useApp = create<AppState>()((set) => ({
   status: "connecting",
   info: null,
   api: null,
+  windowLabel: "main",
+  previewUrl: null,
   notice: null,
   setNotice: (notice) => {
     set({ notice });

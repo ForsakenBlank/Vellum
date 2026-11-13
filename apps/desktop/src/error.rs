@@ -1,7 +1,9 @@
 use serde::Serialize;
 use ts_rs::TS;
+use vellum_core::command::CommandError;
 use vellum_core::jobs::JobQueueError;
 use vellum_core::settings::SettingsError;
+use vellum_core::shell::files::file_name;
 
 /// what a failed command hands to the ui. `message` is written for the user
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
@@ -18,6 +20,67 @@ impl IpcError {
             code: code.to_owned(),
             message: message.into(),
         }
+    }
+}
+
+impl IpcError {
+    pub fn no_recovery() -> Self {
+        Self::new(
+            "recovery.none",
+            "There is no earlier session to restore any more.",
+        )
+    }
+
+    pub fn recovery_io(error: std::io::Error) -> Self {
+        Self::new(
+            "recovery.io",
+            format!(
+                "The saved session could not be cleaned up. Check that the disk is not full. ({error})"
+            ),
+        )
+    }
+
+    pub fn missing_file(path: &str) -> Self {
+        Self::new(
+            "path.missing",
+            format!(
+                "{} could not be found. It may have been moved or deleted.",
+                file_name(path)
+            ),
+        )
+    }
+
+    pub fn not_media(path: &str) -> Self {
+        Self::new(
+            "path.not_media",
+            format!(
+                "{} is not a media file, so Vellum will not open it.",
+                file_name(path)
+            ),
+        )
+    }
+
+    pub fn open_failed(path: &str, error: &dyn std::fmt::Display) -> Self {
+        Self::new(
+            "path.open_failed",
+            format!("{} could not be opened: {error}", file_name(path)),
+        )
+    }
+}
+
+impl From<CommandError> for IpcError {
+    fn from(error: CommandError) -> Self {
+        let code = match &error {
+            CommandError::Failed(_) => "command.failed",
+            CommandError::Unknown(_) => "command.unknown",
+            CommandError::Duplicate(_) => "command.duplicate",
+            CommandError::Params { .. } => "command.params",
+        };
+        let message = match &error {
+            CommandError::Failed(message) => message.clone(),
+            _ => format!("That action could not run: {error}."),
+        };
+        Self::new(code, message)
     }
 }
 

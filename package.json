@@ -16,7 +16,8 @@
     "test": "pnpm --filter @vellum/ui test",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "bindings": "cargo test --workspace export_bindings"
+    "bindings": "cargo test --workspace export_bindings",
+    "e2e": "pnpm --filter @vellum/ui e2e"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.12.4",

@@ -464,13 +464,13 @@ follow section 5 (conventions) of PLAN.md exactly, including the comment style a
 **Goal:** the app feels premium before it does anything: home screen, tabs, docking panels, command palette, settings, shortcuts, themes, autosave and crash recovery.
 
 **Done when:**
-- [ ] Home screen with recent files, pinned projects and quick tool cards
-- [ ] Drag and drop anywhere routes files to the right workspace (placeholder workspaces OK)
-- [ ] Dockable panels with saved layouts, tabs for documents
-- [ ] Command palette (`Ctrl+K`) searching commands, settings and recent files
-- [ ] Shortcut editor with conflict detection and Photoshop/Premiere/Resolve presets
-- [ ] Light/dark/high-contrast themes, UI scale, accent colour
-- [ ] Autosave, crash recovery prompt, notification centre, job queue panel
+- [x] Home screen with recent files, pinned projects and quick tool cards
+- [x] Drag and drop anywhere routes files to the right workspace (placeholder workspaces OK)
+- [x] Dockable panels with saved layouts, tabs for documents
+- [x] Command palette (`Ctrl+K`) searching commands, settings and recent files
+- [x] Shortcut editor with conflict detection and Photoshop/Premiere/Resolve presets
+- [x] Light/dark/high-contrast themes, UI scale, accent colour
+- [x] Autosave, crash recovery prompt, notification centre, job queue panel
 
 **Model:** Opus 5.5 · **Effort:** high
 

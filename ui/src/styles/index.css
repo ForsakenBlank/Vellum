@@ -2,16 +2,25 @@
 
 /*
  * design tokens. components only ever use the names on the left, a theme
- * only changes the --v-* values, so nothing needs a per theme class
+ * only changes the --v-* values, so nothing needs a per theme class.
+ *
+ * the look: a quiet graphite studio. surfaces step up in small, even
+ * increments, borders are hairlines, colour is saved for the accent and for
+ * state. the light theme is the warm off-white the app is named after.
  */
 @theme inline {
   --color-canvas: var(--v-canvas);
+  --color-sunken: var(--v-sunken);
   --color-surface: var(--v-surface);
   --color-raised: var(--v-raised);
+  --color-hover: var(--v-hover);
   --color-line: var(--v-line);
+  --color-line-strong: var(--v-line-strong);
   --color-ink: var(--v-ink);
   --color-ink-soft: var(--v-ink-soft);
+  --color-ink-faint: var(--v-ink-faint);
   --color-accent: var(--v-accent);
+  --color-accent-soft: color-mix(in oklab, var(--v-accent) 16%, transparent);
   --color-on-accent: var(--v-on-accent);
   --color-good: var(--v-good);
   --color-warn: var(--v-warn);
@@ -20,47 +29,89 @@
   --font-sans:
     "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
     sans-serif;
+
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1rem;
+
+  --shadow-pop: 0 0.5rem 1.5rem -0.25rem var(--v-shadow), 0 0 0 1px var(--v-shadow-ring);
+  --shadow-modal: 0 1.5rem 4rem -1rem var(--v-shadow), 0 0 0 1px var(--v-shadow-ring);
+
+  --ease-out-soft: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 :root {
   color-scheme: dark;
-  --v-canvas: #0f1014;
-  --v-surface: #16181f;
-  --v-raised: #1f222c;
-  --v-line: #2a2e3a;
-  --v-ink: #eceef4;
-  --v-ink-soft: #9299ab;
+  --v-canvas: #0e0f12;
+  --v-sunken: #0b0c0f;
+  --v-surface: #15171b;
+  --v-raised: #1d2026;
+  --v-hover: #252830;
+  --v-line: #262a32;
+  --v-line-strong: #353a45;
+  --v-ink: #eceef2;
+  --v-ink-soft: #9aa0ad;
+  --v-ink-faint: #656b78;
   --v-accent: #7c6cff;
   --v-on-accent: #ffffff;
   --v-good: #4cc38a;
   --v-warn: #e5a13c;
   --v-bad: #f2686b;
+  --v-shadow: rgb(0 0 0 / 0.55);
+  --v-shadow-ring: rgb(255 255 255 / 0.04);
+
+  /* motion. every transition uses one of these, so reduced motion is one switch */
+  --v-fast: 120ms;
+  --v-base: 180ms;
+  --v-slow: 260ms;
 }
 
 :root[data-theme="light"] {
   color-scheme: light;
-  --v-canvas: #f3f4f7;
-  --v-surface: #ffffff;
-  --v-raised: #eceef3;
-  --v-line: #d9dce5;
-  --v-ink: #171a22;
-  --v-ink-soft: #5b6273;
+  --v-canvas: #eeece7;
+  --v-sunken: #e6e3dd;
+  --v-surface: #f8f7f4;
+  --v-raised: #ffffff;
+  --v-hover: #ecebe6;
+  --v-line: #dcd9d1;
+  --v-line-strong: #c7c3b9;
+  --v-ink: #1b1c20;
+  --v-ink-soft: #5c5f68;
+  --v-ink-faint: #8d9099;
   --v-good: #1f8a58;
   --v-warn: #a86a08;
   --v-bad: #c93437;
+  --v-shadow: rgb(40 35 25 / 0.18);
+  --v-shadow-ring: rgb(0 0 0 / 0.05);
 }
 
 :root[data-theme="highContrast"] {
   color-scheme: dark;
   --v-canvas: #000000;
+  --v-sunken: #000000;
   --v-surface: #000000;
-  --v-raised: #14141a;
-  --v-line: #ffffff;
+  --v-raised: #111116;
+  --v-hover: #24242c;
+  --v-line: #9a9aa6;
+  --v-line-strong: #ffffff;
   --v-ink: #ffffff;
-  --v-ink-soft: #e2e2e2;
+  --v-ink-soft: #e6e6e6;
+  --v-ink-faint: #c4c4c4;
   --v-good: #5cffa9;
   --v-warn: #ffd166;
   --v-bad: #ff8a8c;
+  --v-shadow: rgb(0 0 0 / 0.9);
+  --v-shadow-ring: rgb(255 255 255 / 0.6);
+}
+
+/* compact mode tightens every padding and gap, since they are all multiples of --spacing */
+:root[data-compact="true"] {
+  --spacing: 0.2rem;
+}
+
+:root[data-reduced-motion="true"] {
+  --v-fast: 0ms;
+  --v-base: 0ms;
+  --v-slow: 0ms;
 }
 
 html,
@@ -75,24 +126,98 @@ body {
   background: var(--v-canvas);
   color: var(--v-ink);
   font-family: var(--font-sans);
+  font-size: 0.875rem;
   -webkit-font-smoothing: antialiased;
   /* app chrome is not a document, text is only selectable where it helps */
   user-select: none;
   cursor: default;
 }
 
+::selection {
+  background: color-mix(in oklab, var(--v-accent) 45%, transparent);
+}
+
+/* thin scrollbars that only show what they need to */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--v-line-strong) transparent;
+}
+
+@utility v-focus {
+  outline: none;
+  &:focus-visible {
+    box-shadow:
+      0 0 0 2px var(--v-canvas),
+      0 0 0 4px var(--v-accent);
+  }
+}
+
+@keyframes v-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(2px) scale(0.98);
+  }
+}
+
+@keyframes v-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes v-shimmer {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@keyframes v-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+}
+
+/* popups and dialogs keep their own translate, so they animate scale and opacity only */
+@utility v-pop {
+  animation: v-fade-in var(--v-base) var(--ease-out-soft);
+}
+
+@utility v-fade {
+  animation: v-fade-in var(--v-base) var(--ease-out-soft);
+}
+
+@utility v-rise {
+  animation: v-pop-in var(--v-base) var(--ease-out-soft);
+}
+
+@utility v-toast {
+  animation: v-toast-in var(--v-slow) var(--ease-out-soft);
+}
+
+@utility v-skeleton {
+  animation: v-shimmer 1.4s ease-in-out infinite;
+}
+
 :root[data-reduced-motion="true"] *,
 :root[data-reduced-motion="true"] *::before,
 :root[data-reduced-motion="true"] *::after {
   animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
   transition-duration: 0.01ms !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
+  :root {
+    --v-fast: 0ms;
+    --v-base: 0ms;
+    --v-slow: 0ms;
+  }
   *,
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
 }

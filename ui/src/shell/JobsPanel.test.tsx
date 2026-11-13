@@ -30,7 +30,7 @@ const row = (name: string) => {
 describe("JobsPanel", () => {
   it("explains itself when there is nothing to show", () => {
     show();
-    expect(screen.getByText(/Nothing is running/)).toBeInTheDocument();
+    expect(screen.getByText("Nothing running")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Clear finished" })).not.toBeInTheDocument();
   });
 
@@ -84,6 +84,37 @@ describe("JobsPanel", () => {
   it("keeps housekeeping jobs out of the list", () => {
     show(job({ name: "Thumbnails", background: true }));
     expect(screen.queryByText("Thumbnails")).not.toBeInTheDocument();
+  });
+
+  it("moves waiting jobs up and down the queue", async () => {
+    const backend = show(
+      job({ id: 1, name: "First", state: "queued" }),
+      job({ id: 2, name: "Hidden", state: "queued", background: true }),
+      job({ id: 3, name: "Second", state: "queued" }),
+    );
+    expect(row("First").getByRole("button", { name: "Move up the queue" })).toBeDisabled();
+    await userEvent.click(row("Second").getByRole("button", { name: "Move up the queue" }));
+    // it lands where its visible neighbour is, past the hidden job
+    expect(backend.callsTo("job_move")).toEqual([{ id: 3, index: 0 }]);
+  });
+
+  it("opens or shows a finished job's file", async () => {
+    const backend = show(
+      job({ id: 6, state: "succeeded", output: { path: "/out/clip.gif" }, finishedMs: 5 }),
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Open" }));
+    await userEvent.click(screen.getByRole("button", { name: "Show in folder" }));
+    expect(backend.callsTo("path_open")).toEqual([{ path: "/out/clip.gif" }]);
+    expect(backend.callsTo("path_reveal")).toEqual([{ path: "/out/clip.gif" }]);
+  });
+
+  it("remembers to open a running job's result when it is done", async () => {
+    show(job({ id: 5 }));
+    await userEvent.click(screen.getByRole("button", { name: "Open the result when done" }));
+    expect(useJobs.getState().openWhenDone).toEqual([5]);
+    expect(
+      screen.getByRole("button", { name: "Do not open the result when done" }),
+    ).toHaveAttribute("aria-pressed", "true");
   });
 
   it("puts a failed action in the notice bar", async () => {

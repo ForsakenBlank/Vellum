@@ -6,6 +6,7 @@
 //! payload types checked by the typescript compiler.
 
 use vellum_core::settings::{AppearanceSettings, PerformanceSettings, SettingsStore};
+use vellum_core::shell::settings::{GeneralSettings, LayoutSettings, ShortcutSettings};
 
 macro_rules! settings_sections {
     ($($section:ty),* $(,)?) => {
@@ -31,11 +32,19 @@ macro_rules! ui_events {
     };
 }
 
-settings_sections![AppearanceSettings, PerformanceSettings];
+settings_sections![
+    AppearanceSettings,
+    PerformanceSettings,
+    GeneralSettings,
+    ShortcutSettings,
+    LayoutSettings,
+];
 
 ui_events![
     vellum_core::jobs::JobEvent,
-    vellum_core::settings::SettingsChanged
+    vellum_core::settings::SettingsChanged,
+    vellum_core::shell::session::SessionChanged,
+    vellum_core::shell::recent::RecentChanged,
 ];
 
 #[cfg(test)]
