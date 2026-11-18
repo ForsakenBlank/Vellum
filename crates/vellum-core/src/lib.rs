@@ -11,11 +11,19 @@
 //!
 //! see `ARCHITECTURE.md` in the repo root for why things are shaped the way they are.
 
+pub mod actions;
+pub mod app;
 pub mod command;
+pub mod documents;
 pub mod events;
+pub mod files;
 pub mod history;
 pub mod jobs;
+pub mod notifications;
+pub mod recent;
+pub mod recovery;
 pub mod settings;
+pub mod shortcuts;
 pub mod ui;
 
 pub use command::{Command, CommandError, CommandInfo, CommandRecord, CommandRegistry};

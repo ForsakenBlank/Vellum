@@ -27,6 +27,7 @@ use serde_json::{Map, Value};
 use ts_rs::TS;
 
 use crate::events::{Event, EventBus};
+use crate::shortcuts::{self, ShortcutSettings};
 
 const VERSION_KEY: &str = "version";
 
@@ -359,15 +360,21 @@ pub struct AppearanceSettings {
     pub accent: String,
     pub ui_scale: f32,
     pub reduced_motion: bool,
+    /// tighter rows and padding for small screens
+    pub compact: bool,
 }
+
+/// the default accent, a warm safelight amber that reads well on the darkroom greys
+pub const DEFAULT_ACCENT: &str = "#f2a93b";
 
 impl Default for AppearanceSettings {
     fn default() -> Self {
         Self {
             theme: Theme::Dark,
-            accent: "#7c5cff".to_owned(),
+            accent: DEFAULT_ACCENT.to_owned(),
             ui_scale: 1.0,
             reduced_motion: false,
+            compact: false,
         }
     }
 }
@@ -427,6 +434,157 @@ impl Default for HistorySettings {
     }
 }
 
+/// one group of panels shown as tabs inside a dock
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(default, rename_all = "camelCase")]
+#[ts(export)]
+pub struct DockGroup {
+    pub id: String,
+    /// panel ids in tab order. the ui owns the list of panels and drops ids it does not know.
+    pub panels: Vec<String>,
+    pub active: String,
+    /// share of the dock this group gets, relative to the other groups
+    pub weight: f32,
+}
+
+impl Default for DockGroup {
+    fn default() -> Self {
+        Self {
+            id: String::new(),
+            panels: Vec::new(),
+            active: String::new(),
+            weight: 1.0,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(default, rename_all = "camelCase")]
+#[ts(export)]
+pub struct DockArea {
+    /// width for the side docks, height for the bottom one, in css pixels at 100% scale
+    pub size: u32,
+    pub collapsed: bool,
+    pub groups: Vec<DockGroup>,
+}
+
+impl Default for DockArea {
+    fn default() -> Self {
+        Self {
+            size: 280,
+            collapsed: false,
+            groups: Vec::new(),
+        }
+    }
+}
+
+/// where every panel sits around the document area
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(default, rename_all = "camelCase")]
+#[ts(export)]
+pub struct DockLayout {
+    pub left: DockArea,
+    pub right: DockArea,
+    pub bottom: DockArea,
+}
+
+impl Default for DockLayout {
+    fn default() -> Self {
+        let group = |id: &str, panels: &[&str]| DockGroup {
+            id: id.to_owned(),
+            panels: panels.iter().map(|p| (*p).to_owned()).collect(),
+            active: panels.first().map(|p| (*p).to_owned()).unwrap_or_default(),
+            weight: 1.0,
+        };
+        Self {
+            left: DockArea {
+                size: 260,
+                ..DockArea::default()
+            },
+            right: DockArea {
+                size: 300,
+                collapsed: false,
+                groups: vec![
+                    group("right-top", &["info", "history"]),
+                    group("right-bottom", &["jobs"]),
+                ],
+            },
+            bottom: DockArea {
+                size: 220,
+                ..DockArea::default()
+            },
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct SavedLayout {
+    pub name: String,
+    pub layout: DockLayout,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(default, rename_all = "camelCase")]
+#[ts(export)]
+pub struct LayoutSettings {
+    /// the layout on screen now, saved as the user drags and resizes
+    pub current: DockLayout,
+    /// name of the built in or saved layout the current one started from
+    pub active: String,
+    /// layouts the user saved by name
+    pub saved: Vec<SavedLayout>,
+}
+
+impl Default for LayoutSettings {
+    fn default() -> Self {
+        Self {
+            current: DockLayout::default(),
+            active: "default".to_owned(),
+            saved: Vec::new(),
+        }
+    }
+}
+
+const MAX_SAVED_LAYOUTS: usize = 20;
+
+impl LayoutSettings {
+    fn sanitize(&mut self) {
+        sanitize_dock(&mut self.current);
+        let mut names: Vec<String> = Vec::new();
+        self.saved.retain_mut(|saved| {
+            saved.name = saved.name.trim().chars().take(60).collect();
+            let keep = !saved.name.is_empty() && !names.contains(&saved.name);
+            names.push(saved.name.clone());
+            sanitize_dock(&mut saved.layout);
+            keep
+        });
+        self.saved.truncate(MAX_SAVED_LAYOUTS);
+    }
+}
+
+fn sanitize_dock(layout: &mut DockLayout) {
+    let areas = [
+        (&mut layout.left, 160, 640),
+        (&mut layout.right, 160, 640),
+        (&mut layout.bottom, 100, 600),
+    ];
+    for (area, min, max) in areas {
+        area.size = area.size.clamp(min, max);
+        area.groups.retain(|group| !group.panels.is_empty());
+        for group in &mut area.groups {
+            if !group.weight.is_finite() {
+                group.weight = 1.0;
+            }
+            group.weight = group.weight.clamp(0.1, 10.0);
+            if !group.panels.contains(&group.active) {
+                group.active = group.panels.first().cloned().unwrap_or_default();
+            }
+        }
+    }
+}
+
 /// the app wide settings. later phases add sections here, bumping `VERSION` and adding a
 /// migration only when an existing field changes shape.
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize, TS)]
@@ -437,6 +595,8 @@ pub struct AppSettings {
     pub autosave: AutosaveSettings,
     pub jobs: JobSettings,
     pub history: HistorySettings,
+    pub shortcuts: ShortcutSettings,
+    pub layout: LayoutSettings,
 }
 
 impl SettingsSchema for AppSettings {
@@ -459,6 +619,8 @@ impl SettingsSchema for AppSettings {
         self.jobs.max_io_jobs = self.jobs.max_io_jobs.clamp(1, 64);
         self.history.max_steps = self.history.max_steps.clamp(10, 10_000);
         self.history.max_memory_mb = self.history.max_memory_mb.clamp(64, 64 * 1024);
+        shortcuts::sanitize(&mut self.shortcuts);
+        self.layout.sanitize();
     }
 }
 
@@ -679,9 +841,60 @@ mod tests {
             })
             .unwrap();
         assert_eq!(settings.appearance.ui_scale, 3.0);
-        assert_eq!(settings.appearance.accent, "#7c5cff");
+        assert_eq!(settings.appearance.accent, DEFAULT_ACCENT);
         assert_eq!(settings.jobs.max_cpu_jobs, 1);
         assert_eq!(settings.autosave.interval_secs, 5);
+    }
+
+    #[test]
+    fn sanitize_cleans_layouts_and_shortcuts() {
+        let (_dir, path) = temp();
+        let (store, _) = SettingsStore::<AppSettings>::open(&path, None).unwrap();
+        let settings = store
+            .update(|s| {
+                s.layout.current.right.size = 5000;
+                s.layout.current.left.groups.push(DockGroup {
+                    id: "empty".into(),
+                    ..DockGroup::default()
+                });
+                s.layout.current.right.groups[0].weight = f32::NAN;
+                s.layout.current.right.groups[0].active = "gone".into();
+                for name in ["  Editing ", "Editing", ""] {
+                    s.layout.saved.push(SavedLayout {
+                        name: name.into(),
+                        layout: DockLayout::default(),
+                    });
+                }
+                s.shortcuts
+                    .overrides
+                    .insert("file.save".into(), vec!["ctrl+alt+s".into()]);
+            })
+            .unwrap();
+        let layout = &settings.layout;
+        assert_eq!(layout.current.right.size, 640);
+        assert!(layout.current.left.groups.is_empty());
+        assert_eq!(layout.current.right.groups[0].weight, 1.0);
+        assert_eq!(layout.current.right.groups[0].active, "info");
+        let names: Vec<_> = layout.saved.iter().map(|s| s.name.as_str()).collect();
+        assert_eq!(names, ["Editing"]);
+        assert_eq!(settings.shortcuts.overrides["file.save"], ["Ctrl+Alt+S"]);
+    }
+
+    #[test]
+    fn phase_0_files_load_without_a_migration() {
+        let (_dir, path) = temp();
+        fs::write(
+            &path,
+            r##"{ "version": 1, "appearance": { "theme": "light", "accent": "#7c5cff" } }"##,
+        )
+        .unwrap();
+        let (store, outcome) = SettingsStore::<AppSettings>::open(&path, None).unwrap();
+        assert_eq!(outcome, LoadOutcome::Loaded);
+        let settings = store.get();
+        assert_eq!(settings.appearance.accent, "#7c5cff");
+        assert!(!settings.appearance.compact);
+        assert_eq!(settings.layout, LayoutSettings::default());
+        assert_eq!(settings.shortcuts, ShortcutSettings::default());
     }
 
     #[test]
@@ -695,7 +908,7 @@ mod tests {
             .apply_patch(&json!({ "appearance": { "theme": "light" } }))
             .unwrap();
         assert_eq!(settings.appearance.theme, Theme::Light);
-        assert_eq!(settings.appearance.accent, "#7c5cff");
+        assert_eq!(settings.appearance.accent, DEFAULT_ACCENT);
         assert_eq!(
             changes.try_recv().map(|c| c.settings.appearance.theme),
             Some(Theme::Light)

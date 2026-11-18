@@ -1,0 +1,122 @@
+[
+  {
+    "extensions": [
+      "png",
+      "jpg",
+      "jpeg",
+      "jfif",
+      "webp",
+      "avif",
+      "heic",
+      "heif",
+      "bmp",
+      "tif",
+      "tiff",
+      "psd",
+      "tga",
+      "exr",
+      "hdr",
+      "ico",
+      "jxl",
+      "qoi"
+    ],
+    "kind": "image",
+    "label": "image",
+    "workspace": "image"
+  },
+  {
+    "extensions": [
+      "cr2",
+      "cr3",
+      "nef",
+      "arw",
+      "dng",
+      "orf",
+      "rw2",
+      "raf",
+      "srw",
+      "pef"
+    ],
+    "kind": "raw",
+    "label": "camera raw photo",
+    "workspace": "image"
+  },
+  {
+    "extensions": [
+      "gif",
+      "apng"
+    ],
+    "kind": "gif",
+    "label": "GIF",
+    "workspace": "video"
+  },
+  {
+    "extensions": [
+      "mp4",
+      "m4v",
+      "mov",
+      "mkv",
+      "webm",
+      "avi",
+      "wmv",
+      "flv",
+      "mpg",
+      "mpeg",
+      "ts",
+      "mts",
+      "m2ts",
+      "3gp",
+      "ogv",
+      "mxf"
+    ],
+    "kind": "video",
+    "label": "video",
+    "workspace": "video"
+  },
+  {
+    "extensions": [
+      "mp3",
+      "wav",
+      "flac",
+      "ogg",
+      "oga",
+      "opus",
+      "m4a",
+      "aac",
+      "aiff",
+      "aif",
+      "wma",
+      "alac"
+    ],
+    "kind": "audio",
+    "label": "audio",
+    "workspace": "audio"
+  },
+  {
+    "extensions": [
+      "svg",
+      "svgz",
+      "eps",
+      "ai"
+    ],
+    "kind": "vector",
+    "label": "vector",
+    "workspace": "vector"
+  },
+  {
+    "extensions": [
+      "pdf"
+    ],
+    "kind": "pdf",
+    "label": "PDF",
+    "workspace": "vector"
+  },
+  {
+    "extensions": [
+      "vellum"
+    ],
+    "kind": "project",
+    "label": "project",
+    "workspace": "video"
+  }
+]

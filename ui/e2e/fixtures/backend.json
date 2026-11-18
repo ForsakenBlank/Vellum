@@ -1,0 +1,757 @@
+{
+  "commands": [
+    {
+      "category": "App",
+      "description": "Search every command, setting, recent file and preset.",
+      "kind": "app.command_palette",
+      "title": "Command palette"
+    },
+    {
+      "category": "App",
+      "description": "Show recent files and quick tools.",
+      "kind": "app.home",
+      "title": "Go to home"
+    },
+    {
+      "category": "App",
+      "description": "Show finished jobs and other news.",
+      "kind": "app.notifications",
+      "title": "Notifications"
+    },
+    {
+      "category": "App",
+      "description": "Change themes, autosave, jobs and more.",
+      "kind": "app.settings",
+      "title": "Settings"
+    },
+    {
+      "category": "App",
+      "description": "See and change every shortcut, or pick a preset from another app.",
+      "kind": "app.shortcuts",
+      "title": "Keyboard shortcuts"
+    },
+    {
+      "category": "Edit",
+      "description": "Redo the change you last undid.",
+      "kind": "edit.redo",
+      "title": "Redo"
+    },
+    {
+      "category": "Edit",
+      "description": "Undo the last change in the current document.",
+      "kind": "edit.undo",
+      "title": "Undo"
+    },
+    {
+      "category": "File",
+      "description": "Close the current document. Unsaved changes ask first.",
+      "kind": "file.close",
+      "title": "Close tab"
+    },
+    {
+      "category": "File",
+      "description": "Pick files to open in the right workspace.",
+      "kind": "file.open",
+      "title": "Open file"
+    },
+    {
+      "category": "File",
+      "description": "Save the current document.",
+      "kind": "file.save",
+      "title": "Save"
+    },
+    {
+      "category": "Jobs",
+      "description": "Remove done, failed and cancelled jobs from the list.",
+      "kind": "jobs.clear_finished",
+      "title": "Clear finished jobs"
+    },
+    {
+      "category": "App",
+      "description": "Remove every notification.",
+      "kind": "notifications.clear",
+      "title": "Clear notifications"
+    },
+    {
+      "category": "App",
+      "description": "Clear the unread dot on the bell.",
+      "kind": "notifications.mark_read",
+      "title": "Mark notifications as read"
+    },
+    {
+      "category": "File",
+      "description": "Forget recent files. Pinned files stay.",
+      "kind": "recent.clear",
+      "title": "Clear recent files"
+    },
+    {
+      "category": "Quick tools",
+      "description": "Change a file to another format.",
+      "kind": "tool.convert",
+      "title": "Convert"
+    },
+    {
+      "category": "Quick tools",
+      "description": "Shrink a video, GIF, image or song to fit a size limit.",
+      "kind": "tool.export_to_size",
+      "title": "Export to 10 MB"
+    },
+    {
+      "category": "Quick tools",
+      "description": "Cut the subject out of a photo.",
+      "kind": "tool.remove_background",
+      "title": "Remove background"
+    },
+    {
+      "category": "Quick tools",
+      "description": "Record your screen, a window or an area.",
+      "kind": "tool.screen_record",
+      "title": "Screen record"
+    },
+    {
+      "category": "Quick tools",
+      "description": "Turn part of a video into a GIF.",
+      "kind": "tool.video_to_gif",
+      "title": "Video to GIF"
+    },
+    {
+      "category": "View",
+      "description": "Turn tighter rows and padding on or off.",
+      "kind": "view.compact.toggle",
+      "title": "Compact mode"
+    },
+    {
+      "category": "View",
+      "description": "Give the document the whole window, or bring the panels back.",
+      "kind": "view.docks.toggle",
+      "title": "Hide or show panels"
+    },
+    {
+      "category": "View",
+      "description": "Put every panel back where it started.",
+      "kind": "view.layout.reset",
+      "title": "Reset layout"
+    },
+    {
+      "category": "View",
+      "description": "Keep the current panel arrangement under a name.",
+      "kind": "view.layout.save",
+      "title": "Save layout"
+    },
+    {
+      "category": "View",
+      "description": "Show every step of the current document, including other branches.",
+      "kind": "view.panel.history",
+      "title": "History panel"
+    },
+    {
+      "category": "View",
+      "description": "Show details about the current document.",
+      "kind": "view.panel.info",
+      "title": "Info panel"
+    },
+    {
+      "category": "View",
+      "description": "Show exports, conversions and other running work.",
+      "kind": "view.panel.jobs",
+      "title": "Jobs panel"
+    },
+    {
+      "category": "View",
+      "description": "Turn animations on or off.",
+      "kind": "view.reduced_motion.toggle",
+      "title": "Reduce motion"
+    },
+    {
+      "category": "View",
+      "description": "Use the dark theme.",
+      "kind": "view.theme.dark",
+      "title": "Dark theme"
+    },
+    {
+      "category": "View",
+      "description": "Use the high contrast theme.",
+      "kind": "view.theme.high_contrast",
+      "title": "High contrast theme"
+    },
+    {
+      "category": "View",
+      "description": "Use the light theme.",
+      "kind": "view.theme.light",
+      "title": "Light theme"
+    },
+    {
+      "category": "View",
+      "description": "Make the interface bigger.",
+      "kind": "view.zoom.in",
+      "title": "Zoom in"
+    },
+    {
+      "category": "View",
+      "description": "Make the interface smaller.",
+      "kind": "view.zoom.out",
+      "title": "Zoom out"
+    },
+    {
+      "category": "View",
+      "description": "Set the interface back to 100%.",
+      "kind": "view.zoom.reset",
+      "title": "Actual size"
+    },
+    {
+      "category": "Window",
+      "description": "Send the current document back to the main window.",
+      "kind": "window.move_to_main",
+      "title": "Move tab to the main window"
+    },
+    {
+      "category": "Window",
+      "description": "Switch to the tab on the right.",
+      "kind": "window.next_tab",
+      "title": "Next tab"
+    },
+    {
+      "category": "Window",
+      "description": "Switch to the tab on the left.",
+      "kind": "window.previous_tab",
+      "title": "Previous tab"
+    },
+    {
+      "category": "Window",
+      "description": "Open the current document in its own window.",
+      "kind": "window.tear_off",
+      "title": "Move tab to a new window"
+    },
+    {
+      "category": "Workspace",
+      "description": "Go to the audio editor.",
+      "kind": "workspace.audio",
+      "title": "Audio workspace"
+    },
+    {
+      "category": "Workspace",
+      "description": "Go to colour grading.",
+      "kind": "workspace.color",
+      "title": "Colour workspace"
+    },
+    {
+      "category": "Workspace",
+      "description": "Go to the image editor.",
+      "kind": "workspace.image",
+      "title": "Image workspace"
+    },
+    {
+      "category": "Workspace",
+      "description": "Go to motion graphics.",
+      "kind": "workspace.motion",
+      "title": "Motion workspace"
+    },
+    {
+      "category": "Workspace",
+      "description": "Go to the quick tools workspace.",
+      "kind": "workspace.quick_tools",
+      "title": "Quick tools"
+    },
+    {
+      "category": "Workspace",
+      "description": "Go to vector and PDF tools.",
+      "kind": "workspace.vector",
+      "title": "Vector workspace"
+    },
+    {
+      "category": "Workspace",
+      "description": "Go to the video editor.",
+      "kind": "workspace.video",
+      "title": "Video workspace"
+    }
+  ],
+  "documentCommands": [
+    {
+      "category": "Document",
+      "description": "Change the notes kept with the document.",
+      "kind": "document.edit_notes",
+      "title": "Edit notes"
+    },
+    {
+      "category": "Document",
+      "description": "Change the name shown on the tab.",
+      "kind": "document.rename",
+      "title": "Rename document"
+    }
+  ],
+  "keymaps": {
+    "audacity": {
+      "bindings": {
+        "app.command_palette": [
+          "Ctrl+K"
+        ],
+        "app.home": [
+          "Ctrl+Shift+H"
+        ],
+        "app.settings": [
+          "Ctrl+P"
+        ],
+        "app.shortcuts": [
+          "Ctrl+Alt+K"
+        ],
+        "edit.redo": [
+          "Ctrl+Y",
+          "Ctrl+Shift+Z"
+        ],
+        "edit.undo": [
+          "Ctrl+Z"
+        ],
+        "file.close": [
+          "Ctrl+W"
+        ],
+        "file.open": [
+          "Ctrl+O"
+        ],
+        "file.save": [
+          "Ctrl+S"
+        ],
+        "tool.export_to_size": [
+          "Ctrl+Shift+E"
+        ],
+        "tool.screen_record": [
+          "Ctrl+Shift+R"
+        ],
+        "view.docks.toggle": [
+          "Ctrl+\\"
+        ],
+        "view.panel.jobs": [
+          "Ctrl+Shift+J"
+        ],
+        "view.zoom.in": [
+          "Ctrl+="
+        ],
+        "view.zoom.out": [
+          "Ctrl+-"
+        ],
+        "view.zoom.reset": [
+          "Ctrl+0"
+        ],
+        "window.next_tab": [
+          "Ctrl+Tab"
+        ],
+        "window.previous_tab": [
+          "Ctrl+Shift+Tab"
+        ],
+        "workspace.audio": [
+          "Ctrl+5"
+        ],
+        "workspace.color": [
+          "Ctrl+4"
+        ],
+        "workspace.image": [
+          "Ctrl+2"
+        ],
+        "workspace.motion": [
+          "Ctrl+6"
+        ],
+        "workspace.quick_tools": [
+          "Ctrl+1"
+        ],
+        "workspace.vector": [
+          "Ctrl+7"
+        ],
+        "workspace.video": [
+          "Ctrl+3"
+        ]
+      },
+      "conflicts": [],
+      "preset": "audacity"
+    },
+    "photoshop": {
+      "bindings": {
+        "app.command_palette": [
+          "Ctrl+Shift+P"
+        ],
+        "app.home": [
+          "Ctrl+Shift+H"
+        ],
+        "app.settings": [
+          "Ctrl+K"
+        ],
+        "app.shortcuts": [
+          "Ctrl+Alt+K"
+        ],
+        "edit.redo": [
+          "Ctrl+Shift+Z"
+        ],
+        "edit.undo": [
+          "Ctrl+Z"
+        ],
+        "file.close": [
+          "Ctrl+W"
+        ],
+        "file.open": [
+          "Ctrl+O"
+        ],
+        "file.save": [
+          "Ctrl+S"
+        ],
+        "tool.export_to_size": [
+          "Ctrl+Alt+Shift+W"
+        ],
+        "tool.screen_record": [
+          "Ctrl+Shift+R"
+        ],
+        "view.docks.toggle": [
+          "Tab"
+        ],
+        "view.panel.jobs": [
+          "Ctrl+Shift+J"
+        ],
+        "view.zoom.in": [
+          "Ctrl+="
+        ],
+        "view.zoom.out": [
+          "Ctrl+-"
+        ],
+        "view.zoom.reset": [
+          "Ctrl+0"
+        ],
+        "window.next_tab": [
+          "Ctrl+Tab"
+        ],
+        "window.previous_tab": [
+          "Ctrl+Shift+Tab"
+        ],
+        "workspace.audio": [
+          "Ctrl+5"
+        ],
+        "workspace.color": [
+          "Ctrl+4"
+        ],
+        "workspace.image": [
+          "Ctrl+2"
+        ],
+        "workspace.motion": [
+          "Ctrl+6"
+        ],
+        "workspace.quick_tools": [
+          "Ctrl+1"
+        ],
+        "workspace.vector": [
+          "Ctrl+7"
+        ],
+        "workspace.video": [
+          "Ctrl+3"
+        ]
+      },
+      "conflicts": [],
+      "preset": "photoshop"
+    },
+    "premiere": {
+      "bindings": {
+        "app.command_palette": [
+          "Ctrl+K"
+        ],
+        "app.home": [
+          "Ctrl+Shift+H"
+        ],
+        "app.settings": [
+          "Ctrl+,"
+        ],
+        "app.shortcuts": [
+          "Ctrl+Alt+K"
+        ],
+        "edit.redo": [
+          "Ctrl+Shift+Z"
+        ],
+        "edit.undo": [
+          "Ctrl+Z"
+        ],
+        "file.close": [
+          "Ctrl+W"
+        ],
+        "file.open": [
+          "Ctrl+O"
+        ],
+        "file.save": [
+          "Ctrl+S"
+        ],
+        "tool.export_to_size": [
+          "Ctrl+M"
+        ],
+        "tool.screen_record": [
+          "Ctrl+Shift+R"
+        ],
+        "view.docks.toggle": [
+          "Ctrl+\\"
+        ],
+        "view.panel.jobs": [
+          "Ctrl+Shift+J"
+        ],
+        "view.zoom.in": [
+          "Ctrl+="
+        ],
+        "view.zoom.out": [
+          "Ctrl+-"
+        ],
+        "view.zoom.reset": [
+          "Ctrl+0"
+        ],
+        "window.next_tab": [
+          "Ctrl+Tab"
+        ],
+        "window.previous_tab": [
+          "Ctrl+Shift+Tab"
+        ],
+        "workspace.audio": [
+          "Alt+Shift+3"
+        ],
+        "workspace.color": [
+          "Alt+Shift+2"
+        ],
+        "workspace.image": [
+          "Alt+Shift+6"
+        ],
+        "workspace.motion": [
+          "Alt+Shift+4"
+        ],
+        "workspace.quick_tools": [
+          "Alt+Shift+5"
+        ],
+        "workspace.vector": [
+          "Alt+Shift+7"
+        ],
+        "workspace.video": [
+          "Alt+Shift+1"
+        ]
+      },
+      "conflicts": [],
+      "preset": "premiere"
+    },
+    "resolve": {
+      "bindings": {
+        "app.command_palette": [
+          "Ctrl+K"
+        ],
+        "app.home": [
+          "Ctrl+Shift+H"
+        ],
+        "app.settings": [
+          "Ctrl+,"
+        ],
+        "app.shortcuts": [
+          "Ctrl+Alt+K"
+        ],
+        "edit.redo": [
+          "Ctrl+Shift+Z"
+        ],
+        "edit.undo": [
+          "Ctrl+Z"
+        ],
+        "file.close": [
+          "Ctrl+W"
+        ],
+        "file.open": [
+          "Ctrl+O"
+        ],
+        "file.save": [
+          "Ctrl+S"
+        ],
+        "tool.export_to_size": [
+          "Shift+8"
+        ],
+        "tool.screen_record": [
+          "Ctrl+Shift+R"
+        ],
+        "view.docks.toggle": [
+          "Ctrl+\\"
+        ],
+        "view.panel.jobs": [
+          "Ctrl+Shift+J"
+        ],
+        "view.zoom.in": [
+          "Ctrl+="
+        ],
+        "view.zoom.out": [
+          "Ctrl+-"
+        ],
+        "view.zoom.reset": [
+          "Ctrl+0"
+        ],
+        "window.next_tab": [
+          "Ctrl+Tab"
+        ],
+        "window.previous_tab": [
+          "Ctrl+Shift+Tab"
+        ],
+        "workspace.audio": [
+          "Shift+7"
+        ],
+        "workspace.color": [
+          "Shift+6"
+        ],
+        "workspace.image": [
+          "Shift+2"
+        ],
+        "workspace.motion": [
+          "Shift+5"
+        ],
+        "workspace.quick_tools": [
+          "Ctrl+1"
+        ],
+        "workspace.vector": [
+          "Shift+3"
+        ],
+        "workspace.video": [
+          "Shift+4"
+        ]
+      },
+      "conflicts": [],
+      "preset": "resolve"
+    },
+    "vellum": {
+      "bindings": {
+        "app.command_palette": [
+          "Ctrl+K"
+        ],
+        "app.home": [
+          "Ctrl+Shift+H"
+        ],
+        "app.settings": [
+          "Ctrl+,"
+        ],
+        "app.shortcuts": [
+          "Ctrl+Alt+K"
+        ],
+        "edit.redo": [
+          "Ctrl+Shift+Z",
+          "Ctrl+Y"
+        ],
+        "edit.undo": [
+          "Ctrl+Z"
+        ],
+        "file.close": [
+          "Ctrl+W"
+        ],
+        "file.open": [
+          "Ctrl+O"
+        ],
+        "file.save": [
+          "Ctrl+S"
+        ],
+        "tool.export_to_size": [
+          "Ctrl+E"
+        ],
+        "tool.screen_record": [
+          "Ctrl+Shift+R"
+        ],
+        "view.docks.toggle": [
+          "Ctrl+\\"
+        ],
+        "view.panel.jobs": [
+          "Ctrl+Shift+J"
+        ],
+        "view.zoom.in": [
+          "Ctrl+="
+        ],
+        "view.zoom.out": [
+          "Ctrl+-"
+        ],
+        "view.zoom.reset": [
+          "Ctrl+0"
+        ],
+        "window.next_tab": [
+          "Ctrl+Tab"
+        ],
+        "window.previous_tab": [
+          "Ctrl+Shift+Tab"
+        ],
+        "workspace.audio": [
+          "Ctrl+5"
+        ],
+        "workspace.color": [
+          "Ctrl+4"
+        ],
+        "workspace.image": [
+          "Ctrl+2"
+        ],
+        "workspace.motion": [
+          "Ctrl+6"
+        ],
+        "workspace.quick_tools": [
+          "Ctrl+1"
+        ],
+        "workspace.vector": [
+          "Ctrl+7"
+        ],
+        "workspace.video": [
+          "Ctrl+3"
+        ]
+      },
+      "conflicts": [],
+      "preset": "vellum"
+    }
+  },
+  "settings": {
+    "appearance": {
+      "accent": "#f2a93b",
+      "compact": false,
+      "reducedMotion": false,
+      "theme": "dark",
+      "uiScale": 1.0
+    },
+    "autosave": {
+      "enabled": true,
+      "intervalSecs": 60
+    },
+    "history": {
+      "maxMemoryMb": 1024,
+      "maxSteps": 500
+    },
+    "jobs": {
+      "maxCpuJobs": 2,
+      "maxGpuJobs": 1,
+      "maxIoJobs": 4
+    },
+    "layout": {
+      "active": "default",
+      "current": {
+        "bottom": {
+          "collapsed": false,
+          "groups": [],
+          "size": 220
+        },
+        "left": {
+          "collapsed": false,
+          "groups": [],
+          "size": 260
+        },
+        "right": {
+          "collapsed": false,
+          "groups": [
+            {
+              "active": "info",
+              "id": "right-top",
+              "panels": [
+                "info",
+                "history"
+              ],
+              "weight": 1.0
+            },
+            {
+              "active": "jobs",
+              "id": "right-bottom",
+              "panels": [
+                "jobs"
+              ],
+              "weight": 1.0
+            }
+          ],
+          "size": 300
+        }
+      },
+      "saved": []
+    },
+    "shortcuts": {
+      "overrides": {},
+      "preset": "vellum"
+    }
+  },
+  "settingsVersion": 1
+}

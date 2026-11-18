@@ -3,9 +3,11 @@ import type { AppearanceSettings } from "./AppearanceSettings";
 import type { AutosaveSettings } from "./AutosaveSettings";
 import type { HistorySettings } from "./HistorySettings";
 import type { JobSettings } from "./JobSettings";
+import type { LayoutSettings } from "./LayoutSettings";
+import type { ShortcutSettings } from "./ShortcutSettings";
 
 /**
  * the app wide settings. later phases add sections here, bumping `VERSION` and adding a
  * migration only when an existing field changes shape.
  */
-export type AppSettings = { appearance: AppearanceSettings, autosave: AutosaveSettings, jobs: JobSettings, history: HistorySettings, };
+export type AppSettings = { appearance: AppearanceSettings, autosave: AutosaveSettings, jobs: JobSettings, history: HistorySettings, shortcuts: ShortcutSettings, layout: LayoutSettings, };

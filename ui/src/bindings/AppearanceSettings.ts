@@ -5,4 +5,8 @@ export type AppearanceSettings = { theme: Theme,
 /**
  * `#rrggbb`
  */
-accent: string, uiScale: number, reducedMotion: boolean, };
+accent: string, uiScale: number, reducedMotion: boolean, 
+/**
+ * tighter rows and padding for small screens
+ */
+compact: boolean, };

@@ -12,17 +12,18 @@
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use crate::command::{Command, CommandError, CommandRecord};
 use crate::events::Event;
+use crate::settings::HistorySettings;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, TS)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, TS)]
 #[ts(export)]
 pub struct NodeId(#[ts(type = "number")] u64);
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, TS)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, TS)]
 #[ts(export)]
 pub struct SnapshotId(#[ts(type = "number")] u64);
 
@@ -50,6 +51,17 @@ impl Default for HistoryLimits {
             max_steps: 500,
             max_bytes: 1024 * 1024 * 1024,
             merge_window: Duration::from_millis(1500),
+        }
+    }
+}
+
+impl From<&HistorySettings> for HistoryLimits {
+    fn from(settings: &HistorySettings) -> Self {
+        let mb = usize::try_from(settings.max_memory_mb).unwrap_or(usize::MAX / (1024 * 1024));
+        Self {
+            max_steps: usize::try_from(settings.max_steps).unwrap_or(usize::MAX),
+            max_bytes: mb.saturating_mul(1024 * 1024),
+            ..Self::default()
         }
     }
 }
@@ -498,6 +510,12 @@ impl<T: 'static> History<T> {
 
     pub fn is_dirty(&self) -> bool {
         self.saved != Some(self.current)
+    }
+
+    /// forgets the saved point, so the document counts as unsaved until the next save. used
+    /// for documents restored after a crash, whose changes never reached the file.
+    pub fn mark_unsaved(&mut self) {
+        self.saved = None;
     }
 
     /// starts collecting the commands that run from now on into a macro. undo while
