@@ -18,3 +18,6 @@ Thumbs.db
 # env
 .env
 .env.*
+
+# tauri generates these on every build
+apps/desktop/gen/schemas/
