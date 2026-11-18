@@ -1,90 +1,68 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::thread;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use tauri::{AppHandle, Manager};
-use vellum_core::jobs::JobLimits;
-use vellum_core::settings::{LoadOutcome, SettingsChanged};
-use vellum_core::{AppSettings, EventBus, JobQueue, SettingsStore};
-
+use vellum_core::app::{AppPaths, AppServices};
 use vellum_core::ui::UiReady;
 
 use crate::bridge::TauriSink;
 
 /// everything the ipc commands need, managed by tauri
 pub struct AppState {
-    pub bus: EventBus,
-    pub settings: Arc<SettingsStore<AppSettings>>,
-    pub jobs: JobQueue,
+    pub services: AppServices,
     pub settings_path: PathBuf,
+    next_window: AtomicU64,
 }
 
 impl AppState {
     pub fn init(app: &AppHandle) -> Result<Self, Box<dyn std::error::Error>> {
-        let bus = EventBus::new();
-        bus.add_sink(Arc::new(TauriSink::new(app.clone())));
-        bus.accept_from_ui::<UiReady>();
+        let paths = AppPaths {
+            config_dir: app.path().app_config_dir()?,
+            data_dir: app.path().app_data_dir()?,
+        };
+        let settings_path = paths.config_dir.join("settings.json");
+        let services = AppServices::start(paths)?;
+        services.bus.add_sink(Arc::new(TauriSink::new(app.clone())));
+        services.bus.accept_from_ui::<UiReady>();
+        log_ui_ready(&services);
 
-        let settings_path = app.path().app_config_dir()?.join("settings.json");
-        let (settings, outcome) =
-            SettingsStore::<AppSettings>::open(&settings_path, Some(bus.clone()))?;
-        log_outcome(&outcome);
-        let settings = Arc::new(settings);
-
-        let jobs = JobQueue::new(JobLimits::from(&settings.get().jobs), bus.clone());
-        follow_job_limits(&bus, jobs.clone());
-        log_ui_ready(&bus);
+        // recent files may show their own image as a thumbnail
+        for file in services.recent_files().files {
+            allow_asset(app, Path::new(&file.path));
+        }
 
         Ok(Self {
-            bus,
-            settings,
-            jobs,
+            services,
             settings_path,
+            next_window: AtomicU64::new(1),
         })
     }
-}
 
-/// keeps the queue limits in step with the settings, however the settings get changed
-fn follow_job_limits(bus: &EventBus, jobs: JobQueue) {
-    let changes = bus.subscribe::<SettingsChanged<AppSettings>>();
-    let spawned = thread::Builder::new()
-        .name("vellum-settings-jobs".into())
-        .spawn(move || {
-            while let Some(change) = changes.recv() {
-                jobs.set_limits(JobLimits::from(&change.settings.jobs));
-            }
-        });
-    if let Err(err) = spawned {
-        tracing::error!(%err, "job limits will not follow settings changes");
+    /// a label for a new document window, `doc-1`, `doc-2` and so on
+    pub fn next_window_label(&self) -> String {
+        format!("doc-{}", self.next_window.fetch_add(1, Ordering::Relaxed))
     }
 }
 
-fn log_ui_ready(bus: &EventBus) {
-    let ready = bus.subscribe::<UiReady>();
-    let spawned = thread::Builder::new()
+/// lets the webview load one file through the asset protocol. only files the user opened
+/// are allowed, never whole folders.
+pub fn allow_asset(app: &AppHandle, path: &Path) {
+    if let Err(err) = app.asset_protocol_scope().allow_file(path) {
+        tracing::debug!(?path, %err, "could not allow a thumbnail");
+    }
+}
+
+fn log_ui_ready(services: &AppServices) {
+    let ready = services.bus.subscribe::<UiReady>();
+    let spawned = std::thread::Builder::new()
         .name("vellum-ui-ready".into())
         .spawn(move || {
-            if let Some(event) = ready.recv() {
-                tracing::info!(version = %event.ui_version, "ui is ready");
+            while let Some(event) = ready.recv() {
+                tracing::info!(version = %event.ui_version, "a window is ready");
             }
         });
     if let Err(err) = spawned {
         tracing::warn!(%err, "could not watch for the ui");
-    }
-}
-
-fn log_outcome(outcome: &LoadOutcome) {
-    match outcome {
-        LoadOutcome::Fresh => tracing::info!("no settings file yet, using defaults"),
-        LoadOutcome::Loaded => tracing::debug!("settings loaded"),
-        LoadOutcome::Migrated { from, backup } => {
-            tracing::info!(from, ?backup, "settings upgraded, old file backed up");
-        }
-        LoadOutcome::FromNewerVersion { version, backup } => {
-            tracing::warn!(version, ?backup, "settings came from a newer vellum");
-        }
-        LoadOutcome::Recovered { moved_to, reason } => {
-            tracing::warn!(?moved_to, %reason, "settings were unreadable and were reset");
-        }
     }
 }

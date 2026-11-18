@@ -1,13 +1,14 @@
-//! the tauri side of vellum. it owns the core services (event bus, settings, job queue),
-//! forwards events to the ui and exposes a small set of ipc commands. the real work lives in
-//! the `vellum-*` crates so it can also run from the cli and in tests without a window.
+//! the tauri side of vellum. it starts the core services, forwards events to the ui,
+//! exposes ipc commands and manages windows. the real work lives in the `vellum-*` crates
+//! so it can also run from the cli and in tests without a window.
 
 mod bridge;
 mod ipc;
 mod state;
 
-use tauri::{Manager, RunEvent};
+use tauri::{Manager, RunEvent, WindowEvent};
 use tracing_subscriber::EnvFilter;
+use vellum_core::documents::MAIN_WINDOW;
 
 pub use state::AppState;
 
@@ -15,16 +16,55 @@ pub fn run() {
     init_logging();
 
     let app = tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             let state = AppState::init(app.handle())?;
             app.manage(state);
             Ok(())
+        })
+        .on_window_event(|window, event| match event {
+            // closing the main window quits, like every other editor
+            WindowEvent::CloseRequested { .. } if window.label() == MAIN_WINDOW => {
+                window.app_handle().exit(0);
+            }
+            // documents in a closed window go back to the main one, nothing is lost
+            WindowEvent::Destroyed if window.label() != MAIN_WINDOW => {
+                if let Some(state) = window.try_state::<AppState>() {
+                    state.services.documents.window_closed(window.label());
+                }
+            }
+            _ => {}
         })
         .invoke_handler(tauri::generate_handler![
             ipc::app_info,
             ipc::get_settings,
             ipc::update_settings,
             ipc::reset_settings,
+            ipc::list_commands,
+            ipc::run_command,
+            ipc::get_keymap,
+            ipc::list_documents,
+            ipc::open_files,
+            ipc::close_document,
+            ipc::move_document,
+            ipc::tear_off_document,
+            ipc::document_command,
+            ipc::seal_document,
+            ipc::get_document,
+            ipc::document_history,
+            ipc::checkout_history,
+            ipc::create_snapshot,
+            ipc::list_recent,
+            ipc::pin_recent,
+            ipc::remove_recent,
+            ipc::recovery_offer,
+            ipc::restore_session,
+            ipc::discard_recovery,
+            ipc::autosave_status,
+            ipc::list_notifications,
+            ipc::dismiss_notification,
+            ipc::open_result,
             ipc::list_jobs,
             ipc::cancel_job,
             ipc::pause_job,
@@ -49,9 +89,9 @@ pub fn run() {
 
     app.run(|handle, event| {
         if let RunEvent::Exit = event {
-            // ask running jobs to stop so they do not leave half written files behind
+            // cancel jobs so nothing is left half written, then the last autosave
             if let Some(state) = handle.try_state::<AppState>() {
-                state.jobs.cancel_all();
+                state.services.shutdown();
             }
         }
     });
