@@ -8,14 +8,15 @@ Every section ends with the alternatives that were considered and why they lost,
 
 ```
  ui/ (React, TypeScript)
-   zustand stores  <──── tauri events ("job:changed", "settings:changed", ...)
+   zustand stores  <──── tauri events ("job:changed", "documents:changed", ...)
    ipc.ts wrappers ────> tauri commands (invoke)
          │
  apps/desktop/ (thin tauri shell)
-   AppState { EventBus, SettingsStore, JobQueue }
-   TauriSink: forwards every bus event to the webview
+   AppState { AppServices, window counter }
+   TauriSink: forwards every bus event to every window
          │
- crates/vellum-core/          commands, history, events, settings, jobs
+ crates/vellum-core/          AppServices: commands, documents, history, events,
+                              settings, recent files, notifications, autosave, jobs
          ▲
  crates/vellum-media, -gpu, -image, -timeline, -audio, -ai,
         -export, -capture, -vector, -automation   (stubs until their phase)
@@ -25,7 +26,7 @@ Rules that keep this healthy:
 
 - **Dependencies point one way.** `vellum-core` depends on no other Vellum crate. Feature crates depend on core (and on each other only where the plan says so, for example timeline on media and gpu). Only `apps/desktop` knows about Tauri.
 - **Logic lives in crates, not in the shell.** `apps/desktop` parses IPC arguments, calls into the core and maps errors to strings. Anything worth testing belongs in a crate so the CLI (phase 16) and tests can use it without a window.
-- **The UI is a view.** Rust owns the state of settings, jobs and (from phase 1 on) documents. The UI renders what Rust reports and asks Rust to change things. It never keeps its own copy of the truth that could drift.
+- **The UI is a view.** Rust owns the state of settings, jobs, documents, recent files and notifications. The UI renders what Rust reports and asks Rust to change things. It never keeps its own copy of the truth that could drift. The only state the UI keeps is per window and throwaway: which tab is active, whether the palette is open, toasts, and the palette's recent commands.
 
 ## 2. Repo and tooling
 
@@ -136,6 +137,8 @@ The settings file is one JSON object with a `version` field next to the settings
 - **The UI sends JSON merge patches** (RFC 7396), for example `{ "appearance": { "theme": "light" } }`. The store applies the patch, validates by deserialising into the real type, sanitises, saves, then emits `settings:changed` with the full result. The UI store simply adopts what Rust sends back.
 - **Updates are all or nothing.** If saving fails, the in-memory settings do not change.
 - No-op updates do not write or emit.
+- **Phase 1 additions need no migration.** `appearance.compact`, `shortcuts` (preset plus overrides) and `layout` (the current dock layout, the name it came from, saved layouts) are new fields with defaults, so `VERSION` stays 1 and a phase 0 file loads as is (tested). The default accent changed to the darkroom amber; files that already store an accent keep theirs.
+- **What lives where.** Shortcuts and layouts are small and change rarely, so they stay in `settings.json`. Recent files change on every open and can grow, so they use the same store type in their own `recent.json` (`recent.rs`), with their own `recent:changed` event.
 
 Alternatives considered:
 
@@ -203,9 +206,13 @@ Alternatives considered:
 
 Directory: `apps/desktop/` (crate `vellum-desktop`, binary `vellum`).
 
-- `AppState` holds the event bus, the settings store and the job queue. It is created in Tauri's `setup` hook and managed by Tauri.
-- `TauriSink` forwards bus events to the webview. A background thread follows `settings:changed` and updates job limits, so the limits follow settings however they get changed.
-- IPC commands (`src/ipc.rs`) are thin: `app_info`, `get_settings`, `update_settings`, `reset_settings`, `list_jobs`, `cancel_job`, `pause_job`, `resume_job`, `retry_job`, `remove_job`, `clear_finished_jobs`, `set_job_priority`, `move_job`, `ui_event`, plus `start_sample_job`, which only exists so the queue can be tried by hand until real jobs arrive in phase 2. The UI only shows its buttons in development builds.
+- `AppState` holds the `AppServices` from `vellum-core` (section 12) and a counter for window labels. It is created in Tauri's `setup` hook and managed by Tauri. Everything that used to live here in phase 0 (job limit following, logging the ready event) moved into `AppServices` so it is tested.
+- `TauriSink` forwards bus events to every window.
+- IPC commands (`src/ipc.rs`) stay thin: parse, call into the core, map errors to strings with `IpcError`. The list covers settings, app commands (`list_commands`, `run_command`, `get_keymap`), documents and their history, recent files, recovery, notifications, job results and the job queue, plus `start_sample_job`, which only exists so the queue can be tried by hand until real jobs arrive in phase 2. The sample job now writes a small text file as its result so "Open" can be tried too.
+- **Plugins:** `tauri-plugin-dialog` for the open file dialog and `tauri-plugin-opener` for opening job results. The opener is only called from Rust, from `open_result`, which refuses any path that is not the result of a job in the queue. The webview has no opener permission of its own, so it cannot be used to open arbitrary files.
+- **Thumbnails** use the asset protocol with an empty scope. Rust allows each file one at a time as it is opened or listed in recent files (`allow_asset`), so the webview can show those images and nothing else.
+- **Windows:** the first window is `main`. `tear_off_document` builds a new window labelled `doc-1`, `doc-2` and so on, loading the same UI, and moves the document there. The capability file covers `main` and `doc-*`. When a document window is destroyed its documents move back to `main`, and closing `main` quits the app.
+- On exit the shell calls `AppServices::shutdown`: stop autosave, cancel jobs, write the last autosave.
 - Errors reach the UI as plain strings via `IpcError`.
 - The content security policy only allows the app's own scripts and the IPC and asset protocols.
 - **The crate has no tests, on purpose.** `tauri-build` embeds the Windows app manifest only into the main binary, and a test binary that links Tauri can then fail to start on Windows. Everything worth testing lives in `vellum-core` or the other crates. The lib and bin targets set `test = false` so `cargo test --workspace` does not try to run them.
@@ -216,24 +223,175 @@ Directory: `apps/desktop/` (crate `vellum-desktop`, binary `vellum`).
 Directory: `ui/` (Vite, React 19, TypeScript strict with `noUncheckedIndexedAccess` and `exactOptionalPropertyTypes`).
 
 - `src/lib/ipc.ts` wraps every Rust command with its generated types. `src/lib/events.ts` maps event names to payload types and gives `onRustEvent` and `sendUiEvent`.
-- `src/connect.ts` runs once at start-up: subscribe to events, then load settings and the jobs overview, then send `ui:ready`.
-- State lives in small zustand stores (`src/state/`). The jobs store is a pure reducer (`applyJobEvent`, `mergeOverview`) wrapped in a store, so the tricky ordering logic is unit tested without React.
-- Radix UI primitives (tooltip, toggle group) with Tailwind 4. Colours are CSS variables switched by `data-theme` on the root element, so dark, light and high contrast need no JavaScript beyond setting the attribute. Phase 1 replaces these placeholder tokens with the real design system.
-- `components/Button.tsx` requires a `tooltip` prop, so the "every button has a tooltip" rule is enforced by the type checker for normal buttons. The few custom controls (theme toggle, workspace list) wrap themselves in `Tooltip` directly.
-- Outside the desktop app (a plain browser, or tests) the UI says so instead of failing.
-- ESLint uses `typescript-eslint`'s `strictTypeChecked` preset plus the React hooks rules. Generated bindings are excluded from ESLint and Prettier.
+- `src/connect.ts` runs once per window at start-up: subscribe to every event and to file drops, then load settings, jobs, commands, the keymap, documents, recent files, notifications and the autosave status, then ask for a recovery offer (main window only), then send `ui:ready`.
+- State lives in small zustand stores (`src/state/`). Anything with tricky logic is a pure function next to its store (`applyJobEvent`, `nextActive` for tabs) so it is unit tested without React.
+- Pure logic lives in `src/lib/` and is tested there: keyboard chords (`keys.ts`), fuzzy search (`fuzzy.ts`), drop routing (`routing.ts`), the dock layout reducer (`dock.ts`) and accent colour contrast (`color.ts`).
+- `src/shell/` is the app frame (section 18). `src/workspaces/` holds the workspace and quick tool catalogues and the placeholder views that later phases replace.
+- Radix UI primitives (tooltip, dialog, menubar, context menu, dropdown, popover, switch) with Tailwind 4 and lucide icons. Inter is bundled with `@fontsource-variable/inter`, so the type looks the same on every OS and the CSP needs no outside fonts.
+- `components/Button.tsx` requires a `tooltip` prop, and `IconButton` requires a `label` that doubles as its tooltip and accessible name. Both take a `command` prop that shows that command's current shortcut, read live from the keymap, so tooltips follow the user's shortcut changes.
+- Outside the desktop app (a plain browser) the UI says so instead of failing.
+- ESLint uses `typescript-eslint`'s `strictTypeChecked` preset plus the React hooks rules. Generated bindings and the e2e fixture are excluded from ESLint and Prettier.
 
 ## 10. Testing and CI
 
-- `cargo test --workspace` covers commands, history, the event bus, settings (including migrations, corruption and failed writes) and the job queue (limits per resource, priority, reordering, pause freeing slots, resume waiting for a slot, cancel in every state, automatic and manual retry, panics, throttling, event ordering, ETA). The job queue tests use real threads with generous timeouts and were run 60 times in parallel under load without a failure.
-- Vitest with Testing Library covers the jobs reducer, formatting, the jobs panel and the shell.
-- CI (`.github/workflows/ci.yml`) runs on Windows, macOS and Linux: `cargo fmt --check`, `cargo clippy --workspace --all-targets -D warnings`, `cargo test --workspace`, ESLint, Prettier, `tsc`, Vitest and a production build of the UI. The Linux job also installs the Tauri system packages and checks the generated TypeScript bindings are committed and current.
+- `cargo test --workspace` covers commands, history, the event bus, settings (including migrations, corruption and failed writes), the job queue, and from phase 1 the document manager, file routing, shortcuts and presets, recent files, notifications, autosave and recovery (crashes, clean exits, live sessions in another window, broken folders, unknown document types), the app command registry and `AppServices` start-up and shutdown.
+- Vitest with Testing Library covers the stores and pure logic listed in section 9, the shell, the jobs panel and the palette's item list.
+- **Playwright** (`ui/e2e/`, `pnpm e2e`) covers drop routing, the command palette and crash recovery end to end (section 21).
+- Rust tests also write generated files the UI reads: the TypeScript bindings, `ui/src/bindings/fileKinds.json` and `ui/e2e/fixtures/backend.json`. A file is only rewritten when its contents change.
+- CI (`.github/workflows/ci.yml`) runs on Windows, macOS and Linux: `cargo fmt --check`, `cargo clippy --workspace --all-targets -D warnings`, `cargo test --workspace`, ESLint, Prettier, `tsc`, Vitest and a production build of the UI. The Linux job also installs the Tauri system packages and checks the generated files are committed and current. A separate Linux job installs Chromium and runs Playwright, keeping the report when something fails.
 
 ## 11. Known limits and notes for later phases
 
-- **Phase 1** should register app level actions in a `CommandRegistry` so the command palette has something to search, and keep one `History` per open document behind a document manager that emits `history:changed`.
+- **Placeholder documents.** Every workspace opens a `PlaceholderDocument` with a title and notes, so undo, redo, autosave and recovery can be tried for real. Save only marks it saved because there is no file format to write. Phase 2 and the workspace phases add real document types with `DocumentManager::register_type`.
+- **Document state is JSON.** `DocumentModel::to_state` returns JSON, which is fine for placeholders. Big documents (a 50 megapixel image) should write binary sidecar files next to the manifest in their own phase, and autosave should then only write documents whose revision changed.
+- **One lock for all documents.** `DocumentManager` holds one mutex. Edits are instant today; once a command can take long (a filter on a huge image), documents need their own locks or the work belongs in a job.
+- **Autosave runs on its own thread, not as a job.** It writes a few small files and must not fill the jobs panel every minute. When document states get big it should become a hidden IO job so it shares the IO limit.
+- **Thumbnails are placeholders.** Recent images under 20 MB show themselves through the asset protocol; everything else shows a tile with its workspace icon. Phase 2 should generate cached thumbnails as jobs.
+- **Torn off windows keep no layout.** They show tabs and the document, no rail or docks. Window titles are set when the window opens and do not follow a rename yet.
+- **Drag and drop between windows** is done by dragging a tab out of a window (new window) or from the tab menu (move to the main window). Dragging a tab straight into another existing window needs native drag support and is left for later.
+- **Commands in a workspace context** (like `image.brush`) are supported by the keymap and the shortcut handler, but no workspace registers any yet.
+- **macOS uses Command for Ctrl.** Chords store `Ctrl`, and on macOS the Command key counts as Ctrl. The real Control key on a Mac also counts as Ctrl for now.
 - **Pause is cooperative.** Every long loop in a job must call `ctx.checkpoint()`. Code that blocks for minutes in one native call (an FFmpeg pass) needs its own way to stop, for example killing or signalling the child process when `ctx.is_cancelled()` turns true.
 - **Snapshots pin history.** A user who keeps an early snapshot keeps every step after it. If that becomes a memory problem, store a full document state in the snapshot and unpin it.
-- **History limits and settings.** `History::set_limits` exists, but nothing applies history settings to open documents yet, because there are no documents. Phase 1 or 5 should wire it.
-- **Event subscriptions are unbounded channels.** Fine for the current subscribers; anything that subscribes and stops reading leaks memory.
-- **The window was only launched on Linux,** under a virtual X display (Xvfb) in a headless container. It has not been opened on Windows or macOS yet.
+- **Event subscriptions are unbounded channels.** Fine for the current subscribers; anything that subscribes and stops reading leaks memory. The settings and notification followers live as long as the process by design.
+- **The window has only been run on Linux,** under a virtual X display (Xvfb, with openbox as the window manager for the close tests) in a headless container. Dropping files from a real file manager was not possible there, so the drop path was tested through the same Tauri events in Playwright. It has not been opened on Windows or macOS yet.
+
+## 12. App services
+
+File: `crates/vellum-core/src/app.rs`.
+
+`AppServices::start(paths)` opens everything a running Vellum needs and returns one cheap to clone handle: the event bus, settings, recent files, the job queue, the document manager, the notification centre, recovery and the app command registry. `shutdown()` stops autosave, cancels jobs and writes the last autosave.
+
+- **Start-up never fails on a bad file.** Only an unusable settings folder stops start-up. Unreadable settings are reset and reported as a notification; a recovery folder that cannot be created turns autosave off and says so.
+- **Background threads hold only what they need.** The settings follower (job limits, history limits, and a new `keymap:changed` when shortcuts change) holds the job queue, the documents and the bus. The autosave thread holds an `Autosaver` with the recovery handle, and is stopped and joined on shutdown, so dropping the services really releases the recovery lock. An earlier draft let the threads hold a full clone of the services, which kept the lock alive forever.
+- **Opening files** lives here (`open_files`), not in the shell: one document per supported file in the workspace that fits it, or one quick tool session for all of them; files already open are not opened twice; unsupported files come back with a reason in plain words; every opened file goes to the top of the recent list.
+
+Alternatives considered:
+
+- *Keep wiring in the desktop crate.* It worked in phase 0 with three services. With eight, the wiring is real logic (what follows what, what happens on a bad file) and it could not be tested there.
+
+## 13. Documents
+
+File: `crates/vellum-core/src/documents.rs`.
+
+`DocumentManager` owns every open document. Each one is a `DocumentModel` (title, state for autosave, its own `CommandRegistry`) wrapped together with its own `History`, behind an object safe `OpenDocument` trait so documents of different types live in one list.
+
+- **One history per document**, as section 3 planned. Undo in one tab never touches another. History limits from settings reach every open document.
+- **Rust owns the tab list.** `documents:changed` sends every open document in tab order with its window, title and dirty flag. Moving a tab (reorder, tear off, back to main) is a Rust call, so every window agrees. Which tab is active is per window and stays in the UI.
+- **Events are emitted while the lock is held**, unlike the job queue. Document changes come from IPC calls that are already serial, so holding the lock keeps events in the same order as the changes without revision numbers. It is safe because sinks and subscribers never call back into the manager.
+- **Every change emits `history:changed`** for the document it touched and `documents:changed` with the full list. The edit menu, the undo and redo buttons, the tab dirty dot and the history panel all follow those.
+- **Undo and redo are app commands** (`edit.undo`, `edit.redo`) that take the active document from the UI, so the menu, shortcuts and palette all reach the same code.
+- A revision counter goes up on every change so autosave can skip writing when nothing changed.
+- `History::mark_unsaved` was added so a document restored after a crash counts as unsaved until the user saves it.
+
+Alternatives considered:
+
+- *Tabs owned by the UI.* Simpler for one window, but with torn off windows two webviews would each own part of the list and moving a tab would need them to agree. One list in Rust avoids that.
+- *Separate locks per document.* Better for long edits, unnecessary for now (section 11).
+
+## 14. Autosave and crash recovery
+
+File: `crates/vellum-core/src/recovery.rs`.
+
+Every running Vellum owns a session folder under `recovery/` in the app data folder, holding a `lock` file, `manifest.json` (the open documents, when they were saved, whether Vellum exited cleanly) and one state file per document.
+
+- **An OS file lock tells a live session from a dead one.** Each session holds an exclusive `File::lock` (stable since Rust 1.89) on its `lock` file. On start-up any folder whose lock can be taken belongs to a session that is gone. Two Vellum windows running at once never offer each other's work, which a pid file cannot promise across platforms.
+- **Autosave writes atomically** (temp file, flush, rename, the same helper as settings) every N seconds from settings, and only if the document revision changed. State files of closed documents are removed.
+- **Nothing is deleted until the user decides.** Old sessions found at start-up are held, locked, until the prompt is answered. Restore opens every document (unsaved ones marked unsaved) and only then deletes the folder; a document that cannot be loaded (an unknown type from a newer Vellum) keeps its folder. Discard deletes them.
+- **Crash or quit.** A clean exit writes a last autosave with `cleanExit: true` and deletes the folder only if nothing is unsaved. So the next launch can say either "Vellum did not close properly" or "Vellum was closed with unsaved changes". Like VS Code's hot exit, quitting with unsaved work never loses it, but here the user is asked rather than surprised.
+- Torn off windows do not come back; their documents return in the main window.
+- `autosave:changed` drives the "Autosaved 2 min ago" note in the status bar, and failures show there with the reason.
+
+Alternatives considered:
+
+- *A single recovery file.* The next session would overwrite the crashed session's data before the user answered the prompt. Per session folders avoid that by construction.
+- *Restore silently on a clean exit.* Less clicking, but a user who quit on purpose may not want old tabs back. One prompt with honest wording is calmer than a surprise.
+
+## 15. App commands and UI actions
+
+File: `crates/vellum-core/src/actions.rs`.
+
+Every menu item, shortcut, palette entry and toolbar button runs an app command from one `CommandRegistry<AppContext>`, as section 11 asked for phase 1. `list_commands` sends their `CommandInfo` to the UI for the palette, menus, tooltips and the shortcut editor.
+
+- **Two flavours, one path.** *Rust actions* change something Rust owns (theme, compact mode, zoom, undo, redo, save, clear finished jobs, clear recent files, notifications). *UI actions* only make sense in a window (open the palette, switch workspace, tear off a tab, toggle a panel); running one returns its record in `CommandOutcome.uiActions` and the window performs it. Both go through `run_command`, so a macro recorder (phase 16) sees every step the user took.
+- A small `app_commands!` macro declares each command's struct, palette entry and body in one place. Every command is `undoable() == false`; undo belongs to documents.
+- `CommandOutcome.message` carries quiet feedback such as "Nothing to undo", shown as a toast.
+- Tests check every kind used in a shortcut preset is registered, and that every description is a full sentence without an em dash.
+
+Alternatives considered:
+
+- *UI actions only in TypeScript.* Faster by one IPC round trip (well under a millisecond), but then macros, the CLI and plugins could not see them, and the palette would list commands from two places.
+- *One generic `UiAction { kind }` command.* The registry checks a built command reports the kind it was registered under, which a single struct cannot do for many kinds without leaking strings. The macro keeps the explicit, inspectable list.
+
+## 16. Shortcuts
+
+File: `crates/vellum-core/src/shortcuts.rs`.
+
+- **Canonical chords.** Every chord is stored as `Ctrl+Alt+Shift+Meta+Key`, so comparing chords is string equality. `normalize_chord` accepts aliases (`cmd`, `option`, `esc`, `ArrowUp`) from files and users.
+- **Physical keys.** The UI builds chords from `KeyboardEvent.code`, named after the US layout, so `Ctrl+Z` stays in the same place on an AZERTY keyboard, as in Photoshop and Resolve.
+- **Presets are changes on top of Vellum's own map.** Photoshop (Ctrl+K opens settings, Tab hides panels, export on Ctrl+Alt+Shift+W), Premiere (export on Ctrl+M, workspaces on Alt+Shift+number), Resolve (pages on Shift+2 to Shift+8, export on Shift+8) and Audacity (redo on Ctrl+Y, preferences on Ctrl+P). A chord a preset hands to one command is taken from whatever had it, and a test checks no preset has conflicts.
+- **The user's overrides sit on top of the preset** in `AppSettings.shortcuts`, so switching preset keeps personal changes. An empty list unbinds a command.
+- **Contexts.** A command whose kind starts with a workspace name (`image.brush`) only fires in that workspace; everything else is global. Two commands clash if they share a chord and either is global or both are in the same workspace. Rust computes the conflict list for the editor's warning; the editor checks a new chord instantly with the same rule in TypeScript before saving.
+- **Typing wins.** In a text field, plain keys and editing chords (Ctrl+Z, Ctrl+A, Ctrl+C) stay with the field; app shortcuts like Ctrl+K and Ctrl+S still fire.
+
+## 17. File routing
+
+File: `crates/vellum-core/src/files.rs`.
+
+`FILE_KINDS` maps extensions to a `FileKind` (image, camera raw, GIF, video, audio, vector, PDF, project) and each kind to the workspace that opens it. A Rust test writes the same table to `ui/src/bindings/fileKinds.json`, so the drop overlay in the window and `open_files` (and later the CLI) always agree. GIFs open in the video workspace because the GIF tools work on frames over time; PDFs open with vector tools; projects open in video until phase 2 stores their own workspace.
+
+The quick tools (`ui/src/workspaces/quickTools.ts`) list the kinds they accept, and `planDrop` in `ui/src/lib/routing.ts` turns files plus a target (the window, or one tool card) into what will happen: open in a workspace, open a tool, or a refusal with a reason. The overlay shows that plan while dragging; dropping performs the same plan.
+
+## 18. The shell and design system
+
+Directories: `ui/src/styles/`, `ui/src/shell/`.
+
+**Visual direction: "darkroom".** Graphite surfaces stepping up from the window background, warm off white text, and a safelight amber accent the user can change. The light theme is warm paper with ink text; high contrast is pure black with white text and solid lines. A soft film grain sits behind empty canvases and the home drop zone.
+
+**Tokens** live in `styles/tokens.css` as CSS variables and reach Tailwind through `@theme inline`, so `bg-panel` or `text-fg-muted` follow the theme with no JavaScript: five surface levels, three text levels, lines, accent with a computed readable ink (`--accent-fg`, picked by WCAG contrast in `lib/color.ts`), semantic colours, a type scale in rem (so the UI scale setting scales everything), a 4 px spacing grid, radii, elevations, motion durations under 150 ms for panels, and z layers. Token names avoid Tailwind's own namespaces (`--fs-*` rather than `--text-*`) so the two never fight. `data-theme`, `data-density="compact"` and `data-reduced-motion` on `<html>` switch them; reduced motion also follows the OS setting.
+
+**Layout.** A title bar (logo, menu bar, document tabs, palette button, notification bell), a rail of workspaces, the dock frame around the centre, and a status bar (where you are, autosave, jobs, layout, zoom). The home screen and empty workspaces are views in the centre.
+
+- **Docks** (`lib/dock.ts`, `shell/Dock.tsx`): left, right and bottom docks hold groups of panels shown as tabs. Panels drag by their tab onto another group's tab strip or a dock edge; docks and groups resize by their edges. The layout is a plain value saved in `AppSettings.layout` on pointer up, with built in presets (Default, Editing, Focus) and user saved layouts. Dragging uses pointer events, not HTML drag and drop, because Tauri's file drop handling turns HTML drag and drop off on Windows.
+- **Tabs** reorder by dragging and tear off by dragging out of the window or from their context menu; middle click closes. Closing a tab with unsaved changes asks first.
+- **File drops** come from Tauri's drag and drop events, which carry real paths and the pointer position. The position is hit tested against `data-drop-tool` cards so a drop on a quick tool opens that tool.
+- **Command palette** (`shell/palette/`): fuzzy search over commands, settings, recent files and presets (shortcut presets and layouts), with recent commands first. Titles match fuzzily; keywords (descriptions, categories) need the actual word, because fuzzy matching across long descriptions found nonsense.
+- **Settings window** with sections, a search over every setting and every shortcut, and the shortcut editor. Changes are JSON merge patches; removing a shortcut override sends `null`, since merge patches cannot remove a key any other way.
+- **Notification centre and toasts.** New notifications pop up as toasts in the main window only, so torn off windows do not repeat them. Errors stay until dismissed.
+- **Empty states, skeletons and tooltips.** Every panel and list says what it is for when empty, lists that load show skeletons, and every control has a tooltip that shows its live shortcut.
+
+Alternatives considered:
+
+- *A native menu bar.* Platform menus would look different on each OS and need their own enabled state wiring. The in-app menu bar is driven by the same command list and keymap as everything else; macOS keeps Tauri's default app menu for standard items.
+- *A settings window as its own OS window.* It would need its own copy of the stores and focus handling. A large modal reads the same stores and closes with Escape.
+- *HTML drag and drop for tabs and panels.* See the docks bullet above.
+
+## 19. Notifications
+
+File: `crates/vellum-core/src/notifications.rs`.
+
+The `NotificationCenter` keeps the last 100 notifications for the session and sends the whole list on every change (`notifications:changed`), like jobs send full snapshots. It follows job events itself: a job that finishes gets a success notification with "Open" when its result has a `path`, a failure gets one with "Retry". Cancelled jobs stay quiet because the user asked for that. It remembers each job's last state so a repeated update does not notify twice, and a retried job can notify again. Start-up problems (settings reset, autosave off) arrive the same way.
+
+## 20. Jobs panel
+
+File: `ui/src/shell/panels/JobsPanel.tsx`.
+
+Built on the phase 0 queue: pause, resume, cancel, retry and remove; waiting jobs reorder by dragging their handle or with "Start sooner" and "Start later" (both call `move_job`); finished jobs with a result path offer "Open" and "Show in folder"; and running jobs have an "Open when done" switch. That switch is a per window wish kept in the UI, not saved, because it only matters while the window watches the job.
+
+## 21. End to end tests
+
+Directory: `ui/e2e/`.
+
+Playwright cannot drive the WebKit webview Tauri uses on Linux, so the e2e tests run the real UI in Chromium against a fake backend (`fakeBackend.ts`). It installs the same globals `@tauri-apps/api` talks to (`window.__TAURI_INTERNALS__`, the event plugin and window metadata) and answers the IPC commands the UI uses.
+
+- **Real data, not copies.** The fake reads `e2e/fixtures/backend.json` (the registered commands, the keymap of every preset and the default settings) and `fileKinds.json`, both written by Rust tests. If a command or default changes in Rust, the e2e tests see it.
+- **Drops use Tauri's event names** (`tauri://drag-enter` and so on) with physical pixel positions, so the drop code path is the one the desktop app runs.
+- **A reload is a restart.** The fake keeps its state in `localStorage`; reloading without calling its `cleanExit()` leaves the session behind as a crash would, and the next load offers to restore it.
+- The tests cover drop routing (workspaces, several files, tool cards, refusals, files already open), the palette (shortcut, keyboard navigation, every registered command, recent files, settings, shortcut presets) and crash recovery (restore, discard, quit with unsaved work, clean quit, undo and redo from the shortcut and the edit menu).
+
+The Rust side of the same features (recovery folders, locks, routing, document history) is tested in `vellum-core`, and the whole app was also run on a virtual display to check it end to end, as noted in section 11.
+
+Alternatives considered:
+
+- *`tauri-driver` with WebDriver.* Drives the real app, but only on Linux and Windows, needs a built binary per run, and cannot fake a crash or a file drop from outside. It is worth adding for smoke tests in phase 18.
+- *Tauri's `mockIPC` helper.* It mocks invoke well but events and window metadata less so, and it runs inside the bundle rather than before it loads. A small init script is clearer and lets the tests reload the page.

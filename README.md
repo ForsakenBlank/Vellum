@@ -10,7 +10,7 @@ An all-in-one desktop media editor. Drop any file in and get the right tools str
 
 Vellum aims to replace a stack of separate apps and websites (image editors, video editors, audio editors, converters, GIF makers, screen capture tools) with one fast, local app. Every common job, like shrinking a clip for Discord, turning a video into a GIF or cutting the background out of a photo, should take one drag and one click.
 
-> **Status:** phase 0 (repo bootstrap and core architecture) is nearly done. The core systems (commands, undo history, events, settings, job queue), CI and docs are in. Opening the app window on Windows and macOS still needs a check by hand. There are no user facing tools yet.
+> **Status:** phase 1 (app shell and UX foundations) is done: home screen, drag and drop routing, tabs and tear off windows, dockable panels, command palette, settings and shortcut presets, themes, autosave with crash recovery, notifications and the jobs panel. Workspaces and quick tools are still placeholders. The window has been run on Linux only; Windows and macOS still need a check by hand.
 
 ## Planned features
 
@@ -80,6 +80,12 @@ cargo fmt --all --check && cargo clippy --workspace --all-targets -- -D warnings
 
 ```bash
 pnpm lint && pnpm format:check && pnpm typecheck && pnpm test
+```
+
+End to end tests run the UI in Chromium against a fake backend (install the browser once with `pnpm --filter @vellum/ui exec playwright install chromium`):
+
+```bash
+pnpm e2e
 ```
 
 `cargo test` also regenerates the TypeScript types in `ui/src/bindings`; commit them when they change.
