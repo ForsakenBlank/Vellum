@@ -36,6 +36,22 @@ fn gate() -> (Sender<()>, Receiver<()>) {
     crossbeam_channel::unbounded()
 }
 
+/// collects bus events until `done` matches one, failing the test if it never does
+fn events_until(
+    rx: &Receiver<VellumEvent>,
+    done: impl Fn(&VellumEvent) -> bool,
+) -> Vec<VellumEvent> {
+    let mut events = Vec::new();
+    loop {
+        let event = rx.recv_timeout(WAIT).expect("expected event never arrived");
+        let finished = done(&event);
+        events.push(event);
+        if finished {
+            return events;
+        }
+    }
+}
+
 fn wait_for_status(queue: &JobQueue, id: JobId, status: JobStatus) {
     let deadline = std::time::Instant::now() + WAIT;
     while queue.get(id).map(|j| j.status) != Some(status) {
@@ -296,9 +312,13 @@ fn progress_events_are_throttled() {
         Ok(None)
     });
     queue.wait(id, WAIT);
-    drop(queue);
-    let progress_events = rx
-        .try_iter()
+    // events arrive through the dispatcher thread, so read until the completed event shows up
+    let events = events_until(
+        &rx,
+        |e| matches!(e, VellumEvent::Job(JobEvent::Changed { job }) if job.status == JobStatus::Completed),
+    );
+    let progress_events = events
+        .iter()
         .filter(|e| matches!(e, VellumEvent::Job(JobEvent::Progress { .. })))
         .count();
     assert_eq!(progress_events, 1, "only the first update gets through");
@@ -347,10 +367,9 @@ fn finished_jobs_can_be_removed() {
     queue.clear_finished();
     assert!(queue.get(done).is_none());
     assert_eq!(queue.list().len(), 1);
-    drop(queue);
-    assert!(rx
-        .try_iter()
-        .any(|e| e == VellumEvent::Job(JobEvent::Removed { id: done })));
+    let removed = VellumEvent::Job(JobEvent::Removed { id: done });
+    let events = events_until(&rx, |e| *e == removed);
+    assert_eq!(events.last(), Some(&removed));
 }
 
 #[test]
