@@ -33,6 +33,8 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],
+    // playwright runs the specs in e2e/
+    include: ["src/**/*.test.{ts,tsx}"],
     css: false,
   },
 });

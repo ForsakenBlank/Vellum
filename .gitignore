@@ -21,3 +21,7 @@ Thumbs.db
 
 # tauri generates these on every build
 apps/desktop/gen/schemas/
+
+# playwright output
+ui/test-results/
+ui/playwright-report/
