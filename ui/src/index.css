@@ -1,0 +1,220 @@
+@import "tailwindcss";
+@import "./styles/tokens.css";
+
+/* tailwind utilities read the design tokens, so bg-panel or text-fg-muted follow the theme */
+@theme inline {
+  --color-canvas: var(--surface-0);
+  --color-panel: var(--surface-1);
+  --color-raised: var(--surface-2);
+  --color-elevated: var(--surface-3);
+  --color-pressed: var(--surface-4);
+  --color-scrim: var(--scrim);
+  --color-fg: var(--fg-1);
+  --color-fg-muted: var(--fg-2);
+  --color-fg-subtle: var(--fg-3);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-accent: var(--accent);
+  --color-accent-fg: var(--accent-fg);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-line: var(--accent-line);
+  --color-accent-text: var(--accent-text);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-info: var(--info);
+
+  --font-sans: var(--font-ui);
+  --font-mono: var(--font-mono);
+
+  --text-2xs: var(--fs-2xs);
+  --text-xs: var(--fs-xs);
+  --text-sm: var(--fs-sm);
+  --text-base: var(--fs-base);
+  --text-md: var(--fs-md);
+  --text-lg: var(--fs-lg);
+  --text-xl: var(--fs-xl);
+  --text-display: var(--fs-display);
+
+  --spacing: var(--space);
+
+  --radius-xs: var(--rad-xs);
+  --radius-sm: var(--rad-sm);
+  --radius-md: var(--rad-md);
+  --radius-lg: var(--rad-lg);
+  --radius-xl: var(--rad-xl);
+
+  --shadow-1: var(--elev-1);
+  --shadow-2: var(--elev-2);
+  --shadow-pop: var(--elev-pop);
+
+  --ease-calm: var(--curve-out);
+  --ease-pop: var(--curve-pop);
+
+  --animate-fade-in: fade-in var(--motion-base) var(--curve-out);
+  --animate-pop-in: pop-in var(--motion-base) var(--curve-out);
+  --animate-slide-up: slide-up var(--motion-slow) var(--curve-out);
+  --animate-shimmer: shimmer 1.4s linear infinite;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.985);
+  }
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+@keyframes shimmer {
+  from {
+    background-position: -200% 0;
+  }
+  to {
+    background-position: 200% 0;
+  }
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+html {
+  /* the ui scale setting changes this, everything else is in rem */
+  font-size: 16px;
+}
+
+body {
+  margin: 0;
+  overflow: hidden;
+  background: var(--surface-0);
+  color: var(--fg-1);
+  font-family: var(--font-ui);
+  font-size: var(--fs-sm);
+  line-height: 1.45;
+  font-feature-settings: "cv11", "ss01", "ss03";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  user-select: none;
+  cursor: default;
+}
+
+input,
+textarea,
+[contenteditable="true"] {
+  user-select: text;
+  cursor: text;
+}
+
+::selection {
+  background: var(--accent-soft);
+}
+
+:focus-visible {
+  outline: none;
+  box-shadow: var(--ring);
+}
+
+/* thin, quiet scrollbars that only show their thumb */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--surface-4) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--surface-4);
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+}
+
+@layer components {
+  /* the numbers in sizes, times and percentages line up */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* a soft film grain for empty canvases, drawn with an inline svg so it needs no file */
+  .grain {
+    position: relative;
+    isolation: isolate;
+  }
+
+  .grain::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    opacity: var(--grain-opacity);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  /* transparency checkerboard behind image placeholders */
+  .checker {
+    background-color: var(--surface-2);
+    background-image:
+      linear-gradient(45deg, var(--surface-3) 25%, transparent 25%),
+      linear-gradient(-45deg, var(--surface-3) 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, var(--surface-3) 75%),
+      linear-gradient(-45deg, transparent 75%, var(--surface-3) 75%);
+    background-size: 16px 16px;
+    background-position:
+      0 0,
+      0 8px,
+      8px -8px,
+      -8px 0;
+  }
+
+  .skeleton {
+    background: linear-gradient(
+      90deg,
+      var(--surface-2) 0%,
+      var(--surface-3) 50%,
+      var(--surface-2) 100%
+    );
+    background-size: 200% 100%;
+    animation: var(--animate-shimmer);
+  }
+
+  [data-reduced-motion] .skeleton {
+    animation: none;
+  }
+
+  .kbd {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.15em;
+    min-width: 1.4em;
+    justify-content: center;
+    padding: 0 0.35em;
+    height: 1.45em;
+    border-radius: var(--rad-xs);
+    border: 1px solid var(--line-strong);
+    background: var(--surface-3);
+    color: var(--fg-2);
+    font-family: var(--font-ui);
+    font-size: var(--fs-2xs);
+    font-weight: 500;
+    line-height: 1;
+    white-space: nowrap;
+  }
+}

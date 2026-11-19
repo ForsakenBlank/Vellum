@@ -10,7 +10,7 @@ An all-in-one desktop media editor. Drop any file in and get the right tools str
 
 Vellum aims to replace a stack of separate apps and websites (image editors, video editors, audio editors, converters, GIF makers, screen capture tools) with one fast, local app. Every common job, like shrinking a clip for Discord, turning a video into a GIF or cutting the background out of a photo, should take one drag and one click.
 
-> **Status:** early planning. The repo currently holds the folder skeleton and the project plan. No code yet.
+> **Status:** phase 1 (app shell and UX foundations) is done: home screen, drag and drop routing, tabs and tear off windows, dockable panels, command palette, settings and shortcut presets, themes, autosave with crash recovery, notifications and the jobs panel. Workspaces and quick tools are still placeholders. The window has been run on Linux only; Windows and macOS still need a check by hand.
 
 ## Planned features
 
@@ -60,6 +60,36 @@ models/                  downloaded ai models (gitignored)
 tests/golden/            reference images and videos for regression tests
 ```
 
+## Development
+
+You need Rust (stable), Node 20 or newer with pnpm (`corepack enable`), and the [Tauri system packages](https://tauri.app/start/prerequisites/) for your OS.
+
+```bash
+pnpm install
+```
+
+```bash
+pnpm tauri dev
+```
+
+Checks that CI runs:
+
+```bash
+cargo fmt --all --check && cargo clippy --workspace --all-targets -- -D warnings && cargo test --workspace
+```
+
+```bash
+pnpm lint && pnpm format:check && pnpm typecheck && pnpm test
+```
+
+End to end tests run the UI in Chromium against a fake backend (install the browser once with `pnpm --filter @vellum/ui exec playwright install chromium`):
+
+```bash
+pnpm e2e
+```
+
+`cargo test` also regenerates the TypeScript types in `ui/src/bindings`; commit them when they change.
+
 ## Roadmap
 
-The full plan, broken into phases, lives in [PLAN.md](PLAN.md).
+The full plan, broken into phases, lives in [PLAN.md](PLAN.md). How the code is put together, and why, is in [ARCHITECTURE.md](ARCHITECTURE.md). Changes are listed in [CHANGELOG.md](CHANGELOG.md).

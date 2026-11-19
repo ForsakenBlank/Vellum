@@ -1,0 +1,179 @@
+/*
+ * design tokens for the "darkroom" look: graphite surfaces, warm off white text and a
+ * safelight amber accent the user can change. every colour, size and duration the ui
+ * uses comes from here, and tailwind reads them through @theme in index.css.
+ *
+ * themes switch with data-theme on <html>, density with data-density, and motion with
+ * data-reduced-motion. the accent and its readable text colour are set from settings.
+ */
+
+:root {
+  /* surfaces, from the window background up to pressed controls */
+  --surface-0: #0b0c0e;
+  --surface-1: #111215;
+  --surface-2: #17181c;
+  --surface-3: #1e2025;
+  --surface-4: #272a30;
+  --scrim: rgb(5 6 8 / 0.62);
+
+  --line: rgb(255 255 255 / 0.065);
+  --line-strong: rgb(255 255 255 / 0.12);
+
+  --fg-1: #ecebe7;
+  --fg-2: #a5a49f;
+  --fg-3: #6f6f6b;
+
+  --accent: #f2a93b;
+  --accent-fg: #1a1206;
+  --accent-soft: color-mix(in oklab, var(--accent) 15%, transparent);
+  --accent-line: color-mix(in oklab, var(--accent) 50%, transparent);
+  --accent-text: color-mix(in oklab, var(--accent) 88%, white);
+
+  --success: #3ecf8e;
+  --warning: #e8c547;
+  --danger: #f0585e;
+  --info: #5ea8ff;
+
+  --elev-1: 0 1px 2px rgb(0 0 0 / 0.35);
+  --elev-2: 0 6px 16px -6px rgb(0 0 0 / 0.55), 0 0 0 1px var(--line);
+  --elev-pop: 0 18px 48px -12px rgb(0 0 0 / 0.7), 0 0 0 1px var(--line-strong);
+  --ring: 0 0 0 2px var(--surface-0), 0 0 0 4px var(--accent);
+
+  /* the grain on placeholder canvases and the home hero */
+  --grain-opacity: 0.05;
+
+  /* type, in rem so the ui scale setting scales everything */
+  --font-ui:
+    "Inter Variable", "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Menlo, monospace;
+  --fs-2xs: 0.6875rem;
+  --fs-xs: 0.75rem;
+  --fs-sm: 0.8125rem;
+  --fs-base: 0.875rem;
+  --fs-md: 1rem;
+  --fs-lg: 1.25rem;
+  --fs-xl: 1.625rem;
+  --fs-display: 2.25rem;
+
+  /* spacing follows a 4px grid. compact mode tightens the grid and row heights. */
+  --space: 0.25rem;
+  --row: 2rem;
+  --row-sm: 1.625rem;
+  --titlebar: 2.5rem;
+  --statusbar: 1.625rem;
+  --rail: 3rem;
+
+  --rad-xs: 3px;
+  --rad-sm: 5px;
+  --rad-md: 7px;
+  --rad-lg: 10px;
+  --rad-xl: 14px;
+
+  /* motion: short and calm. panels stay under 150 ms as PLAN.md asks. */
+  --motion-instant: 70ms;
+  --motion-fast: 110ms;
+  --motion-base: 150ms;
+  --motion-slow: 220ms;
+  --curve-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --curve-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --curve-pop: cubic-bezier(0.34, 1.4, 0.64, 1);
+
+  --z-dock: 10;
+  --z-popover: 40;
+  --z-modal: 60;
+  --z-toast: 70;
+  --z-drop: 80;
+  --z-tooltip: 90;
+
+  color-scheme: dark;
+}
+
+/* vellum paper: warm off white, ink text, the same accent darkened for legibility */
+[data-theme="light"] {
+  --surface-0: #e7e5df;
+  --surface-1: #f3f2ee;
+  --surface-2: #fbfaf8;
+  --surface-3: #ebe9e4;
+  --surface-4: #dedbd4;
+  --scrim: rgb(40 36 28 / 0.28);
+
+  --line: rgb(30 26 18 / 0.1);
+  --line-strong: rgb(30 26 18 / 0.17);
+
+  --fg-1: #1c1b18;
+  --fg-2: #5c5a54;
+  --fg-3: #8d8b84;
+
+  --accent-soft: color-mix(in oklab, var(--accent) 18%, transparent);
+  --accent-text: color-mix(in oklab, var(--accent) 62%, black);
+
+  --success: #148a55;
+  --warning: #9a7400;
+  --danger: #c8333a;
+  --info: #1f6fd1;
+
+  --elev-1: 0 1px 2px rgb(40 30 10 / 0.08);
+  --elev-2: 0 6px 16px -6px rgb(40 30 10 / 0.18), 0 0 0 1px var(--line);
+  --elev-pop: 0 18px 48px -12px rgb(40 30 10 / 0.28), 0 0 0 1px var(--line-strong);
+  --grain-opacity: 0.035;
+
+  color-scheme: light;
+}
+
+/* high contrast: pure black, white text, solid lines, nothing that relies on subtle tints */
+[data-theme="high-contrast"] {
+  --surface-0: #000000;
+  --surface-1: #000000;
+  --surface-2: #0d0d0d;
+  --surface-3: #1f1f1f;
+  --surface-4: #333333;
+  --scrim: rgb(0 0 0 / 0.8);
+
+  --line: #8a8a8a;
+  --line-strong: #ffffff;
+
+  --fg-1: #ffffff;
+  --fg-2: #f2f2f2;
+  --fg-3: #d6d6d6;
+
+  --accent-soft: color-mix(in oklab, var(--accent) 30%, black);
+  --accent-text: color-mix(in oklab, var(--accent) 60%, white);
+
+  --success: #5cff9d;
+  --warning: #ffe14d;
+  --danger: #ff6b6b;
+  --info: #7cc0ff;
+
+  --elev-2: 0 0 0 1px var(--line-strong);
+  --elev-pop: 0 0 0 2px var(--line-strong);
+  --ring: 0 0 0 2px #000000, 0 0 0 4px #ffffff;
+  --grain-opacity: 0;
+
+  color-scheme: dark;
+}
+
+[data-density="compact"] {
+  --space: 0.21rem;
+  --row: 1.625rem;
+  --row-sm: 1.375rem;
+  --titlebar: 2.125rem;
+  --statusbar: 1.375rem;
+  --rail: 2.5rem;
+}
+
+[data-reduced-motion] {
+  --motion-instant: 0ms;
+  --motion-fast: 0ms;
+  --motion-base: 0ms;
+  --motion-slow: 0ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-instant: 0ms;
+    --motion-fast: 0ms;
+    --motion-base: 0ms;
+    --motion-slow: 0ms;
+  }
+}

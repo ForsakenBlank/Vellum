@@ -1,0 +1,40 @@
+[package]
+name = "vellum-desktop"
+description = "The Vellum desktop app: windows, menus and the bridge between the core and the ui."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+default-run = "vellum"
+
+# no tests here on purpose. tauri-build only embeds the windows app manifest into the main
+# binary, so test binaries that link tauri can fail to start on windows. logic lives in the
+# vellum-* crates and is tested there, this crate only wires it to tauri.
+[[bin]]
+name = "vellum"
+path = "src/main.rs"
+test = false
+
+[lib]
+name = "vellum_desktop"
+path = "src/lib.rs"
+test = false
+doctest = false
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+vellum-core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+tauri = { version = "2", features = ["protocol-asset"] }
+tauri-plugin-dialog = "2"
+tauri-plugin-opener = "2"
+
+[lints]
+workspace = true
