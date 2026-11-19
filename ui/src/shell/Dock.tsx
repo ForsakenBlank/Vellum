@@ -351,7 +351,7 @@ function PanelGroup({ area, group, dropTarget, onPanelDrag }: PanelGroupProps) {
         role="tablist"
         aria-label="Panels"
         data-dock-tabs={`${area}:${group.id}`}
-        className={`flex h-(--row) shrink-0 items-center gap-0.5 border-b border-line px-1.5 ${hot ? "bg-accent-soft" : ""}`}
+        className={`group/dock flex h-(--row) shrink-0 items-center gap-0.5 border-b border-line px-1.5 ${hot ? "bg-accent-soft" : ""}`}
       >
         {group.panels.map((panel, i) => {
           const info = panelInfo(panel);

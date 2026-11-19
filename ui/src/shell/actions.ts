@@ -20,7 +20,7 @@ import {
 import { inDesktopApp, ipc } from "../lib/ipc";
 import { fileKinds, fileName } from "../lib/routing";
 import { isMainWindow, windowLabel } from "../lib/window";
-import { activeDocument, tabsIn, useDocuments } from "../state/documents";
+import { tabsIn, useDocuments } from "../state/documents";
 import { useSettings } from "../state/settings";
 import { askConfirm, useUi } from "../state/ui";
 import { quickTool, type QuickToolId } from "../workspaces/quickTools";
@@ -213,9 +213,4 @@ export function deleteLayout(name: string) {
   if (!settings) return;
   const saved = settings.layout.saved.filter((s) => s.name !== name);
   void useSettings.getState().update({ layout: { saved } });
-}
-
-/** the name to show for the active document, or the window's purpose */
-export function activeTitle(): string {
-  return activeDocument(useDocuments.getState())?.title ?? "Home";
 }
