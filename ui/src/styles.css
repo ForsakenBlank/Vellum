@@ -1,0 +1,76 @@
+@import "tailwindcss";
+
+/* design tokens. phase 1 grows these into the full system */
+:root {
+  --accent: #7c6cff;
+  --bg: #0f0e15;
+  --surface: #17161f;
+  --surface-raised: #201e2b;
+  --border: #2c2a3a;
+  --text: #ecebf3;
+  --text-muted: #9a98ad;
+  --danger: #ff6b7a;
+  --success: #4fd1a5;
+  --radius: 10px;
+  --motion-fast: 120ms;
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  --bg: #f6f5fa;
+  --surface: #ffffff;
+  --surface-raised: #efedf6;
+  --border: #dddae8;
+  --text: #1b1a24;
+  --text-muted: #615e74;
+  color-scheme: light;
+}
+
+:root[data-theme="high-contrast"] {
+  --bg: #000000;
+  --surface: #000000;
+  --surface-raised: #111111;
+  --border: #ffffff;
+  --text: #ffffff;
+  --text-muted: #e0e0e0;
+  color-scheme: dark;
+}
+
+:root[data-reduced-motion="true"] {
+  --motion-fast: 0ms;
+}
+
+@theme inline {
+  --color-accent: var(--accent);
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-raised: var(--surface-raised);
+  --color-line: var(--border);
+  --color-fg: var(--text);
+  --color-muted: var(--text-muted);
+  --color-danger: var(--danger);
+  --color-success: var(--success);
+  --radius-panel: var(--radius);
+  --font-sans: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-fast: 0ms;
+  }
+}

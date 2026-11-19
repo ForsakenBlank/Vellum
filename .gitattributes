@@ -1,0 +1,5 @@
+# keep lf everywhere so rustfmt and prettier agree on every os
+* text=auto eol=lf
+*.png binary
+*.ico binary
+*.icns binary

@@ -1,0 +1,14 @@
+[package]
+name = "vellum-audio"
+description = "audio engine, mixer, effects and waveform cache"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dependencies]
+vellum-core.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,16 @@
+{
+  "name": "vellum",
+  "private": true,
+  "packageManager": "pnpm@10.28.0",
+  "scripts": {
+    "tauri": "tauri",
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "lint": "pnpm --filter vellum-ui lint",
+    "format": "pnpm --filter vellum-ui format",
+    "test": "pnpm --filter vellum-ui test"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.12.6"
+  }
+}

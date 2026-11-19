@@ -10,7 +10,18 @@ An all-in-one desktop media editor. Drop any file in and get the right tools str
 
 Vellum aims to replace a stack of separate apps and websites (image editors, video editors, audio editors, converters, GIF makers, screen capture tools) with one fast, local app. Every common job, like shrinking a clip for Discord, turning a video into a GIF or cutting the background out of a photo, should take one drag and one click.
 
-> **Status:** early planning. The repo currently holds the folder skeleton and the project plan. No code yet.
+> **Status:** phase 0 done. The app opens, and the core systems (commands, undo/redo, events, settings, job queue) are in place. No editing tools yet.
+
+## Running it
+
+You need [Rust](https://rustup.rs), Node 22 and pnpm 10. On Linux also install the [Tauri system libraries](https://tauri.app/start/prerequisites/).
+
+```
+pnpm install
+pnpm tauri dev
+```
+
+Checks: `cargo test --workspace`, `cargo clippy --workspace --all-targets -- -D warnings`, `pnpm --filter vellum-ui test` and `pnpm --filter vellum-ui lint`.
 
 ## Planned features
 
@@ -62,4 +73,4 @@ tests/golden/            reference images and videos for regression tests
 
 ## Roadmap
 
-The full plan, broken into phases, lives in [PLAN.md](PLAN.md).
+The full plan, broken into phases, lives in [PLAN.md](PLAN.md). How the code is put together is in [ARCHITECTURE.md](ARCHITECTURE.md).
