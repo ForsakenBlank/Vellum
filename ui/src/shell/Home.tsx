@@ -37,7 +37,7 @@ export function Home() {
             title="Quick tools"
             hint="Drop a file on a card to start there"
           />
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(12.5rem,1fr))] gap-3">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(9.5rem,1fr))] gap-3">
             {quickTools.map((tool) => (
               <ToolCard key={tool.id} tool={tool} />
             ))}

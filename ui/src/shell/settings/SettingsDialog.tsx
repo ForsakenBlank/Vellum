@@ -84,7 +84,7 @@ function SettingsBody({ start, initialQuery }: { start: SettingsSection; initial
             onChange={(event) => {
               setQuery(event.target.value);
             }}
-            className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-fg-subtle"
+            className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-fg-subtle focus-visible:shadow-none"
           />
         </label>
         {sections.map((id) => (

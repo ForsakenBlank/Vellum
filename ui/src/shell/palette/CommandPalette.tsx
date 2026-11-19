@@ -143,7 +143,7 @@ function PaletteBody({ onDone }: { onDone: () => void }) {
               choose(selected);
             }
           }}
-          className="h-12 flex-1 bg-transparent text-base text-fg outline-none placeholder:text-fg-subtle"
+          className="h-12 flex-1 bg-transparent text-base text-fg outline-none placeholder:text-fg-subtle focus-visible:shadow-none"
         />
       </div>
 

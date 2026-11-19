@@ -14,6 +14,8 @@ interface DialogProps {
   /** where the dialog sits: centered, or near the top like a palette */
   placement?: "center" | "top";
   className?: string;
+  /** a selector for the element to focus when the dialog opens, instead of the first one */
+  initialFocus?: string;
 }
 
 export function Dialog({
@@ -27,6 +29,7 @@ export function Dialog({
   bare = false,
   placement = "center",
   className = "",
+  initialFocus,
 }: DialogProps) {
   return (
     <RadixDialog.Root open={open} onOpenChange={onOpenChange}>
@@ -35,6 +38,16 @@ export function Dialog({
         <RadixDialog.Content
           // radix links the description itself; without one, say so to keep it quiet
           {...(description ? {} : { "aria-describedby": undefined })}
+          onOpenAutoFocus={(event) => {
+            if (!initialFocus) return;
+            const target = (event.currentTarget as HTMLElement | null)?.querySelector<HTMLElement>(
+              initialFocus,
+            );
+            if (target) {
+              event.preventDefault();
+              target.focus({ preventScroll: true });
+            }
+          }}
           style={{ width: `min(${width}, calc(100vw - 2rem))` }}
           className={`fixed left-1/2 z-[var(--z-modal)] flex max-h-[calc(100vh-4rem)] -translate-x-1/2 animate-pop-in flex-col overflow-hidden rounded-xl bg-panel text-fg shadow-pop ${
             placement === "top" ? "top-[12vh]" : "top-1/2 -translate-y-1/2"

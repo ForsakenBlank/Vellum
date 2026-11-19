@@ -23,10 +23,12 @@ export function TitleBar() {
           type="button"
           aria-label="Command palette"
           onClick={() => void runCommand("app.command_palette")}
-          className="flex h-7 w-56 shrink-0 items-center gap-2 rounded-md border border-line bg-canvas/60 px-2 text-xs text-fg-subtle transition-colors duration-(--motion-fast) hover:border-line-strong hover:text-fg-muted max-lg:w-auto"
+          className="flex h-7 w-60 shrink-0 items-center gap-2 rounded-md border border-line bg-canvas/60 px-2 text-xs text-fg-subtle transition-colors duration-(--motion-fast) hover:border-line-strong hover:text-fg-muted max-lg:w-auto"
         >
           <Search className="size-3.5" />
-          <span className="flex-1 text-left max-lg:hidden">Search or run a command</span>
+          <span className="flex-1 truncate text-left whitespace-nowrap max-lg:hidden">
+            Search or run a command
+          </span>
           {chord && <Kbd chord={chord} />}
         </button>
       </Tooltip>

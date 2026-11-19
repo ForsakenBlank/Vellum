@@ -74,6 +74,7 @@ export function RecoveryPrompt() {
           : `Vellum was closed with unsaved changes ${formatAgo(offer.savedAtMs)}.`
       }
       width="30rem"
+      initialFocus="[data-default-action]"
       footer={
         <>
           <Button
@@ -85,6 +86,7 @@ export function RecoveryPrompt() {
             Discard
           </Button>
           <Button
+            data-default-action
             variant="primary"
             tooltip="Open every document again, with its unsaved changes"
             disabled={busy}
