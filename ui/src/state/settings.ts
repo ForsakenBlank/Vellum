@@ -1,6 +1,7 @@
 import { create } from "zustand";
 
 import type { AppSettings } from "../bindings/AppSettings";
+import { inkFor, isHexColour } from "../lib/color";
 import { ipc, type DeepPartial } from "../lib/ipc";
 
 interface SettingsStore {
@@ -22,6 +23,7 @@ export const useSettings = create<SettingsStore>()((set) => ({
       // rust saves, sanitises and echoes the result back, so the store follows rust
       const settings = await ipc.updateSettings(patch);
       set({ settings, error: null });
+      applyAppearance(settings);
     } catch (err) {
       set({ error: String(err) });
     }
@@ -35,8 +37,16 @@ export function applyAppearance(
 ) {
   const look = settings.appearance;
   root.dataset.theme = look.theme;
-  root.style.setProperty("--accent", look.accent);
+  if (isHexColour(look.accent)) {
+    root.style.setProperty("--accent", look.accent);
+    root.style.setProperty("--accent-fg", inkFor(look.accent));
+  }
   root.style.fontSize = `${16 * look.uiScale}px`;
+  if (look.compact) {
+    root.dataset.density = "compact";
+  } else {
+    delete root.dataset.density;
+  }
   if (look.reducedMotion) {
     root.dataset.reducedMotion = "";
   } else {

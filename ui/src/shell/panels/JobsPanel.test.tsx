@@ -2,13 +2,13 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { JobSnapshot } from "../bindings/JobSnapshot";
-import { TooltipProvider } from "../components/Tooltip";
-import { ipc } from "../lib/ipc";
-import { emptyJobs, fromSnapshots, useJobs } from "../state/jobs";
+import type { JobSnapshot } from "../../bindings/JobSnapshot";
+import { TooltipProvider } from "../../components/Tooltip";
+import { ipc } from "../../lib/ipc";
+import { emptyJobs, fromSnapshots, mergeOverview, useJobs } from "../../state/jobs";
 import { JobsPanel } from "./JobsPanel";
 
-vi.mock("../lib/ipc", () => {
+vi.mock("../../lib/ipc", () => {
   const ok = () => Promise.resolve(null);
   return {
     inDesktopApp: false,
@@ -19,6 +19,8 @@ vi.mock("../lib/ipc", () => {
       retryJob: vi.fn(ok),
       removeJob: vi.fn(ok),
       clearFinishedJobs: vi.fn(ok),
+      moveJob: vi.fn(ok),
+      openResult: vi.fn(ok),
     },
   };
 });
@@ -139,5 +141,45 @@ describe("JobsPanel", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "cannot pause job 1 while it is completed",
     );
+  });
+
+  it("moves waiting jobs earlier and later in line", async () => {
+    const user = userEvent.setup();
+    const list = [1, 2, 3].map((id) => job(id, { title: `Waiting ${id}`, state: "queued" }));
+    useJobs.setState(mergeOverview(emptyJobs, { jobs: list, waiting: [1, 2, 3], revision: 10 }));
+    renderPanel();
+
+    expect(row("Waiting 1").getByRole("button", { name: "Start sooner" })).toBeDisabled();
+    await user.click(row("Waiting 1").getByRole("button", { name: "Start later" }));
+    expect(ipc.moveJob).toHaveBeenCalledWith(1, 3);
+    await user.click(row("Waiting 2").getByRole("button", { name: "Start later" }));
+    expect(ipc.moveJob).toHaveBeenLastCalledWith(2, null);
+    await user.click(row("Waiting 3").getByRole("button", { name: "Start sooner" }));
+    expect(ipc.moveJob).toHaveBeenLastCalledWith(3, 2);
+  });
+
+  it("opens the result of a finished job", async () => {
+    const user = userEvent.setup();
+    useJobs.setState(
+      fromSnapshots([
+        job(4, { title: "Make GIF", state: "completed", result: { path: "/out/a.gif" } }),
+      ]),
+    );
+    renderPanel();
+    await user.click(row("Make GIF").getByRole("button", { name: "Open" }));
+    expect(ipc.openResult).toHaveBeenCalledWith("/out/a.gif", false);
+    await user.click(row("Make GIF").getByRole("button", { name: "Show in folder" }));
+    expect(ipc.openResult).toHaveBeenLastCalledWith("/out/a.gif", true);
+  });
+
+  it("remembers to open a result when the job is done", async () => {
+    const user = userEvent.setup();
+    useJobs.setState({
+      ...fromSnapshots([job(5, { title: "Long export", state: "running" })]),
+      openWhenDone: {},
+    });
+    renderPanel();
+    await user.click(row("Long export").getByRole("switch", { name: /open the result/i }));
+    expect(useJobs.getState().openWhenDone[5]).toBe(true);
   });
 });

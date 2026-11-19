@@ -18,3 +18,28 @@ export function formatDuration(totalSeconds: number): string {
 export function formatPercent(fraction: number): string {
   return `${Math.floor(Math.min(1, Math.max(0, fraction)) * 100)}%`;
 }
+
+/** 1536 becomes "1.5 KB". uses 1000 per step like file managers on macos and linux. */
+export function formatBytes(bytes: number): string {
+  if (bytes < 1000) return `${bytes} B`;
+  const units = ["KB", "MB", "GB", "TB"];
+  let value = bytes / 1000;
+  let unit = 0;
+  while (value >= 1000 && unit < units.length - 1) {
+    value /= 1000;
+    unit++;
+  }
+  return `${value >= 100 ? Math.round(value) : value.toFixed(1)} ${units[unit] ?? "TB"}`;
+}
+
+/** "just now", "5 min ago", "3 h ago", "2 days ago" */
+export function formatAgo(thenMs: number, nowMs: number = Date.now()): string {
+  const seconds = Math.max(0, Math.round((nowMs - thenMs) / 1000));
+  if (seconds < 45) return "just now";
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours} h ago`;
+  const days = Math.round(hours / 24);
+  return days === 1 ? "yesterday" : `${days} days ago`;
+}

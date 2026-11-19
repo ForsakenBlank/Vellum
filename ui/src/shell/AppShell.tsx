@@ -1,102 +1,155 @@
-import { ToggleGroup } from "radix-ui";
+import { useEffect, useState } from "react";
 
-import type { Theme } from "../bindings/Theme";
-import { Tooltip } from "../components/Tooltip";
 import { inDesktopApp } from "../lib/ipc";
+import { isMainWindow } from "../lib/window";
+import { registerUiHandlers } from "../state/commands";
+import { useDocuments } from "../state/documents";
 import { useSettings } from "../state/settings";
+import { useUi } from "../state/ui";
+import { quickTools } from "../workspaces/quickTools";
+import { WorkspaceView } from "../workspaces/WorkspaceView";
 import { workspaces } from "../workspaces/workspaces";
-import { JobsPanel } from "./JobsPanel";
-
-const themes: { value: Theme; label: string }[] = [
-  { value: "dark", label: "Dark" },
-  { value: "light", label: "Light" },
-  { value: "high-contrast", label: "High contrast" },
-];
+import {
+  applyLayout,
+  closeTab,
+  cycleTab,
+  flipDocks,
+  flipPanel,
+  moveToMain,
+  openTool,
+  pickAndOpen,
+  tearOff,
+} from "./actions";
+import { ConfirmDialog } from "./ConfirmDialog";
+import { DockFrame } from "./Dock";
+import { DropOverlay } from "./DropOverlay";
+import { Home } from "./Home";
+import { CommandPalette } from "./palette/CommandPalette";
+import { panels } from "./panels/registry";
+import { Rail } from "./Rail";
+import { RecoveryPrompt } from "./RecoveryPrompt";
+import { SaveLayoutDialog } from "./SaveLayoutDialog";
+import { SettingsDialog } from "./settings/SettingsDialog";
+import { StatusBar } from "./StatusBar";
+import { TitleBar } from "./TitleBar";
+import { Toasts } from "./Toasts";
+import { useShortcuts } from "./useShortcuts";
 
 export function AppShell() {
-  const settings = useSettings((s) => s.settings);
+  const [savingLayout, setSavingLayout] = useState(false);
   const settingsError = useSettings((s) => s.error);
-  const update = useSettings((s) => s.update);
-  const theme = settings?.appearance.theme ?? "dark";
+  const showHome = useDocuments((s) => s.activeId === null && s.emptyWorkspace === null);
+  useShortcuts();
+
+  // what the ui actions handed back by app commands do in this window
+  useEffect(() => {
+    const ui = useUi.getState();
+    const docs = useDocuments.getState();
+    const handlers: Record<string, () => void | Promise<void>> = {
+      "app.command_palette": () => {
+        ui.setPalette(!useUi.getState().paletteOpen);
+      },
+      "app.settings": () => {
+        ui.openSettings("appearance");
+      },
+      "app.shortcuts": () => {
+        ui.openSettings("shortcuts");
+      },
+      "app.notifications": () => {
+        ui.setNotificationsOpen(true);
+      },
+      "file.open": () => pickAndOpen(),
+      "file.close": () => closeTab(),
+      "window.next_tab": () => {
+        cycleTab(1);
+      },
+      "window.previous_tab": () => {
+        cycleTab(-1);
+      },
+      "window.tear_off": () => tearOff(),
+      "window.move_to_main": () => moveToMain(),
+    };
+    if (isMainWindow) {
+      Object.assign(handlers, {
+        "app.home": () => {
+          docs.showHome();
+        },
+        "view.docks.toggle": flipDocks,
+        "view.layout.save": () => {
+          setSavingLayout(true);
+        },
+        "view.layout.reset": () => {
+          applyLayout("default");
+        },
+      });
+      for (const panel of panels) {
+        handlers[panel.command] = () => {
+          flipPanel(panel.id);
+        };
+      }
+      for (const ws of workspaces) {
+        handlers[ws.command] = () => {
+          docs.showWorkspace(ws.id);
+        };
+      }
+      for (const tool of quickTools) {
+        handlers[tool.command] = () => openTool(tool.id);
+      }
+    }
+    return registerUiHandlers(handlers);
+  }, []);
+
+  const center = isMainWindow && showHome ? <Home /> : <WorkspaceView />;
 
   return (
-    <div className="flex h-full flex-col">
-      <header className="flex items-center justify-between border-b border-line bg-panel px-4 py-2">
-        <div className="flex items-baseline gap-2">
-          <span className="text-base font-semibold tracking-tight">Vellum</span>
-          <span className="text-xs text-muted">v{__APP_VERSION__}</span>
-        </div>
-        <ToggleGroup.Root
-          type="single"
-          aria-label="Theme"
-          value={theme}
-          disabled={!settings}
-          onValueChange={(value) => {
-            if (value) void update({ appearance: { theme: value as Theme } });
-          }}
-          className="flex rounded-md border border-line p-0.5"
+    <div className="flex h-full flex-col bg-canvas">
+      <TitleBar />
+      {!inDesktopApp && (
+        <p
+          role="status"
+          className="shrink-0 border-b border-line bg-warning/10 px-4 py-1.5 text-xs text-fg-muted"
         >
-          {themes.map((t) => (
-            <Tooltip key={t.value} text={`Use the ${t.label.toLowerCase()} theme`}>
-              <ToggleGroup.Item
-                value={t.value}
-                className="rounded px-2 py-0.5 text-xs text-muted data-[state=on]:bg-accent data-[state=on]:text-white"
-              >
-                {t.label}
-              </ToggleGroup.Item>
-            </Tooltip>
-          ))}
-        </ToggleGroup.Root>
-      </header>
-
+          This page is running in a browser, so nothing reaches the Rust side. Start the desktop app
+          with <code className="font-mono">pnpm tauri dev</code> to open files and run jobs.
+        </p>
+      )}
+      {settingsError && (
+        <p
+          role="alert"
+          className="shrink-0 border-b border-line bg-danger/10 px-4 py-1.5 text-xs text-danger"
+        >
+          Settings could not be saved: {settingsError}. Try again, or restart Vellum if it keeps
+          happening.
+        </p>
+      )}
       <div className="flex min-h-0 flex-1">
-        <nav
-          aria-label="Workspaces"
-          className="flex w-44 flex-col gap-0.5 border-r border-line p-2"
-        >
-          {workspaces.map((ws) => (
-            <Tooltip
-              key={ws.id}
-              text={`The ${ws.label.toLowerCase()} workspace arrives in phase ${ws.phase}`}
-            >
-              <span>
-                <button
-                  type="button"
-                  disabled
-                  className="w-full cursor-not-allowed rounded-md px-2 py-1.5 text-left text-sm text-muted"
-                >
-                  {ws.label}
-                </button>
-              </span>
-            </Tooltip>
-          ))}
-        </nav>
-
-        <main className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
-          <h1 className="text-2xl font-semibold">Drop a file to get started</h1>
-          <p className="max-w-md text-sm text-muted">
-            Workspaces and quick tools arrive in the next phases. For now this window shows the job
-            queue and settings working end to end.
-          </p>
-          {!inDesktopApp && (
-            <p
-              role="status"
-              className="max-w-md rounded-md border border-line p-3 text-sm text-muted"
-            >
-              This page is running in a browser, so nothing reaches the Rust side. Start the desktop
-              app with <code>pnpm tauri dev</code> to try the job queue.
-            </p>
-          )}
-          {settingsError && (
-            <p role="alert" className="max-w-md text-sm text-danger">
-              Settings could not be saved: {settingsError}. Try again, or restart Vellum if it keeps
-              happening.
-            </p>
+        {isMainWindow && <Rail />}
+        <main className="flex min-h-0 min-w-0 flex-1 bg-canvas">
+          {isMainWindow ? (
+            <DockFrame>{center}</DockFrame>
+          ) : (
+            <div className="min-w-0 flex-1">{center}</div>
           )}
         </main>
-
-        <JobsPanel />
       </div>
+      <StatusBar
+        onSaveLayout={() => {
+          setSavingLayout(true);
+        }}
+      />
+
+      <CommandPalette />
+      <SettingsDialog />
+      <SaveLayoutDialog
+        open={savingLayout}
+        onClose={() => {
+          setSavingLayout(false);
+        }}
+      />
+      <ConfirmDialog />
+      {isMainWindow && <RecoveryPrompt />}
+      <Toasts />
+      <DropOverlay />
     </div>
   );
 }

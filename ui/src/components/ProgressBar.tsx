@@ -7,7 +7,7 @@ interface ProgressBarProps {
 
 const tones = {
   accent: "bg-accent",
-  muted: "bg-muted",
+  muted: "bg-fg-subtle",
   danger: "bg-danger",
   success: "bg-success",
 };
@@ -21,10 +21,10 @@ export function ProgressBar({ value, label, tone = "accent" }: ProgressBarProps)
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={percent ?? undefined}
-      className="h-1.5 w-full overflow-hidden rounded-full bg-raised"
+      className="h-1 w-full overflow-hidden rounded-full bg-pressed"
     >
       <div
-        className={`h-full rounded-full transition-[width] duration-150 ${tones[tone]} ${percent === null ? "w-1/3 animate-pulse" : ""}`}
+        className={`h-full rounded-full transition-[width] duration-(--motion-base) ease-calm ${tones[tone]} ${percent === null ? "skeleton w-full" : ""}`}
         style={percent === null ? undefined : { width: `${percent}%` }}
       />
     </div>

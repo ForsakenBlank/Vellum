@@ -104,13 +104,36 @@ export function orderedJobs(data: JobsData): JobSnapshot[] {
   });
 }
 
+/** the path a finished job produced, if its result has one */
+export function resultPath(job: JobSnapshot): string | null {
+  const result = job.result;
+  if (typeof result !== "object" || result === null || !("path" in result)) return null;
+  return typeof result.path === "string" ? result.path : null;
+}
+
 interface JobsStore extends JobsData {
+  /** jobs whose result should open as soon as they finish. a per window wish, not saved. */
+  openWhenDone: Partial<Record<JobId, true>>;
   apply: (event: JobEvent) => void;
   merge: (overview: JobsOverview) => void;
+  toggleOpenWhenDone: (id: JobId) => void;
 }
 
 export const useJobs = create<JobsStore>()((set) => ({
   ...emptyJobs,
+  openWhenDone: {},
+  toggleOpenWhenDone: (id) => {
+    set((state) => {
+      const next = { ...state.openWhenDone };
+      if (next[id]) {
+        // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+        delete next[id];
+      } else {
+        next[id] = true;
+      }
+      return { openWhenDone: next };
+    });
+  },
   apply: (event) => {
     set((state) => applyJobEvent(state, event));
   },

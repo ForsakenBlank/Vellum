@@ -282,407 +282,155 @@
   "keymaps": {
     "audacity": {
       "bindings": {
-        "app.command_palette": [
-          "Ctrl+K"
-        ],
-        "app.home": [
-          "Ctrl+Shift+H"
-        ],
-        "app.settings": [
-          "Ctrl+P"
-        ],
-        "app.shortcuts": [
-          "Ctrl+Alt+K"
-        ],
-        "edit.redo": [
-          "Ctrl+Y",
-          "Ctrl+Shift+Z"
-        ],
-        "edit.undo": [
-          "Ctrl+Z"
-        ],
-        "file.close": [
-          "Ctrl+W"
-        ],
-        "file.open": [
-          "Ctrl+O"
-        ],
-        "file.save": [
-          "Ctrl+S"
-        ],
-        "tool.export_to_size": [
-          "Ctrl+Shift+E"
-        ],
-        "tool.screen_record": [
-          "Ctrl+Shift+R"
-        ],
-        "view.docks.toggle": [
-          "Ctrl+\\"
-        ],
-        "view.panel.jobs": [
-          "Ctrl+Shift+J"
-        ],
-        "view.zoom.in": [
-          "Ctrl+="
-        ],
-        "view.zoom.out": [
-          "Ctrl+-"
-        ],
-        "view.zoom.reset": [
-          "Ctrl+0"
-        ],
-        "window.next_tab": [
-          "Ctrl+Tab"
-        ],
-        "window.previous_tab": [
-          "Ctrl+Shift+Tab"
-        ],
-        "workspace.audio": [
-          "Ctrl+5"
-        ],
-        "workspace.color": [
-          "Ctrl+4"
-        ],
-        "workspace.image": [
-          "Ctrl+2"
-        ],
-        "workspace.motion": [
-          "Ctrl+6"
-        ],
-        "workspace.quick_tools": [
-          "Ctrl+1"
-        ],
-        "workspace.vector": [
-          "Ctrl+7"
-        ],
-        "workspace.video": [
-          "Ctrl+3"
-        ]
+        "app.command_palette": ["Ctrl+K"],
+        "app.home": ["Ctrl+Shift+H"],
+        "app.settings": ["Ctrl+P"],
+        "app.shortcuts": ["Ctrl+Alt+K"],
+        "edit.redo": ["Ctrl+Y", "Ctrl+Shift+Z"],
+        "edit.undo": ["Ctrl+Z"],
+        "file.close": ["Ctrl+W"],
+        "file.open": ["Ctrl+O"],
+        "file.save": ["Ctrl+S"],
+        "tool.export_to_size": ["Ctrl+Shift+E"],
+        "tool.screen_record": ["Ctrl+Shift+R"],
+        "view.docks.toggle": ["Ctrl+\\"],
+        "view.panel.jobs": ["Ctrl+Shift+J"],
+        "view.zoom.in": ["Ctrl+="],
+        "view.zoom.out": ["Ctrl+-"],
+        "view.zoom.reset": ["Ctrl+0"],
+        "window.next_tab": ["Ctrl+Tab"],
+        "window.previous_tab": ["Ctrl+Shift+Tab"],
+        "workspace.audio": ["Ctrl+5"],
+        "workspace.color": ["Ctrl+4"],
+        "workspace.image": ["Ctrl+2"],
+        "workspace.motion": ["Ctrl+6"],
+        "workspace.quick_tools": ["Ctrl+1"],
+        "workspace.vector": ["Ctrl+7"],
+        "workspace.video": ["Ctrl+3"]
       },
       "conflicts": [],
       "preset": "audacity"
     },
     "photoshop": {
       "bindings": {
-        "app.command_palette": [
-          "Ctrl+Shift+P"
-        ],
-        "app.home": [
-          "Ctrl+Shift+H"
-        ],
-        "app.settings": [
-          "Ctrl+K"
-        ],
-        "app.shortcuts": [
-          "Ctrl+Alt+K"
-        ],
-        "edit.redo": [
-          "Ctrl+Shift+Z"
-        ],
-        "edit.undo": [
-          "Ctrl+Z"
-        ],
-        "file.close": [
-          "Ctrl+W"
-        ],
-        "file.open": [
-          "Ctrl+O"
-        ],
-        "file.save": [
-          "Ctrl+S"
-        ],
-        "tool.export_to_size": [
-          "Ctrl+Alt+Shift+W"
-        ],
-        "tool.screen_record": [
-          "Ctrl+Shift+R"
-        ],
-        "view.docks.toggle": [
-          "Tab"
-        ],
-        "view.panel.jobs": [
-          "Ctrl+Shift+J"
-        ],
-        "view.zoom.in": [
-          "Ctrl+="
-        ],
-        "view.zoom.out": [
-          "Ctrl+-"
-        ],
-        "view.zoom.reset": [
-          "Ctrl+0"
-        ],
-        "window.next_tab": [
-          "Ctrl+Tab"
-        ],
-        "window.previous_tab": [
-          "Ctrl+Shift+Tab"
-        ],
-        "workspace.audio": [
-          "Ctrl+5"
-        ],
-        "workspace.color": [
-          "Ctrl+4"
-        ],
-        "workspace.image": [
-          "Ctrl+2"
-        ],
-        "workspace.motion": [
-          "Ctrl+6"
-        ],
-        "workspace.quick_tools": [
-          "Ctrl+1"
-        ],
-        "workspace.vector": [
-          "Ctrl+7"
-        ],
-        "workspace.video": [
-          "Ctrl+3"
-        ]
+        "app.command_palette": ["Ctrl+Shift+P"],
+        "app.home": ["Ctrl+Shift+H"],
+        "app.settings": ["Ctrl+K"],
+        "app.shortcuts": ["Ctrl+Alt+K"],
+        "edit.redo": ["Ctrl+Shift+Z"],
+        "edit.undo": ["Ctrl+Z"],
+        "file.close": ["Ctrl+W"],
+        "file.open": ["Ctrl+O"],
+        "file.save": ["Ctrl+S"],
+        "tool.export_to_size": ["Ctrl+Alt+Shift+W"],
+        "tool.screen_record": ["Ctrl+Shift+R"],
+        "view.docks.toggle": ["Tab"],
+        "view.panel.jobs": ["Ctrl+Shift+J"],
+        "view.zoom.in": ["Ctrl+="],
+        "view.zoom.out": ["Ctrl+-"],
+        "view.zoom.reset": ["Ctrl+0"],
+        "window.next_tab": ["Ctrl+Tab"],
+        "window.previous_tab": ["Ctrl+Shift+Tab"],
+        "workspace.audio": ["Ctrl+5"],
+        "workspace.color": ["Ctrl+4"],
+        "workspace.image": ["Ctrl+2"],
+        "workspace.motion": ["Ctrl+6"],
+        "workspace.quick_tools": ["Ctrl+1"],
+        "workspace.vector": ["Ctrl+7"],
+        "workspace.video": ["Ctrl+3"]
       },
       "conflicts": [],
       "preset": "photoshop"
     },
     "premiere": {
       "bindings": {
-        "app.command_palette": [
-          "Ctrl+K"
-        ],
-        "app.home": [
-          "Ctrl+Shift+H"
-        ],
-        "app.settings": [
-          "Ctrl+,"
-        ],
-        "app.shortcuts": [
-          "Ctrl+Alt+K"
-        ],
-        "edit.redo": [
-          "Ctrl+Shift+Z"
-        ],
-        "edit.undo": [
-          "Ctrl+Z"
-        ],
-        "file.close": [
-          "Ctrl+W"
-        ],
-        "file.open": [
-          "Ctrl+O"
-        ],
-        "file.save": [
-          "Ctrl+S"
-        ],
-        "tool.export_to_size": [
-          "Ctrl+M"
-        ],
-        "tool.screen_record": [
-          "Ctrl+Shift+R"
-        ],
-        "view.docks.toggle": [
-          "Ctrl+\\"
-        ],
-        "view.panel.jobs": [
-          "Ctrl+Shift+J"
-        ],
-        "view.zoom.in": [
-          "Ctrl+="
-        ],
-        "view.zoom.out": [
-          "Ctrl+-"
-        ],
-        "view.zoom.reset": [
-          "Ctrl+0"
-        ],
-        "window.next_tab": [
-          "Ctrl+Tab"
-        ],
-        "window.previous_tab": [
-          "Ctrl+Shift+Tab"
-        ],
-        "workspace.audio": [
-          "Alt+Shift+3"
-        ],
-        "workspace.color": [
-          "Alt+Shift+2"
-        ],
-        "workspace.image": [
-          "Alt+Shift+6"
-        ],
-        "workspace.motion": [
-          "Alt+Shift+4"
-        ],
-        "workspace.quick_tools": [
-          "Alt+Shift+5"
-        ],
-        "workspace.vector": [
-          "Alt+Shift+7"
-        ],
-        "workspace.video": [
-          "Alt+Shift+1"
-        ]
+        "app.command_palette": ["Ctrl+K"],
+        "app.home": ["Ctrl+Shift+H"],
+        "app.settings": ["Ctrl+,"],
+        "app.shortcuts": ["Ctrl+Alt+K"],
+        "edit.redo": ["Ctrl+Shift+Z"],
+        "edit.undo": ["Ctrl+Z"],
+        "file.close": ["Ctrl+W"],
+        "file.open": ["Ctrl+O"],
+        "file.save": ["Ctrl+S"],
+        "tool.export_to_size": ["Ctrl+M"],
+        "tool.screen_record": ["Ctrl+Shift+R"],
+        "view.docks.toggle": ["Ctrl+\\"],
+        "view.panel.jobs": ["Ctrl+Shift+J"],
+        "view.zoom.in": ["Ctrl+="],
+        "view.zoom.out": ["Ctrl+-"],
+        "view.zoom.reset": ["Ctrl+0"],
+        "window.next_tab": ["Ctrl+Tab"],
+        "window.previous_tab": ["Ctrl+Shift+Tab"],
+        "workspace.audio": ["Alt+Shift+3"],
+        "workspace.color": ["Alt+Shift+2"],
+        "workspace.image": ["Alt+Shift+6"],
+        "workspace.motion": ["Alt+Shift+4"],
+        "workspace.quick_tools": ["Alt+Shift+5"],
+        "workspace.vector": ["Alt+Shift+7"],
+        "workspace.video": ["Alt+Shift+1"]
       },
       "conflicts": [],
       "preset": "premiere"
     },
     "resolve": {
       "bindings": {
-        "app.command_palette": [
-          "Ctrl+K"
-        ],
-        "app.home": [
-          "Ctrl+Shift+H"
-        ],
-        "app.settings": [
-          "Ctrl+,"
-        ],
-        "app.shortcuts": [
-          "Ctrl+Alt+K"
-        ],
-        "edit.redo": [
-          "Ctrl+Shift+Z"
-        ],
-        "edit.undo": [
-          "Ctrl+Z"
-        ],
-        "file.close": [
-          "Ctrl+W"
-        ],
-        "file.open": [
-          "Ctrl+O"
-        ],
-        "file.save": [
-          "Ctrl+S"
-        ],
-        "tool.export_to_size": [
-          "Shift+8"
-        ],
-        "tool.screen_record": [
-          "Ctrl+Shift+R"
-        ],
-        "view.docks.toggle": [
-          "Ctrl+\\"
-        ],
-        "view.panel.jobs": [
-          "Ctrl+Shift+J"
-        ],
-        "view.zoom.in": [
-          "Ctrl+="
-        ],
-        "view.zoom.out": [
-          "Ctrl+-"
-        ],
-        "view.zoom.reset": [
-          "Ctrl+0"
-        ],
-        "window.next_tab": [
-          "Ctrl+Tab"
-        ],
-        "window.previous_tab": [
-          "Ctrl+Shift+Tab"
-        ],
-        "workspace.audio": [
-          "Shift+7"
-        ],
-        "workspace.color": [
-          "Shift+6"
-        ],
-        "workspace.image": [
-          "Shift+2"
-        ],
-        "workspace.motion": [
-          "Shift+5"
-        ],
-        "workspace.quick_tools": [
-          "Ctrl+1"
-        ],
-        "workspace.vector": [
-          "Shift+3"
-        ],
-        "workspace.video": [
-          "Shift+4"
-        ]
+        "app.command_palette": ["Ctrl+K"],
+        "app.home": ["Ctrl+Shift+H"],
+        "app.settings": ["Ctrl+,"],
+        "app.shortcuts": ["Ctrl+Alt+K"],
+        "edit.redo": ["Ctrl+Shift+Z"],
+        "edit.undo": ["Ctrl+Z"],
+        "file.close": ["Ctrl+W"],
+        "file.open": ["Ctrl+O"],
+        "file.save": ["Ctrl+S"],
+        "tool.export_to_size": ["Shift+8"],
+        "tool.screen_record": ["Ctrl+Shift+R"],
+        "view.docks.toggle": ["Ctrl+\\"],
+        "view.panel.jobs": ["Ctrl+Shift+J"],
+        "view.zoom.in": ["Ctrl+="],
+        "view.zoom.out": ["Ctrl+-"],
+        "view.zoom.reset": ["Ctrl+0"],
+        "window.next_tab": ["Ctrl+Tab"],
+        "window.previous_tab": ["Ctrl+Shift+Tab"],
+        "workspace.audio": ["Shift+7"],
+        "workspace.color": ["Shift+6"],
+        "workspace.image": ["Shift+2"],
+        "workspace.motion": ["Shift+5"],
+        "workspace.quick_tools": ["Ctrl+1"],
+        "workspace.vector": ["Shift+3"],
+        "workspace.video": ["Shift+4"]
       },
       "conflicts": [],
       "preset": "resolve"
     },
     "vellum": {
       "bindings": {
-        "app.command_palette": [
-          "Ctrl+K"
-        ],
-        "app.home": [
-          "Ctrl+Shift+H"
-        ],
-        "app.settings": [
-          "Ctrl+,"
-        ],
-        "app.shortcuts": [
-          "Ctrl+Alt+K"
-        ],
-        "edit.redo": [
-          "Ctrl+Shift+Z",
-          "Ctrl+Y"
-        ],
-        "edit.undo": [
-          "Ctrl+Z"
-        ],
-        "file.close": [
-          "Ctrl+W"
-        ],
-        "file.open": [
-          "Ctrl+O"
-        ],
-        "file.save": [
-          "Ctrl+S"
-        ],
-        "tool.export_to_size": [
-          "Ctrl+E"
-        ],
-        "tool.screen_record": [
-          "Ctrl+Shift+R"
-        ],
-        "view.docks.toggle": [
-          "Ctrl+\\"
-        ],
-        "view.panel.jobs": [
-          "Ctrl+Shift+J"
-        ],
-        "view.zoom.in": [
-          "Ctrl+="
-        ],
-        "view.zoom.out": [
-          "Ctrl+-"
-        ],
-        "view.zoom.reset": [
-          "Ctrl+0"
-        ],
-        "window.next_tab": [
-          "Ctrl+Tab"
-        ],
-        "window.previous_tab": [
-          "Ctrl+Shift+Tab"
-        ],
-        "workspace.audio": [
-          "Ctrl+5"
-        ],
-        "workspace.color": [
-          "Ctrl+4"
-        ],
-        "workspace.image": [
-          "Ctrl+2"
-        ],
-        "workspace.motion": [
-          "Ctrl+6"
-        ],
-        "workspace.quick_tools": [
-          "Ctrl+1"
-        ],
-        "workspace.vector": [
-          "Ctrl+7"
-        ],
-        "workspace.video": [
-          "Ctrl+3"
-        ]
+        "app.command_palette": ["Ctrl+K"],
+        "app.home": ["Ctrl+Shift+H"],
+        "app.settings": ["Ctrl+,"],
+        "app.shortcuts": ["Ctrl+Alt+K"],
+        "edit.redo": ["Ctrl+Shift+Z", "Ctrl+Y"],
+        "edit.undo": ["Ctrl+Z"],
+        "file.close": ["Ctrl+W"],
+        "file.open": ["Ctrl+O"],
+        "file.save": ["Ctrl+S"],
+        "tool.export_to_size": ["Ctrl+E"],
+        "tool.screen_record": ["Ctrl+Shift+R"],
+        "view.docks.toggle": ["Ctrl+\\"],
+        "view.panel.jobs": ["Ctrl+Shift+J"],
+        "view.zoom.in": ["Ctrl+="],
+        "view.zoom.out": ["Ctrl+-"],
+        "view.zoom.reset": ["Ctrl+0"],
+        "window.next_tab": ["Ctrl+Tab"],
+        "window.previous_tab": ["Ctrl+Shift+Tab"],
+        "workspace.audio": ["Ctrl+5"],
+        "workspace.color": ["Ctrl+4"],
+        "workspace.image": ["Ctrl+2"],
+        "workspace.motion": ["Ctrl+6"],
+        "workspace.quick_tools": ["Ctrl+1"],
+        "workspace.vector": ["Ctrl+7"],
+        "workspace.video": ["Ctrl+3"]
       },
       "conflicts": [],
       "preset": "vellum"
@@ -728,18 +476,13 @@
             {
               "active": "info",
               "id": "right-top",
-              "panels": [
-                "info",
-                "history"
-              ],
+              "panels": ["info", "history"],
               "weight": 1.0
             },
             {
               "active": "jobs",
               "id": "right-bottom",
-              "panels": [
-                "jobs"
-              ],
+              "panels": ["jobs"],
               "weight": 1.0
             }
           ],
