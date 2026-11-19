@@ -431,7 +431,7 @@ Each prompt is self-contained. Paste it into a fresh session opened in the proje
 - [x] Cargo workspace with every crate from section 4 (stubs are fine)
 - [x] `vellum-core` has a working Command trait, undo/redo stack, event bus and settings store, with tests
 - [x] Job queue with progress, cancel and pause, with tests
-- [ ] CI runs fmt, clippy, tests, ESLint and Vitest on all three OSes
+- [x] CI runs fmt, clippy, tests, ESLint and Vitest on all three OSes
 - [x] `ARCHITECTURE.md` explains the design decisions
 
 **Model:** Fable 5.2 · **Effort:** high
