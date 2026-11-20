@@ -130,6 +130,8 @@ pub struct JobSpec {
     /// the document that started it, eg a quick tool session, so that view can list its own
     /// runs. none for jobs nobody owns.
     pub owner: Option<String>,
+    /// the file the job works on, so a view can show progress next to that file
+    pub subject: Option<String>,
 }
 
 impl JobSpec {
@@ -142,6 +144,7 @@ impl JobSpec {
             retry_delay: Duration::from_secs(2),
             background: false,
             owner: None,
+            subject: None,
         }
     }
 
@@ -171,6 +174,12 @@ impl JobSpec {
     /// see [`JobSpec::owner`]
     pub fn owned_by(mut self, document: impl Into<String>) -> Self {
         self.owner = Some(document.into());
+        self
+    }
+
+    /// see [`JobSpec::subject`]
+    pub fn about(mut self, file: impl Into<String>) -> Self {
+        self.subject = Some(file.into());
         self
     }
 
@@ -259,6 +268,8 @@ pub struct JobSnapshot {
     pub background: bool,
     /// the document that started it, see `JobSpec::owner`
     pub owner: Option<String>,
+    /// the file it works on, see `JobSpec::subject`
+    pub subject: Option<String>,
     pub error: Option<String>,
     #[ts(type = "unknown")]
     pub result: Option<JobOutput>,

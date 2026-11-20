@@ -4,15 +4,24 @@
 
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 
-import { inDesktopApp } from "../lib/ipc";
+import { inDesktopApp, ipc } from "../lib/ipc";
 import { planDrop, type DropTarget } from "../lib/routing";
 import { useUi } from "../state/ui";
 import type { QuickToolId } from "../workspaces/quickTools";
 import { openPaths } from "./actions";
 
-/** the quick tool card under a point, if any */
+/** the quick tool card or open session under a point, if any */
 export function targetAt(x: number, y: number): DropTarget {
   for (const el of document.elementsFromPoint(x, y)) {
+    const session =
+      el instanceof HTMLElement ? el.closest<HTMLElement>("[data-drop-session]") : null;
+    if (session?.dataset.dropSession && session.dataset.dropSessionTool) {
+      return {
+        type: "session",
+        document: session.dataset.dropSession,
+        tool: session.dataset.dropSessionTool as QuickToolId,
+      };
+    }
     const tool = el instanceof HTMLElement ? el.closest<HTMLElement>("[data-drop-tool]") : null;
     if (tool?.dataset.dropTool) return { type: "tool", tool: tool.dataset.dropTool as QuickToolId };
   }
@@ -24,7 +33,9 @@ let dragged: string[] = [];
 function update(physical: { x: number; y: number }) {
   const scale = window.devicePixelRatio || 1;
   const target = targetAt(physical.x / scale, physical.y / scale);
-  useUi.getState().setDrop(planDrop(dragged, target), target.type === "tool" ? target.tool : null);
+  useUi
+    .getState()
+    .setDrop(planDrop(dragged, target), target.type === "window" ? null : target.tool);
 }
 
 export async function performDrop(paths: string[], target: DropTarget) {
@@ -37,6 +48,15 @@ export async function performDrop(paths: string[], target: DropTarget) {
       break;
     case "tool":
       await openPaths(plan.files, plan.tool);
+      break;
+    case "add":
+      await ipc
+        .documentCommand(plan.document, "tool.add_inputs", { paths: plan.files })
+        .catch((err: unknown) => {
+          useUi
+            .getState()
+            .toast({ level: "error", title: "The files were not added", body: String(err) });
+        });
       break;
     case "reject":
       useUi.getState().toast({ level: "warning", title: plan.title, body: plan.detail });

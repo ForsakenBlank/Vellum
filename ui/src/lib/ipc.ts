@@ -1,13 +1,17 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
 
+import type { AnimEstimate } from "../bindings/AnimEstimate";
+import type { AnimOptions } from "../bindings/AnimOptions";
 import type { AppInfo } from "../bindings/AppInfo";
 import type { AppSettings } from "../bindings/AppSettings";
 import type { AutosaveStatus } from "../bindings/AutosaveStatus";
 import type { CacheStats } from "../bindings/CacheStats";
 import type { CommandInfo } from "../bindings/CommandInfo";
 import type { CommandOutcome } from "../bindings/CommandOutcome";
+import type { ConvertTarget } from "../bindings/ConvertTarget";
 import type { DocumentInfo } from "../bindings/DocumentInfo";
 import type { DocumentState } from "../bindings/DocumentState";
+import type { GifFramesView } from "../bindings/GifFramesView";
 import type { HistoryView } from "../bindings/HistoryView";
 import type { JobId } from "../bindings/JobId";
 import type { JobPriority } from "../bindings/JobPriority";
@@ -22,6 +26,8 @@ import type { NotificationsChanged } from "../bindings/NotificationsChanged";
 import type { OpenFilesResult } from "../bindings/OpenFilesResult";
 import type { RecentFiles } from "../bindings/RecentFiles";
 import type { RecoveryOffer } from "../bindings/RecoveryOffer";
+import type { SizeOptions } from "../bindings/SizeOptions";
+import type { SizePlan } from "../bindings/SizePlan";
 import type { SnapshotId } from "../bindings/SnapshotId";
 import type { WaveformOverview } from "../bindings/WaveformOverview";
 
@@ -99,4 +105,16 @@ export const ipc = {
   stripMetadata: (path: string) => invoke<JobId>("strip_metadata", { path }),
   mediaCacheStats: () => invoke<CacheStats>("media_cache_stats"),
   cleanMediaCache: () => invoke<CacheStats>("clean_media_cache"),
+
+  runQuickTool: (document: string) => invoke<JobId[]>("run_quick_tool", { document }),
+  sizePlan: (path: string, options: SizeOptions) =>
+    invoke<SizePlan>("size_plan", { path, options }),
+  animEstimate: (path: string, options: AnimOptions) =>
+    invoke<AnimEstimate>("anim_estimate", { path, options }),
+  gifFrames: (path: string) => invoke<GifFramesView>("gif_frames", { path }),
+  convertTargets: (path: string) => invoke<ConvertTarget[]>("convert_targets", { path }),
+  mediaFrame: (path: string, seconds: number, height: number) =>
+    invoke<string>("media_frame", { path, seconds, height }),
+  previewFile: (path: string) => invoke<null>("preview_file", { path }),
+  copyFiles: (paths: string[]) => invoke<null>("copy_files", { paths }),
 };

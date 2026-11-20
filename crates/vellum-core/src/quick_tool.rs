@@ -14,7 +14,6 @@ use serde_json::{Map, Value};
 
 use crate::command::{Command, CommandError, CommandInfo, CommandRegistry, downcast, params_of};
 use crate::documents::{DocumentError, DocumentModel, RenameDocument, Titled};
-use crate::settings::merge_patch;
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
@@ -101,7 +100,9 @@ impl DocumentModel for QuickToolDocument {
     }
 }
 
-/// changes some options with a json merge patch, eg `{ "target": { "amount": 8 } }`.
+/// changes some options, eg `{ "target": { "amount": 8 } }`. objects merge key by key and
+/// anything else replaces what was there. unlike a json merge patch, null is stored as
+/// null, because for tool options it means something ("keep the source width").
 /// dragging a slider sends one per step and they merge into one undo step.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SetOptions {
@@ -126,6 +127,23 @@ impl SetOptions {
         collect_keys(&self.patch, "", &mut keys);
         keys.sort();
         keys
+    }
+}
+
+/// merges `patch` into `target`: objects key by key, everything else (null too) replaced
+pub fn merge_options(target: &mut Value, patch: &Value) {
+    match (target, patch) {
+        (Value::Object(target), Value::Object(patch)) => {
+            for (key, value) in patch {
+                match target.get_mut(key) {
+                    Some(existing) => merge_options(existing, value),
+                    None => {
+                        target.insert(key.clone(), value.clone());
+                    }
+                }
+            }
+        }
+        (target, patch) => *target = patch.clone(),
     }
 }
 
@@ -161,7 +179,7 @@ impl Command<QuickToolDocument> for SetOptions {
             return Err(CommandError::failed("options must be a json object"));
         }
         let mut next = doc.options.clone();
-        merge_patch(&mut next, &self.patch);
+        merge_options(&mut next, &self.patch);
         self.previous = Some(std::mem::replace(&mut doc.options, next));
         Ok(())
     }
@@ -179,7 +197,7 @@ impl Command<QuickToolDocument> for SetOptions {
     fn merge(&mut self, next: &dyn Command<QuickToolDocument>) -> bool {
         match downcast::<QuickToolDocument, SetOptions>(next) {
             Some(next) if next.keys() == self.keys() => {
-                merge_patch(&mut self.patch, &next.patch);
+                merge_options(&mut self.patch, &next.patch);
                 true
             }
             _ => false,
@@ -353,6 +371,16 @@ mod tests {
         history.undo(&mut doc).unwrap();
         assert_eq!(doc.options, json!({}));
         assert!(!history.summary().can_undo);
+    }
+
+    #[test]
+    fn null_is_kept_as_a_value() {
+        let mut options = json!({ "anim": { "width": 480, "fps": 15 } });
+        merge_options(&mut options, &json!({ "anim": { "width": null } }));
+        assert_eq!(options, json!({ "anim": { "width": null, "fps": 15 } }));
+        merge_options(&mut options, &json!({ "frames": [1, 2] }));
+        merge_options(&mut options, &json!({ "frames": [3] }));
+        assert_eq!(options["frames"], json!([3]));
     }
 
     #[test]

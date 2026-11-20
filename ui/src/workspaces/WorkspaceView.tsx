@@ -13,6 +13,8 @@ import { activeDocument, useDocuments } from "../state/documents";
 import { useUi } from "../state/ui";
 import { pickAndOpen } from "../shell/actions";
 import { quickTool } from "./quickTools";
+import { isRunnable } from "../lib/tools";
+import { ToolView } from "./tools/ToolView";
 import { workspaceInfo } from "./workspaces";
 
 /** the centre of the window: the active document, or an empty workspace */
@@ -20,6 +22,9 @@ export function WorkspaceView() {
   const doc = useDocuments(activeDocument);
   const activeId = useDocuments((s) => s.activeId);
   const empty = useDocuments((s) => s.emptyWorkspace);
+  if (doc && doc.docType === "quick_tool" && isRunnable(doc.tool)) {
+    return <ToolView key={doc.id} doc={doc} />;
+  }
   if (doc) return <DocumentView key={doc.id} doc={doc} />;
   // the tab was just opened and the list has not caught up yet
   if (activeId) return <Loading />;

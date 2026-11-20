@@ -192,7 +192,7 @@ fn gif_tools_edit_and_split() {
     // a second look comes from the cache
     assert_eq!(app.tools.gif_frames(&gif).unwrap().sheet, view.sheet);
 
-    let id = open(&app, "gif_tools", &[gif.clone()]);
+    let id = open(&app, "gif_tools", std::slice::from_ref(&gif));
     set(
         &app,
         &id,

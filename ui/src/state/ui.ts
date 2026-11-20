@@ -15,7 +15,7 @@ export interface Toast {
 }
 
 export type SettingsSection =
-  "appearance" | "shortcuts" | "autosave" | "jobs" | "history" | "media" | "about";
+  "appearance" | "shortcuts" | "autosave" | "jobs" | "history" | "media" | "export" | "about";
 
 export interface ConfirmRequest {
   title: string;

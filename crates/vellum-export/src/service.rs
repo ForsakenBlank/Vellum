@@ -233,13 +233,15 @@ impl QuickTools {
     }
 
     /// queues one job that runs `work` with a fresh environment from settings
-    fn submit<F>(&self, owner: &str, title: String, work: F) -> JobId
+    fn submit<F>(&self, owner: &str, subject: &Path, title: String, work: F) -> JobId
     where
         F: Fn(&Env, &JobContext) -> MediaResult<ToolResult> + Send + 'static,
     {
         let media = self.media.clone();
         let app = self.app.clone();
-        let spec = JobSpec::cpu(title).owned_by(owner);
+        let spec = JobSpec::cpu(title)
+            .owned_by(owner)
+            .about(subject.display().to_string());
         self.app.jobs.submit(spec, move |ctx: &JobContext| {
             let hardware = media.hardware();
             let settings = app.settings.get();
@@ -281,7 +283,7 @@ impl QuickTools {
                 let options = options.clone();
                 let label = label.clone();
                 let title = format!("Export {} to {label}", display_name(&input));
-                self.submit(owner, title, move |env, ctx| {
+                self.submit(owner, &input.clone(), title, move |env, ctx| {
                     ctx.set_message("Reading the file");
                     let info = media.probe(&input)?;
                     let job = SizeJob {
@@ -327,7 +329,7 @@ impl QuickTools {
                     anim.format.label(),
                     display_name(&input)
                 );
-                self.submit(owner, title, move |env, ctx| {
+                self.submit(owner, &input.clone(), title, move |env, ctx| {
                     let info = media.probe(&input)?;
                     let source = AnimSource::of(&info)?;
                     let output = naming::output_for(
@@ -403,7 +405,7 @@ impl QuickTools {
                     GifMode::Video => "Make a video from",
                 };
                 let title = format!("{verb} {}", display_name(&input));
-                self.submit(owner, title, move |env, ctx| {
+                self.submit(owner, &input.clone(), title, move |env, ctx| {
                     gif_tool(env, &media, &input, &options, goal, ctx)
                 })
             })
@@ -437,7 +439,8 @@ impl QuickTools {
             let inputs = inputs.to_vec();
             let target = target.unwrap_or(ConvertTarget::Mp4);
             let title = format!("Make a slideshow of {} pictures", inputs.len());
-            return Ok(vec![self.submit(owner, title, move |env, ctx| {
+            let first = inputs[0].clone();
+            return Ok(vec![self.submit(owner, &first, title, move |env, ctx| {
                 convert::slideshow(env, &inputs, target, &options, ctx)
             })]);
         }
@@ -451,7 +454,7 @@ impl QuickTools {
                     format!(" to {}", t.extension().to_uppercase())
                 });
                 let title = format!("Convert {}{what}", display_name(&input));
-                self.submit(owner, title, move |env, ctx| {
+                self.submit(owner, &input.clone(), title, move |env, ctx| {
                     let info = media.probe(&input)?;
                     convert::convert(env, &input, &info, &options, ctx)
                 })
@@ -800,6 +803,50 @@ fn gif_tool(
                 result.notes.push("This GIF was already well compressed, so the new one is not smaller. Try more lossy compression or a smaller width.".to_owned());
             }
             Ok(result)
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    /// every tool's default options and the formats each kind of file converts to, for the
+    /// ui, which fills in missing options from these instead of keeping its own copy
+    #[test]
+    fn export_tool_defaults() {
+        let targets: serde_json::Map<String, Value> = [
+            MediaKind::Video,
+            MediaKind::Audio,
+            MediaKind::Animation,
+            MediaKind::Image,
+            MediaKind::Vector,
+        ]
+        .into_iter()
+        .map(|kind| {
+            let name = serde_json::to_value(kind).unwrap();
+            (
+                name.as_str().unwrap().to_owned(),
+                json!(convert::targets_for(kind)),
+            )
+        })
+        .collect();
+        let value = json!({
+            EXPORT_TO_SIZE: SizeOptions::default(),
+            VIDEO_TO_GIF: GifMakerOptions::default(),
+            GIF_TOOLS: GifToolOptions::default(),
+            CONVERT: ConvertOptions::default(),
+            "convertTargets": targets,
+            "minSafeDelayMs": frames::MIN_SAFE_DELAY_MS,
+            "sizePresets": vellum_core::settings::default_size_presets(),
+        });
+        let path =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../ui/src/bindings/toolDefaults.json");
+        let mut text = serde_json::to_string_pretty(&value).unwrap();
+        text.push('\n');
+        if std::fs::read_to_string(&path).ok().as_deref() != Some(text.as_str()) {
+            std::fs::write(&path, text).unwrap();
         }
     }
 }

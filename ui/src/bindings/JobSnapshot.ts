@@ -27,7 +27,11 @@ background: boolean,
 /**
  * the document that started it, see `JobSpec::owner`
  */
-owner: string | null, error: string | null, result: unknown, createdAtMs: number, 
+owner: string | null, 
+/**
+ * the file it works on, see `JobSpec::subject`
+ */
+subject: string | null, error: string | null, result: unknown, createdAtMs: number, 
 /**
  * increases with every update across all jobs. events can arrive out of order across
  * threads, so the ui drops any snapshot older than the one it already has.

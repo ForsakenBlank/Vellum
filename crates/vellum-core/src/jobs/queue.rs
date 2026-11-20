@@ -85,6 +85,7 @@ impl Job {
             max_retries: self.spec.max_retries,
             background: self.spec.background,
             owner: self.spec.owner.clone(),
+            subject: self.spec.subject.clone(),
             error: self.error.clone(),
             result: self.result.clone(),
             created_at_ms: self.created_at_ms,

@@ -16,6 +16,7 @@ export const sectionTitles: Record<SettingsSection, string> = {
   jobs: "Jobs",
   history: "Undo history",
   media: "Media and cache",
+  export: "Export and quick tools",
   about: "About",
 };
 
@@ -145,6 +146,35 @@ export const settingsCatalog: SettingEntry[] = [
     label: "Preview cache",
     description: "Cleaning it is safe, previews are made again when needed.",
     keywords: "clear clean delete disk space thumbnails storage",
+  },
+  {
+    id: "exportTarget",
+    section: "export",
+    label: "Export to size starts at",
+    description: "The size Export to size aims for until you pick another.",
+    keywords: "target megabytes mb mib discord limit default",
+  },
+  {
+    id: "exportMargin",
+    section: "export",
+    label: "Safety margin",
+    description: "How far under the limit to aim, so files never land just over it.",
+    keywords: "percent headroom under limit",
+  },
+  {
+    id: "exportFolder",
+    section: "export",
+    label: "Save results in",
+    description: "Where quick tools put what they make. Nothing is ever overwritten.",
+    keywords: "output folder directory location save",
+  },
+  {
+    id: "exportPresets",
+    section: "export",
+    label: "Size presets",
+    description:
+      "The chips in Export to size. Platforms change their limits, so change these when they do.",
+    keywords: "discord nitro whatsapp telegram email twitter x upload limit platforms",
   },
   {
     id: "version",

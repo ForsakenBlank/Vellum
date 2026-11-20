@@ -1,0 +1,187 @@
+{
+  "convert": {
+    "codec": "h264",
+    "end": null,
+    "flipHorizontal": false,
+    "flipVertical": false,
+    "frameInterval": 0.0,
+    "framesAsJpg": false,
+    "icoSizes": [
+      16,
+      24,
+      32,
+      48,
+      64,
+      128,
+      256
+    ],
+    "maxHeight": null,
+    "maxWidth": null,
+    "mute": false,
+    "quality": 85,
+    "rotate": 0,
+    "slideSeconds": 3.0,
+    "speed": 1.0,
+    "start": null,
+    "target": null
+  },
+  "convertTargets": {
+    "animation": [
+      "mp4",
+      "webm",
+      "webp",
+      "avif",
+      "png",
+      "jpg",
+      "frames"
+    ],
+    "audio": [
+      "mp3",
+      "m4a",
+      "ogg",
+      "wav",
+      "flac"
+    ],
+    "image": [
+      "jpg",
+      "png",
+      "webp",
+      "avif",
+      "gif",
+      "bmp",
+      "tiff",
+      "ico",
+      "mp4"
+    ],
+    "vector": [
+      "jpg",
+      "png",
+      "webp",
+      "avif",
+      "gif",
+      "bmp",
+      "tiff",
+      "ico",
+      "mp4"
+    ],
+    "video": [
+      "mp4",
+      "webm",
+      "mkv",
+      "mov",
+      "gif",
+      "webp",
+      "mp3",
+      "m4a",
+      "ogg",
+      "wav",
+      "flac",
+      "frames",
+      "jpg",
+      "png"
+    ]
+  },
+  "export_to_size": {
+    "audioFormat": "mp3",
+    "codec": "h264",
+    "end": null,
+    "imageFormat": "auto",
+    "marginPercent": null,
+    "mono": false,
+    "mute": false,
+    "preset": null,
+    "start": null,
+    "strategy": "bestQuality",
+    "target": null
+  },
+  "gif_tools": {
+    "colors": 256,
+    "dither": "sierra",
+    "dropFrames": false,
+    "fitToSize": false,
+    "frames": null,
+    "loops": null,
+    "lossy": 40,
+    "mode": "optimise",
+    "target": null,
+    "width": null
+  },
+  "minSafeDelayMs": 20,
+  "sizePresets": [
+    {
+      "amount": 20.0,
+      "id": "discord",
+      "label": "Discord",
+      "note": "Free accounts, since August 2026",
+      "unit": "MiB"
+    },
+    {
+      "amount": 50.0,
+      "id": "discord_basic",
+      "label": "Discord Nitro Basic",
+      "note": "",
+      "unit": "MiB"
+    },
+    {
+      "amount": 1000.0,
+      "id": "discord_nitro",
+      "label": "Discord Nitro",
+      "note": "",
+      "unit": "MB"
+    },
+    {
+      "amount": 18.0,
+      "id": "email",
+      "label": "Email",
+      "note": "Gmail allows 25 MB, but attachments grow by a third when sent",
+      "unit": "MB"
+    },
+    {
+      "amount": 16.0,
+      "id": "whatsapp",
+      "label": "WhatsApp",
+      "note": "Videos and photos sent as media",
+      "unit": "MB"
+    },
+    {
+      "amount": 2000.0,
+      "id": "telegram",
+      "label": "Telegram",
+      "note": "",
+      "unit": "MB"
+    },
+    {
+      "amount": 512.0,
+      "id": "x",
+      "label": "X (Twitter)",
+      "note": "Videos",
+      "unit": "MB"
+    }
+  ],
+  "video_to_gif": {
+    "anim": {
+      "boomerang": false,
+      "caption": {
+        "bottom": "",
+        "scale": 0.0,
+        "style": "classic",
+        "top": ""
+      },
+      "colors": 256,
+      "crop": null,
+      "dither": "sierra",
+      "end": null,
+      "format": "gif",
+      "fps": 15.0,
+      "loops": 0,
+      "lossy": 0,
+      "quality": 75,
+      "reverse": false,
+      "speed": 1.0,
+      "start": null,
+      "width": 480
+    },
+    "fitToSize": false,
+    "target": null
+  }
+}

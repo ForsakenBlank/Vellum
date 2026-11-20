@@ -18,6 +18,7 @@ function job(id: number, revision: number, overrides: Partial<JobSnapshot> = {})
     maxRetries: 0,
     background: false,
     owner: null,
+    subject: null,
     error: null,
     result: null,
     createdAtMs: 1000 + id,

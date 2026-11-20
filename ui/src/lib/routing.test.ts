@@ -112,3 +112,21 @@ describe("planDrop on a quick tool", () => {
     );
   });
 });
+
+describe("planDrop on an open session", () => {
+  it("adds files the tool takes to the batch", () => {
+    const plan = planDrop(["/m/a.mp4", "/m/notes.txt"], {
+      type: "session",
+      document: "doc-3",
+      tool: "export_to_size",
+    });
+    expect(plan).toMatchObject({ action: "add", document: "doc-3", files: ["/m/a.mp4"] });
+    expect(plan.title).toBe("Add a.mp4 to this batch");
+    expect(plan.detail).toBe("notes.txt will be skipped.");
+  });
+
+  it("refuses files the tool cannot take", () => {
+    const plan = planDrop(["/m/a.mp3"], { type: "session", document: "doc-3", tool: "gif_tools" });
+    expect(plan.action).toBe("reject");
+  });
+});

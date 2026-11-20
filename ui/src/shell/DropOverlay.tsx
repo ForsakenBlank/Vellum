@@ -17,7 +17,7 @@ export function DropOverlay() {
   const Icon =
     plan.action === "reject"
       ? Ban
-      : plan.action === "tool"
+      : plan.action === "tool" || plan.action === "add"
         ? (quickTool(plan.tool)?.icon ?? FileInput)
         : workspaceInfo(plan.workspace).icon;
 

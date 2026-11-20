@@ -32,8 +32,14 @@ export function kindOf(path: string): FileKindRow | undefined {
   return ext ? fileKinds.find((row) => row.extensions.includes(ext)) : undefined;
 }
 
-/** where the files are dropped: anywhere on the window, or on one quick tool card */
-export type DropTarget = { type: "window" } | { type: "tool"; tool: QuickToolId };
+/**
+ * where the files are dropped: anywhere on the window, on one quick tool card, or on the
+ * file list of a quick tool session that is already open
+ */
+export type DropTarget =
+  | { type: "window" }
+  | { type: "tool"; tool: QuickToolId }
+  | { type: "session"; document: string; tool: QuickToolId };
 
 export type DropPlan =
   | {
@@ -45,6 +51,14 @@ export type DropPlan =
       detail: string;
     }
   | { action: "tool"; tool: QuickToolId; files: string[]; title: string; detail: string }
+  | {
+      action: "add";
+      document: string;
+      tool: QuickToolId;
+      files: string[];
+      title: string;
+      detail: string;
+    }
   | { action: "reject"; title: string; detail: string };
 
 function describe(files: string[]): string {
@@ -69,7 +83,7 @@ export function planDrop(files: string[], target: DropTarget): DropPlan {
     return { action: "reject", title: "Nothing to open", detail: "Only files can be dropped." };
   }
 
-  if (target.type === "tool") {
+  if (target.type === "tool" || target.type === "session") {
     const tool = quickTool(target.tool);
     if (!tool) return { action: "reject", title: "Unknown tool", detail: "" };
     if (tool.accepts.length === 0) {
@@ -83,6 +97,16 @@ export function planDrop(files: string[], target: DropTarget): DropPlan {
       return { action: "reject", title: tool.needs, detail: "Drop anywhere else to open it." };
     }
     const skipped = files.filter((f) => !fits.includes(f));
+    if (target.type === "session") {
+      return {
+        action: "add",
+        document: target.document,
+        tool: tool.id,
+        files: fits,
+        title: `Add ${describe(fits)} to this batch`,
+        detail: skippedNote(skipped) || `${tool.title} runs on them with the same settings.`,
+      };
+    }
     return {
       action: "tool",
       tool: tool.id,

@@ -1,5 +1,6 @@
 import {
   ArrowLeftRight,
+  Film,
   ImagePlay,
   Minimize2,
   MonitorDot,
@@ -10,9 +11,15 @@ import {
 import type { FileKind } from "../bindings/FileKind";
 
 export type QuickToolId =
-  "export_to_size" | "video_to_gif" | "remove_background" | "convert" | "screen_record";
+  | "export_to_size"
+  | "video_to_gif"
+  | "gif_tools"
+  | "remove_background"
+  | "convert"
+  | "screen_record";
 
-/** the quick tool cards on the home screen. the real tools arrive in phases 3, 7 and 14. */
+/** the quick tool cards on the home screen. remove background arrives in phase 7 and screen
+ * recording in phase 14. */
 export interface QuickTool {
   id: QuickToolId;
   /** the app command that opens it */
@@ -50,6 +57,17 @@ export const quickTools: QuickTool[] = [
     accepts: ["video", "gif"],
     verb: (what) => `Make a GIF from ${what}`,
     needs: "Video to GIF needs a video",
+    phase: 3,
+  },
+  {
+    id: "gif_tools",
+    command: "tool.gif_tools",
+    title: "GIF tools",
+    blurb: "Edit frames, make it smaller, split it or turn it into a video.",
+    icon: Film,
+    accepts: ["gif"],
+    verb: (what) => `Open ${what} in GIF tools`,
+    needs: "GIF tools needs a GIF",
     phase: 3,
   },
   {

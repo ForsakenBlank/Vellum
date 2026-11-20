@@ -303,6 +303,7 @@ mod tests {
             max_retries: 0,
             background: false,
             owner: None,
+            subject: None,
             error: None,
             result: None,
             created_at_ms: 0,

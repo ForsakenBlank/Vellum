@@ -17,6 +17,7 @@ import { useMedia } from "../../state/media";
 import { useSettings } from "../../state/settings";
 import { useUi, type SettingsSection } from "../../state/ui";
 import { sectionTitles, settingsCatalog, type SettingEntry } from "./catalog";
+import { FolderControl, MarginControl, PresetsEditor, TargetControl } from "./ExportSettings";
 import { ShortcutEditor } from "./ShortcutEditor";
 
 const sections = Object.keys(sectionTitles) as SettingsSection[];
@@ -182,7 +183,10 @@ function Rows({
   return (
     <div className="flex flex-col divide-y divide-line">
       {entries.map((entry) => (
-        <div key={entry.id} className="flex items-center gap-6 py-3.5">
+        <div
+          key={entry.id}
+          className={`flex gap-6 py-3.5 ${entry.id === "exportPresets" ? "flex-col gap-3" : "items-center"}`}
+        >
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">
             <label htmlFor={`setting-${entry.id}`} className="text-sm font-medium">
               {entry.label}
@@ -404,6 +408,14 @@ function Control({ entry, settings }: { entry: SettingEntry; settings: AppSettin
       );
     case "cacheUsage":
       return <CacheUsage />;
+    case "exportTarget":
+      return <TargetControl id={id} />;
+    case "exportMargin":
+      return <MarginControl id={id} />;
+    case "exportFolder":
+      return <FolderControl />;
+    case "exportPresets":
+      return <PresetsEditor />;
     default:
       return null;
   }
