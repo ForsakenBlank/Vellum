@@ -9,6 +9,10 @@ import type { JobState } from "./JobState";
  */
 export type JobSnapshot = { id: JobId, title: string, resource: JobResource, priority: JobPriority, state: JobState, 
 /**
+ * hidden from the jobs panel and notifications, see [`JobSpec::background`]
+ */
+background: boolean, 
+/**
  * 0 to 1, or none when the job cannot tell
  */
 progress: number | null, message: string | null, etaSecs: number | null, 

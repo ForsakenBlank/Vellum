@@ -9,12 +9,16 @@
 //! see `ARCHITECTURE.md` section 22 for how the pieces fit and why.
 
 pub mod animation;
+pub mod cache;
 pub mod error;
 pub mod exif_tags;
 pub mod ffmpeg;
 pub mod images;
 pub mod info;
 pub mod sniff;
+pub mod strip;
+pub mod thumbnail;
+pub mod waveform;
 
 pub use error::{MediaError, MediaResult};
 pub use info::{MediaInfo, MediaKind};

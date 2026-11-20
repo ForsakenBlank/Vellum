@@ -124,6 +124,10 @@ pub struct JobSpec {
     pub max_retries: u32,
     /// wait before the first retry, doubled for each one after
     pub retry_delay: Duration,
+    /// small work the user did not ask for directly, like thumbnails. it still waits for a
+    /// slot like any job, but the ui leaves it out of the jobs panel and notifications, and
+    /// it is removed from the queue as soon as it finishes.
+    pub background: bool,
 }
 
 impl JobSpec {
@@ -134,6 +138,7 @@ impl JobSpec {
             priority: JobPriority::Normal,
             max_retries: 0,
             retry_delay: Duration::from_secs(2),
+            background: false,
         }
     }
 
@@ -157,6 +162,12 @@ impl JobSpec {
     pub fn with_retries(mut self, max_retries: u32, delay: Duration) -> Self {
         self.max_retries = max_retries;
         self.retry_delay = delay;
+        self
+    }
+
+    /// see [`JobSpec::background`]
+    pub fn in_background(mut self) -> Self {
+        self.background = true;
         self
     }
 }
@@ -226,6 +237,8 @@ pub struct JobSnapshot {
     pub resource: JobResource,
     pub priority: JobPriority,
     pub state: JobState,
+    /// hidden from the jobs panel and notifications, see [`JobSpec::background`]
+    pub background: bool,
     /// 0 to 1, or none when the job cannot tell
     pub progress: Option<f32>,
     pub message: Option<String>,

@@ -249,6 +249,9 @@ pub fn result_path(job: &JobSnapshot) -> Option<String> {
 }
 
 fn job_notification(job: &JobSnapshot) -> Option<NewNotification> {
+    if job.background {
+        return None;
+    }
     match job.state {
         JobState::Completed => {
             let new =
@@ -283,6 +286,7 @@ mod tests {
             resource: JobResource::Cpu,
             priority: JobPriority::Normal,
             state,
+            background: false,
             progress: None,
             message: None,
             eta_secs: None,
@@ -298,6 +302,16 @@ mod tests {
 
     fn update(job: JobSnapshot) -> JobEvent {
         JobEvent::Updated { job }
+    }
+
+    #[test]
+    fn background_jobs_never_notify() {
+        let center = NotificationCenter::new(EventBus::new());
+        let mut failed = snapshot(2, JobState::Failed);
+        failed.background = true;
+        failed.error = Some("no thumbnail".into());
+        center.observe_job(&update(failed));
+        assert!(center.list().items.is_empty());
     }
 
     #[test]

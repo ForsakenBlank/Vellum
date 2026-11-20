@@ -77,6 +77,7 @@ impl Job {
             resource: self.spec.resource,
             priority: self.spec.priority,
             state: self.state,
+            background: self.spec.background,
             progress: self.progress,
             message: self.message.clone(),
             eta_secs: eta,
@@ -309,10 +310,15 @@ impl State {
                 }
             }
         }
+        let drop_now = job.spec.background && job.state.is_finished();
         if requeue {
             self.insert_waiting(id, true);
         }
         self.touch(id);
+        if drop_now {
+            // listeners still get the final snapshot (with the result) before it goes
+            let _ = self.remove(id);
+        }
     }
 
     fn cancel(&mut self, id: JobId) -> Result<(), JobQueueError> {
@@ -1349,6 +1355,35 @@ mod tests {
         assert!(q.snapshot(slow).is_some());
         assert_eq!(q.remove(id), Err(JobQueueError::UnknownJob(id)));
         q.cancel_all();
+    }
+
+    #[test]
+    fn background_jobs_hand_over_their_result_then_leave_the_queue() {
+        let bus = EventBus::new();
+        let events = bus.subscribe::<JobEvent>();
+        let q = JobQueue::new(JobLimits::default(), bus);
+        let id = q.submit(
+            JobSpec::cpu("thumbnail").in_background(),
+            |_: &JobContext| Ok(json!({ "path": "thumb.jpg" })),
+        );
+        let mut final_result = None;
+        let mut removed = false;
+        while let Some(event) = events.recv_timeout(Duration::from_millis(500)) {
+            match event {
+                JobEvent::Updated { job } if job.state == JobState::Completed => {
+                    assert!(job.background);
+                    final_result = job.result;
+                }
+                JobEvent::Removed { id: gone, .. } if gone == id => {
+                    removed = true;
+                    break;
+                }
+                _ => {}
+            }
+        }
+        assert_eq!(final_result, Some(json!({ "path": "thumb.jpg" })));
+        assert!(removed);
+        assert!(q.snapshot(id).is_none());
     }
 
     #[test]
