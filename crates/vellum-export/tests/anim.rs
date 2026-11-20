@@ -1,5 +1,8 @@
 //! video to gif and the other loop formats, rendered for real.
 
+// test helpers unwrap too, a failure in one is a failed test
+#![allow(clippy::unwrap_used)]
+
 mod common;
 
 use std::path::Path;

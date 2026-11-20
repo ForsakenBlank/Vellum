@@ -193,6 +193,55 @@ impl MediaService {
         }
     }
 
+    /// the encoders this machine has. if the start-up check has not finished, checks now,
+    /// which takes a second or two, so call it from a job.
+    pub fn hardware(&self) -> HardwareSupport {
+        if let Some(support) = self.inner.hardware.read().clone() {
+            return support;
+        }
+        match self.ffmpeg() {
+            Some(ffmpeg) => hw::detect(ffmpeg).unwrap_or_default(),
+            None => HardwareSupport::default(),
+        }
+    }
+
+    /// the preview cache, for tools that keep their own previews in it
+    pub fn cache(&self) -> &MediaCache {
+        &self.inner.cache
+    }
+
+    /// the exact frame at `seconds`, `height` pixels tall, as a cached jpeg. for trim
+    /// handles, which show precisely where a cut lands. takes a few hundred milliseconds
+    /// the first time, so call it off the ui thread.
+    pub fn frame_at(&self, path: &Path, seconds: f64, height: u32) -> MediaResult<PathBuf> {
+        let key = SourceKey::of(path)?;
+        // milliseconds are finer than any frame, and keep the key short
+        let params = format!("r{RECIPE}:{}:{height}", (seconds.max(0.0) * 1000.0).round());
+        if let Some(file) = self
+            .inner
+            .cache
+            .get(&key, "frame", &params)
+            .and_then(|e| e.file)
+        {
+            return Ok(file);
+        }
+        let info = self.probe(path)?;
+        let ffmpeg = self.ffmpeg().ok_or(MediaError::FfmpegMissing)?;
+        let (Some(w), Some(h)) = (info.width, info.height) else {
+            return Err(MediaError::Unsupported(format!(
+                "{} has no picture.",
+                info.name
+            )));
+        };
+        let height = height.clamp(16, h.max(16));
+        let width = ((u64::from(w) * u64::from(height) / u64::from(h.max(1))) as u32).max(2) & !1;
+        let image = crate::seek::grab(ffmpeg, path, seconds, true, (width, height & !1))?;
+        let (bytes, ext) = thumbs::encode_preview(&image)?;
+        self.inner
+            .cache
+            .put_file(&key, "frame", &params, &bytes, ext, None)
+    }
+
     /// whether exports may use a hardware encoder, from settings
     pub fn hardware_allowed(&self) -> bool {
         self.inner.allow_hardware.load(Ordering::Relaxed)

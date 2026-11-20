@@ -5,6 +5,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use tauri::{AppHandle, Manager};
 use vellum_core::app::{AppPaths, AppServices};
 use vellum_core::ui::UiReady;
+use vellum_export::service::QuickTools;
 use vellum_media::MediaService;
 
 use crate::bridge::TauriSink;
@@ -13,6 +14,7 @@ use crate::bridge::TauriSink;
 pub struct AppState {
     pub services: AppServices,
     pub media: MediaService,
+    pub tools: QuickTools,
     pub settings_path: PathBuf,
     next_window: AtomicU64,
 }
@@ -44,9 +46,11 @@ impl AppState {
             allow_asset(app, Path::new(&file.path));
         }
 
+        let tools = QuickTools::new(&services, &media);
         Ok(Self {
             services,
             media,
+            tools,
             settings_path,
             next_window: AtomicU64::new(1),
         })

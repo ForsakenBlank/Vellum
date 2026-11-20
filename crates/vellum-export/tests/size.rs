@@ -1,6 +1,9 @@
 //! export to size on real files: every result must land under its limit, whatever the
 //! file and whatever the strategy.
 
+// test helpers unwrap too, a failure in one is a failed test
+#![allow(clippy::unwrap_used)]
+
 mod common;
 
 use common::fixture;

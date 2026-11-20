@@ -57,7 +57,7 @@ impl Serialize for IpcError {
     }
 }
 
-type IpcResult<T> = Result<T, IpcError>;
+pub(crate) type IpcResult<T> = Result<T, IpcError>;
 
 #[tauri::command]
 pub fn app_info(state: State<'_, AppState>) -> AppInfo {

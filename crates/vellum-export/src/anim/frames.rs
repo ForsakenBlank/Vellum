@@ -30,7 +30,7 @@ pub struct EditedFrame {
 }
 
 /// the frames of a gif, for the editor to start from
-#[derive(Debug, Clone, PartialEq, Serialize, TS)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export)]
 pub struct GifFrames {

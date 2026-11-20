@@ -98,6 +98,12 @@
     },
     {
       "category": "Quick tools",
+      "description": "Edit a GIF frame by frame, make it smaller, split it into pictures or turn it into a video.",
+      "kind": "tool.gif_tools",
+      "title": "GIF tools"
+    },
+    {
+      "category": "Quick tools",
       "description": "Cut the subject out of a photo.",
       "kind": "tool.remove_background",
       "title": "Remove background"

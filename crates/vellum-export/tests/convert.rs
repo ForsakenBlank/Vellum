@@ -1,5 +1,8 @@
 //! the converter on real files.
 
+// test helpers unwrap too, a failure in one is a failed test
+#![allow(clippy::unwrap_used)]
+
 mod common;
 
 use std::path::Path;

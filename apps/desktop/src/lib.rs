@@ -5,6 +5,7 @@
 mod bridge;
 mod ipc;
 mod state;
+mod tools;
 
 use tauri::{Manager, RunEvent, WindowEvent};
 use tracing_subscriber::EnvFilter;
@@ -85,6 +86,14 @@ pub fn run() {
             ipc::strip_metadata,
             ipc::media_cache_stats,
             ipc::clean_media_cache,
+            tools::run_quick_tool,
+            tools::size_plan,
+            tools::anim_estimate,
+            tools::gif_frames,
+            tools::convert_targets,
+            tools::media_frame,
+            tools::preview_file,
+            tools::copy_files,
         ])
         .build(tauri::generate_context!());
 

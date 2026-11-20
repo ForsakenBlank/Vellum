@@ -6,4 +6,8 @@ export type VideoEncode = { codec: VideoCodec, quality: VideoQuality,
 /**
  * scale to this width, keeping the aspect ratio if height is none
  */
-width: number | null, height: number | null, fps: number | null, };
+width: number | null, height: number | null, fps: number | null, 
+/**
+ * ffmpeg filters that run before scaling, eg a crop or a rotation
+ */
+filters: Array<string>, };

@@ -284,6 +284,9 @@ app_commands! {
     VideoToGif = "tool.video_to_gif", "Quick tools", "Video to GIF",
         "Turn part of a video into a GIF.",
         |ctx| { ui(ctx, "tool.video_to_gif") }
+    GifTools = "tool.gif_tools", "Quick tools", "GIF tools",
+        "Edit a GIF frame by frame, make it smaller, split it into pictures or turn it into a video.",
+        |ctx| { ui(ctx, "tool.gif_tools") }
     RemoveBackground = "tool.remove_background", "Quick tools", "Remove background",
         "Cut the subject out of a photo.",
         |ctx| { ui(ctx, "tool.remove_background") }

@@ -28,6 +28,8 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 vellum-core.workspace = true
 vellum-media.workspace = true
+vellum-export.workspace = true
+clipboard-rs = "0.3"
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true

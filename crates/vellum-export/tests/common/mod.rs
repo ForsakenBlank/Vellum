@@ -2,6 +2,7 @@
 //! compress test files made once per test binary.
 
 #![allow(dead_code)] // each test binary uses a different part of this
+#![allow(clippy::unwrap_used)] // a failure while setting up is a failed test
 
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
