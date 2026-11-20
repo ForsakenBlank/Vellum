@@ -578,6 +578,12 @@ impl JobContext {
         self.control.cancel.load(Ordering::SeqCst)
     }
 
+    /// true while the user wants this job paused. jobs that wait on a child process use it
+    /// to suspend the child before blocking in [`Self::checkpoint`].
+    pub fn is_pause_requested(&self) -> bool {
+        self.control.pause.load(Ordering::SeqCst)
+    }
+
     /// sets progress from 0 to 1. cheap enough to call per frame, the ui only hears about
     /// it every 100 ms.
     pub fn set_progress(&self, progress: f32) {

@@ -1,6 +1,6 @@
 [package]
 name = "vellum-media"
-description = "Ffmpeg decode and encode, probing, thumbnails, proxies and the media cache."
+description = "Ffmpeg decode and encode, probing, image decoding, thumbnails, waveforms and the media cache."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -8,6 +8,25 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
+vellum-core.workspace = true
+parking_lot.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+ts-rs.workspace = true
+
+image = { version = "0.25", default-features = false, features = [
+    "png", "jpeg", "webp", "gif", "tiff", "bmp", "ico", "qoi", "tga", "pnm", "hdr", "exr",
+] }
+kamadak-exif = "0.6"
+psd = "0.3"
+rawler = "0.8"
+resvg = "0.50"
+rusqlite = { version = "0.39", features = ["bundled"] }
+
+[dev-dependencies]
+tempfile.workspace = true
 
 [lints]
 workspace = true
