@@ -16,6 +16,7 @@ function job(id: number, revision: number, overrides: Partial<JobSnapshot> = {})
     elapsedSecs: 0,
     attempt: 0,
     maxRetries: 0,
+    background: false,
     error: null,
     result: null,
     createdAtMs: 1000 + id,
@@ -25,6 +26,14 @@ function job(id: number, revision: number, overrides: Partial<JobSnapshot> = {})
 }
 
 describe("applyJobEvent", () => {
+  it("leaves background jobs out", () => {
+    const data = applyJobEvent(emptyJobs, {
+      type: "updated",
+      job: job(1, 1, { background: true }),
+    });
+    expect(data).toBe(emptyJobs);
+  });
+
   it("adds and updates jobs", () => {
     let data = applyJobEvent(emptyJobs, { type: "updated", job: job(1, 1) });
     data = applyJobEvent(data, { type: "updated", job: job(1, 2, { state: "running" }) });

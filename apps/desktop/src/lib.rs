@@ -76,6 +76,15 @@ pub fn run() {
             ipc::move_job,
             ipc::start_sample_job,
             ipc::ui_event,
+            ipc::media_capabilities,
+            ipc::probe_media,
+            ipc::media_thumbnail,
+            ipc::media_filmstrip,
+            ipc::media_waveform,
+            ipc::waveform_overview,
+            ipc::strip_metadata,
+            ipc::media_cache_stats,
+            ipc::clean_media_cache,
         ])
         .build(tauri::generate_context!());
 
@@ -98,8 +107,9 @@ pub fn run() {
 }
 
 fn init_logging() {
-    let filter = EnvFilter::try_from_env("VELLUM_LOG")
-        .unwrap_or_else(|_| EnvFilter::new("info,vellum_core=debug,vellum_desktop=debug"));
+    let filter = EnvFilter::try_from_env("VELLUM_LOG").unwrap_or_else(|_| {
+        EnvFilter::new("info,vellum_core=debug,vellum_media=debug,vellum_desktop=debug")
+    });
     // a second init in the same process (tests) is harmless, so the error is ignored
     let _ = tracing_subscriber::fmt().with_env_filter(filter).try_init();
 }

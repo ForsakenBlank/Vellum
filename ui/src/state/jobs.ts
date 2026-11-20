@@ -25,6 +25,9 @@ export function applyJobEvent(data: JobsData, event: JobEvent): JobsData {
   switch (event.type) {
     case "updated": {
       const { job } = event;
+      // previews and other housekeeping run as background jobs the user never asked for,
+      // so the panel, status bar and "open when done" never see them
+      if (job.background) return data;
       const current = data.jobs[job.id];
       const removedAt = data.removedAt[job.id];
       if ((current && current.revision >= job.revision) || (removedAt ?? -1) >= job.revision) {

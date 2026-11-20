@@ -4,13 +4,16 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 import type { AppInfo } from "../../bindings/AppInfo";
 import type { AppSettings } from "../../bindings/AppSettings";
+import type { CacheStats } from "../../bindings/CacheStats";
 import type { Theme } from "../../bindings/Theme";
 import { Button, IconButton } from "../../components/Button";
 import { Switch } from "../../components/Switch";
 import { Tooltip } from "../../components/Tooltip";
 import { accentSwatches, isHexColour } from "../../lib/color";
+import { formatBytes } from "../../lib/format";
 import { rank } from "../../lib/fuzzy";
 import { inDesktopApp, ipc, type DeepPartial } from "../../lib/ipc";
+import { useMedia } from "../../state/media";
 import { useSettings } from "../../state/settings";
 import { useUi, type SettingsSection } from "../../state/ui";
 import { sectionTitles, settingsCatalog, type SettingEntry } from "./catalog";
@@ -371,9 +374,111 @@ function Control({ entry, settings }: { entry: SettingEntry; settings: AppSettin
           }}
         />
       );
+    case "hardwareAcceleration":
+      return (
+        <Switch
+          id={id}
+          label="Hardware encoding"
+          checked={settings.media.hardwareAcceleration}
+          onCheckedChange={(hardwareAcceleration) => {
+            patch({ media: { hardwareAcceleration } });
+          }}
+        />
+      );
+    case "hardwareEncoders":
+      return <HardwareEncoders />;
+    case "ffmpeg":
+      return <FfmpegStatus />;
+    case "cacheLimit":
+      return (
+        <NumberField
+          id={id}
+          value={settings.media.cacheLimitMb}
+          min={64}
+          max={1048576}
+          unit="MB"
+          onChange={(cacheLimitMb) => {
+            patch({ media: { cacheLimitMb } });
+          }}
+        />
+      );
+    case "cacheUsage":
+      return <CacheUsage />;
     default:
       return null;
   }
+}
+
+function FfmpegStatus() {
+  const capabilities = useMedia((s) => s.capabilities);
+  if (!inDesktopApp) return <span className="text-xs text-fg-subtle">Desktop app only</span>;
+  const ffmpeg = capabilities?.ffmpeg;
+  if (!ffmpeg) return <span className="text-xs text-danger">Not found</span>;
+  return (
+    <Tooltip text={ffmpeg.path}>
+      <span className="font-mono text-xs text-fg-muted">
+        {ffmpeg.version}
+        {ffmpeg.gpl ? " (GPL build)" : ""}
+      </span>
+    </Tooltip>
+  );
+}
+
+function HardwareEncoders() {
+  const capabilities = useMedia((s) => s.capabilities);
+  if (!inDesktopApp) return <span className="text-xs text-fg-subtle">Desktop app only</span>;
+  if (!capabilities?.ffmpeg) return <span className="text-xs text-fg-subtle">Needs FFmpeg</span>;
+  if (!capabilities.hardware) return <span className="text-xs text-fg-subtle">Checking...</span>;
+  const names = capabilities.hardware.encoders
+    .filter((e) => e.hardware !== null)
+    .map((e) => e.name);
+  return (
+    <span className="max-w-56 text-right font-mono text-xs text-fg-muted">
+      {names.length > 0 ? names.join(", ") : "None, the processor encodes"}
+    </span>
+  );
+}
+
+function CacheUsage() {
+  const [stats, setStats] = useState<CacheStats | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    if (inDesktopApp) void ipc.mediaCacheStats().then(setStats);
+  }, []);
+  return (
+    <span className="flex items-center gap-3">
+      <span className="text-xs text-fg-muted tabular">
+        {stats ? `${formatBytes(stats.bytes)} of ${formatBytes(stats.limitBytes)}` : "..."}
+      </span>
+      <Button
+        size="sm"
+        tooltip="Delete every cached thumbnail, filmstrip and waveform. Your files are not touched."
+        disabled={!inDesktopApp || busy || stats?.entries === 0}
+        onClick={() => {
+          setBusy(true);
+          ipc
+            .cleanMediaCache()
+            .then((fresh) => {
+              setStats(fresh);
+              useMedia.getState().forget();
+              useUi.getState().toast({ level: "success", title: "Cleaned the preview cache" });
+            })
+            .catch((err: unknown) => {
+              useUi.getState().toast({
+                level: "error",
+                title: "The cache could not be cleaned",
+                body: String(err),
+              });
+            })
+            .finally(() => {
+              setBusy(false);
+            });
+        }}
+      >
+        Clean
+      </Button>
+    </span>
+  );
 }
 
 function Segmented<T extends string>({

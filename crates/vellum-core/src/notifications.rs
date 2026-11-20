@@ -202,6 +202,9 @@ impl NotificationCenter {
             }
             JobEvent::Order { .. } => return,
         };
+        if job.background {
+            return;
+        }
         let previous = self.inner.lock().job_states.insert(job.id, job.state);
         if previous == Some(job.state) {
             return;
@@ -276,6 +279,15 @@ mod tests {
     use crate::jobs::{JobPriority, JobResource};
     use serde_json::json;
 
+    #[test]
+    fn background_jobs_never_notify() {
+        let center = NotificationCenter::new(EventBus::new());
+        let mut job = snapshot(1, JobState::Failed);
+        job.background = true;
+        center.observe_job(&JobEvent::Updated { job });
+        assert!(center.list().items.is_empty());
+    }
+
     fn snapshot(id: u64, state: JobState) -> JobSnapshot {
         JobSnapshot {
             id: JobId(id),
@@ -289,6 +301,7 @@ mod tests {
             elapsed_secs: 0.0,
             attempt: 0,
             max_retries: 0,
+            background: false,
             error: None,
             result: None,
             created_at_ms: 0,

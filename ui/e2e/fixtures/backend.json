@@ -748,6 +748,10 @@
       },
       "saved": []
     },
+    "media": {
+      "cacheLimitMb": 2048,
+      "hardwareAcceleration": true
+    },
     "shortcuts": {
       "overrides": {},
       "preset": "vellum"

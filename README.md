@@ -10,7 +10,7 @@ An all-in-one desktop media editor. Drop any file in and get the right tools str
 
 Vellum aims to replace a stack of separate apps and websites (image editors, video editors, audio editors, converters, GIF makers, screen capture tools) with one fast, local app. Every common job, like shrinking a clip for Discord, turning a video into a GIF or cutting the background out of a photo, should take one drag and one click.
 
-> **Status:** phase 1 (app shell and UX foundations) is done: home screen, drag and drop routing, tabs and tear off windows, dockable panels, command palette, settings and shortcut presets, themes, autosave with crash recovery, notifications and the jobs panel. Workspaces and quick tools are still placeholders. The window has been run on Linux only; Windows and macOS still need a check by hand.
+> **Status:** phase 2 (media core) is done: Vellum reads, probes and previews real files (photos, camera raw, SVG, PSD, video, audio), shows everything about them in the Info panel, strips metadata, and has an encoding engine with hardware encoder detection. Phase 1 built the app shell (home screen, tabs, docks, command palette, settings, autosave and crash recovery). Workspaces and quick tools are still placeholders. The window has been run on Linux only; Windows and macOS still need a check by hand.
 
 ## Planned features
 
@@ -62,7 +62,7 @@ tests/golden/            reference images and videos for regression tests
 
 ## Development
 
-You need Rust (stable), Node 20 or newer with pnpm (`corepack enable`), and the [Tauri system packages](https://tauri.app/start/prerequisites/) for your OS.
+You need Rust (stable), Node 20 or newer with pnpm (`corepack enable`), the [Tauri system packages](https://tauri.app/start/prerequisites/) for your OS, and [FFmpeg](https://ffmpeg.org/download.html) on your `PATH` (or set `VELLUM_FFMPEG_DIR` to the folder with `ffmpeg` and `ffprobe`). Without FFmpeg the app still runs, but only images open and the media tests are skipped.
 
 ```bash
 pnpm install
@@ -88,7 +88,7 @@ End to end tests run the UI in Chromium against a fake backend (install the brow
 pnpm e2e
 ```
 
-`cargo test` also regenerates the TypeScript types in `ui/src/bindings`; commit them when they change.
+`cargo test` also regenerates the TypeScript types in `ui/src/bindings`; commit them when they change. The media tests make their own small test files with FFmpeg; `scripts/make-test-media.sh` puts the same files in a folder so you can try them by hand.
 
 ## Roadmap
 

@@ -15,6 +15,7 @@ export const sectionTitles: Record<SettingsSection, string> = {
   autosave: "Autosave and recovery",
   jobs: "Jobs",
   history: "Undo history",
+  media: "Media and cache",
   about: "About",
 };
 
@@ -109,6 +110,41 @@ export const settingsCatalog: SettingEntry[] = [
     label: "Undo memory",
     description: "How much memory undo may use per document.",
     keywords: "history ram limit",
+  },
+  {
+    id: "hardwareAcceleration",
+    section: "media",
+    label: "Hardware encoding",
+    description: "Use the graphics card to encode video when it can. Much faster, a little larger.",
+    keywords: "gpu nvenc quick sync amf videotoolbox vaapi acceleration encoder",
+  },
+  {
+    id: "hardwareEncoders",
+    section: "media",
+    label: "Encoders found",
+    description: "Hardware encoders that passed a test encode on this computer.",
+    keywords: "gpu nvenc quick sync amf videotoolbox vaapi",
+  },
+  {
+    id: "ffmpeg",
+    section: "media",
+    label: "FFmpeg",
+    description: "Reads and writes video and audio. Without it only images open.",
+    keywords: "codec video audio decoder",
+  },
+  {
+    id: "cacheLimit",
+    section: "media",
+    label: "Preview cache size",
+    description: "Thumbnails, filmstrips and waveforms are kept up to this size, oldest first out.",
+    keywords: "disk space thumbnails storage limit",
+  },
+  {
+    id: "cacheUsage",
+    section: "media",
+    label: "Preview cache",
+    description: "Cleaning it is safe, previews are made again when needed.",
+    keywords: "clear clean delete disk space thumbnails storage",
   },
   {
     id: "version",

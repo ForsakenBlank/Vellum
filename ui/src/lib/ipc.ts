@@ -3,6 +3,7 @@ import { invoke, isTauri } from "@tauri-apps/api/core";
 import type { AppInfo } from "../bindings/AppInfo";
 import type { AppSettings } from "../bindings/AppSettings";
 import type { AutosaveStatus } from "../bindings/AutosaveStatus";
+import type { CacheStats } from "../bindings/CacheStats";
 import type { CommandInfo } from "../bindings/CommandInfo";
 import type { CommandOutcome } from "../bindings/CommandOutcome";
 import type { DocumentInfo } from "../bindings/DocumentInfo";
@@ -13,12 +14,16 @@ import type { JobPriority } from "../bindings/JobPriority";
 import type { JobResource } from "../bindings/JobResource";
 import type { JobsOverview } from "../bindings/JobsOverview";
 import type { Keymap } from "../bindings/Keymap";
+import type { MediaAsset } from "../bindings/MediaAsset";
+import type { MediaCapabilities } from "../bindings/MediaCapabilities";
+import type { MediaInfo } from "../bindings/MediaInfo";
 import type { NodeId } from "../bindings/NodeId";
 import type { NotificationsChanged } from "../bindings/NotificationsChanged";
 import type { OpenFilesResult } from "../bindings/OpenFilesResult";
 import type { RecentFiles } from "../bindings/RecentFiles";
 import type { RecoveryOffer } from "../bindings/RecoveryOffer";
 import type { SnapshotId } from "../bindings/SnapshotId";
+import type { WaveformOverview } from "../bindings/WaveformOverview";
 
 /** every field optional, all the way down, for settings patches. arrays are replaced whole. */
 export type DeepPartial<T> = {
@@ -82,4 +87,16 @@ export const ipc = {
   moveJob: (id: JobId, before: JobId | null) => invoke<null>("move_job", { id, before }),
   startSampleJob: (seconds: number, resource: JobResource, failFirst: boolean) =>
     invoke<JobId>("start_sample_job", { seconds, resource, failFirst }),
+
+  mediaCapabilities: () => invoke<MediaCapabilities>("media_capabilities"),
+  probeMedia: (path: string) => invoke<MediaInfo>("probe_media", { path }),
+  mediaThumbnail: (path: string) => invoke<MediaAsset>("media_thumbnail", { path }),
+  mediaFilmstrip: (path: string, count: number, height: number) =>
+    invoke<MediaAsset>("media_filmstrip", { path, count, height }),
+  mediaWaveform: (path: string) => invoke<MediaAsset>("media_waveform", { path }),
+  waveformOverview: (path: string, columns: number) =>
+    invoke<WaveformOverview | null>("waveform_overview", { path, columns }),
+  stripMetadata: (path: string) => invoke<JobId>("strip_metadata", { path }),
+  mediaCacheStats: () => invoke<CacheStats>("media_cache_stats"),
+  cleanMediaCache: () => invoke<CacheStats>("clean_media_cache"),
 };

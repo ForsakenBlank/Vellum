@@ -4,6 +4,31 @@ All notable changes to Vellum are listed here. Dates are in YYYY-MM-DD.
 
 ## Unreleased
 
+### Phase 2: media core (2026-11-20)
+
+Added
+
+- Vellum now reads real files. Recent files on the home screen show real thumbnails for photos, videos, GIFs, drawings and camera raws, made in the background and kept in a cache.
+- The Info panel shows everything about the open file: format, size, dimensions, length, codecs, frame rate (and whether it varies), bit depth, colour, HDR, rotation, audio tracks, subtitles and every metadata tag. Videos get a thumbnail and a filmstrip, audio gets a waveform.
+- "Copy info" copies those details as text, for a bug report or a chat.
+- "Strip metadata" saves a copy without camera details, GPS location, comments and tags. JPEG, PNG and WebP are copied without re-encoding, colour profiles and photo orientation are kept, and video and audio are stream copied. The original is never changed. The Info panel warns when a file records where it was made.
+- Image support for PNG, JPEG, WebP, AVIF, HEIC, JPEG XL, TIFF, GIF, APNG and animated WebP (every frame), BMP, ICO, TGA, QOI, HDR, EXR, camera raw, SVG at any size and Photoshop files (the flattened image). Photos are turned upright from their EXIF orientation.
+- Big photos and scans make thumbnails without loading the whole image into memory.
+- Frame accurate seeking, including variable frame rate phone videos.
+- Hardware encoders (NVIDIA, Intel, AMD, Apple, VA-API) are tested at start-up and only working ones are used, with an automatic fallback to the processor. The encoding engine is ready for the quick tools in phase 3.
+- Settings, Media and cache: hardware encoding on or off, which encoders were found, the FFmpeg in use, the preview cache size limit (2 GB by default) and a Clean button.
+- If FFmpeg is missing, Vellum still starts, images still open, and a notification says what to install.
+
+Changed
+
+- Background work such as making previews no longer appears in the jobs panel or as notifications.
+
+Notes
+
+- Vellum uses the FFmpeg installed on the computer for now (or the one in `VELLUM_FFMPEG_DIR`). The installer will bundle one in phase 18.
+- HEIC photos stored in tiles, which includes most iPhone photos, need FFmpeg 7.1 or newer.
+- No media files are committed: the tests make about 30 small files with FFmpeg on demand. Run `scripts/make-test-media.sh` to get them in a folder.
+
 ### Phase 1: app shell and UX foundations (2026-11-19)
 
 Added

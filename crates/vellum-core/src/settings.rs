@@ -434,6 +434,25 @@ impl Default for HistorySettings {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(default, rename_all = "camelCase")]
+#[ts(export)]
+pub struct MediaSettings {
+    /// thumbnails, filmstrips and waveforms beyond this are removed, least recently used first
+    pub cache_limit_mb: u32,
+    /// use hardware encoders when the machine has working ones
+    pub hardware_acceleration: bool,
+}
+
+impl Default for MediaSettings {
+    fn default() -> Self {
+        Self {
+            cache_limit_mb: 2048,
+            hardware_acceleration: true,
+        }
+    }
+}
+
 /// one group of panels shown as tabs inside a dock
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[serde(default, rename_all = "camelCase")]
@@ -597,6 +616,7 @@ pub struct AppSettings {
     pub history: HistorySettings,
     pub shortcuts: ShortcutSettings,
     pub layout: LayoutSettings,
+    pub media: MediaSettings,
 }
 
 impl SettingsSchema for AppSettings {
@@ -619,6 +639,7 @@ impl SettingsSchema for AppSettings {
         self.jobs.max_io_jobs = self.jobs.max_io_jobs.clamp(1, 64);
         self.history.max_steps = self.history.max_steps.clamp(10, 10_000);
         self.history.max_memory_mb = self.history.max_memory_mb.clamp(64, 64 * 1024);
+        self.media.cache_limit_mb = self.media.cache_limit_mb.clamp(64, 1024 * 1024);
         shortcuts::sanitize(&mut self.shortcuts);
         self.layout.sanitize();
     }
@@ -838,8 +859,10 @@ mod tests {
                 s.appearance.accent = "red".into();
                 s.jobs.max_cpu_jobs = 0;
                 s.autosave.interval_secs = 1;
+                s.media.cache_limit_mb = 1;
             })
             .unwrap();
+        assert_eq!(settings.media.cache_limit_mb, 64);
         assert_eq!(settings.appearance.ui_scale, 3.0);
         assert_eq!(settings.appearance.accent, DEFAULT_ACCENT);
         assert_eq!(settings.jobs.max_cpu_jobs, 1);

@@ -31,6 +31,19 @@ jobs:
           sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file \
             libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
 
+      # the media tests run the real ffmpeg and ffprobe on generated files
+      - name: Install FFmpeg (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get install -y ffmpeg
+
+      - name: Install FFmpeg (macOS)
+        if: runner.os == 'macOS'
+        run: brew install ffmpeg
+
+      - name: Install FFmpeg (Windows)
+        if: runner.os == 'Windows'
+        run: choco install ffmpeg -y --no-progress
+
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
@@ -51,6 +64,9 @@ jobs:
 
       - name: Test
         run: cargo test --workspace
+        env:
+          VELLUM_REQUIRE_FFMPEG: "1"
+          VELLUM_REQUIRE_ALL_TEST_MEDIA: ${{ runner.os == 'Linux' && '1' || '' }}
 
       - name: Generated TypeScript bindings and e2e fixtures are committed and up to date
         if: runner.os == 'Linux'

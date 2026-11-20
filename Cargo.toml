@@ -11,6 +11,7 @@ publish = false
 
 [workspace.dependencies]
 vellum-core = { path = "crates/vellum-core" }
+vellum-media = { path = "crates/vellum-media" }
 
 parking_lot = "0.12"
 serde = { version = "1", features = ["derive"] }

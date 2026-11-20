@@ -5,12 +5,14 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use tauri::{AppHandle, Manager};
 use vellum_core::app::{AppPaths, AppServices};
 use vellum_core::ui::UiReady;
+use vellum_media::MediaService;
 
 use crate::bridge::TauriSink;
 
 /// everything the ipc commands need, managed by tauri
 pub struct AppState {
     pub services: AppServices,
+    pub media: MediaService,
     pub settings_path: PathBuf,
     next_window: AtomicU64,
 }
@@ -27,6 +29,16 @@ impl AppState {
         services.bus.accept_from_ui::<UiReady>();
         log_ui_ready(&services);
 
+        let cache_dir = app.path().app_cache_dir()?.join("media");
+        let media = MediaService::start(&services, &cache_dir);
+        // previews live in the cache folder, which holds nothing but vellum's own files
+        if let Err(err) = app
+            .asset_protocol_scope()
+            .allow_directory(media.cache_dir(), true)
+        {
+            tracing::warn!(%err, "previews will not show");
+        }
+
         // recent files may show their own image as a thumbnail
         for file in services.recent_files().files {
             allow_asset(app, Path::new(&file.path));
@@ -34,6 +46,7 @@ impl AppState {
 
         Ok(Self {
             services,
+            media,
             settings_path,
             next_window: AtomicU64::new(1),
         })

@@ -83,6 +83,7 @@ impl Job {
             elapsed_secs: self.eta.elapsed(now).as_secs_f64(),
             attempt: self.attempt,
             max_retries: self.spec.max_retries,
+            background: self.spec.background,
             error: self.error.clone(),
             result: self.result.clone(),
             created_at_ms: self.created_at_ms,
@@ -313,6 +314,10 @@ impl State {
             self.insert_waiting(id, true);
         }
         self.touch(id);
+        // background jobs report their own results, so nothing is left to show for them
+        if job_is_finished_background(self.jobs.get(&id)) {
+            let _ = self.remove(id);
+        }
     }
 
     fn cancel(&mut self, id: JobId) -> Result<(), JobQueueError> {
@@ -337,6 +342,9 @@ impl State {
             self.remove_waiting(id);
         }
         self.touch(id);
+        if job_is_finished_background(self.jobs.get(&id)) {
+            let _ = self.remove(id);
+        }
         Ok(())
     }
 
@@ -504,6 +512,11 @@ fn flush(shared: &Arc<Shared>, guard: &mut MutexGuard<'_, State>) {
             shared.bus.emit(event);
         }
     });
+}
+
+/// background jobs leave the queue as soon as they finish, see `JobSpec::background`
+fn job_is_finished_background(job: Option<&Job>) -> bool {
+    job.is_some_and(|job| job.spec.background && job.state.is_finished())
 }
 
 /// runs `f` on the state, then starts whatever can start and sends the events
@@ -1328,6 +1341,41 @@ mod tests {
         });
         q.wait_for(b, WAIT, state_is(JobState::Running)).unwrap();
         drop((gate_a, gate_b));
+    }
+
+    #[test]
+    fn background_jobs_leave_the_queue_when_done() {
+        let bus = EventBus::new();
+        let events = bus.subscribe::<JobEvent>();
+        let q = JobQueue::new(JobLimits::default(), bus);
+        let (gate, task) = gated(None, "thumb");
+        let id = q.submit(JobSpec::cpu("thumbnail").background(), task);
+        assert!(q.snapshot(id).unwrap().background);
+        gate.send(()).unwrap();
+        let deadline = Instant::now() + WAIT;
+        while q.snapshot(id).is_some() {
+            assert!(
+                Instant::now() < deadline,
+                "the background job was never removed"
+            );
+            thread::sleep(Duration::from_millis(5));
+        }
+        let mut removed = false;
+        while let Some(event) = events.recv_timeout(Duration::from_millis(200)) {
+            removed |= matches!(event, JobEvent::Removed { id: gone, .. } if gone == id);
+        }
+        assert!(removed);
+
+        // a queued one that is cancelled before it starts goes too
+        let (_blocker_gate, blocker) = gated(None, "blocker");
+        let q = queue(1, 1);
+        let first = q.submit(JobSpec::cpu("blocker"), blocker);
+        let waiting = q.submit(JobSpec::cpu("thumbnail").background(), |_: &JobContext| {
+            Ok(JobOutput::Null)
+        });
+        q.cancel(waiting).unwrap();
+        assert!(q.snapshot(waiting).is_none());
+        q.cancel(first).unwrap();
     }
 
     #[test]

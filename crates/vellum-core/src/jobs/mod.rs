@@ -124,6 +124,9 @@ pub struct JobSpec {
     pub max_retries: u32,
     /// wait before the first retry, doubled for each one after
     pub retry_delay: Duration,
+    /// housekeeping the user did not ask for directly, like thumbnails. the jobs panel hides
+    /// it, it never notifies, and it leaves the queue as soon as it finishes.
+    pub background: bool,
 }
 
 impl JobSpec {
@@ -134,6 +137,7 @@ impl JobSpec {
             priority: JobPriority::Normal,
             max_retries: 0,
             retry_delay: Duration::from_secs(2),
+            background: false,
         }
     }
 
@@ -151,6 +155,12 @@ impl JobSpec {
 
     pub fn with_priority(mut self, priority: JobPriority) -> Self {
         self.priority = priority;
+        self
+    }
+
+    /// see [`JobSpec::background`]
+    pub fn background(mut self) -> Self {
+        self.background = true;
         self
     }
 
@@ -235,6 +245,8 @@ pub struct JobSnapshot {
     /// 0 on the first run, then counts automatic retries
     pub attempt: u32,
     pub max_retries: u32,
+    /// housekeeping like thumbnails, hidden from the jobs panel and never notified
+    pub background: bool,
     pub error: Option<String>,
     #[ts(type = "unknown")]
     pub result: Option<JobOutput>,

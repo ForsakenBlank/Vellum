@@ -8,6 +8,24 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
+vellum-core.workspace = true
+parking_lot.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+ts-rs.workspace = true
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp", "gif", "tiff", "bmp", "ico", "tga", "qoi", "hdr", "exr"] }
+jpeg-decoder = { version = "0.3", default-features = false }
+kamadak-exif = "0.6"
+png = "0.18"
+psd = "0.3"
+rawler = "0.8"
+resvg = "0.50"
+rusqlite = { version = "0.43", features = ["bundled"] }
+
+[dev-dependencies]
+tempfile.workspace = true
 
 [lints]
 workspace = true

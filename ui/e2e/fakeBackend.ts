@@ -375,6 +375,68 @@ export function installFakeBackend({ fixture, fileKinds, windowLabel }: FakeOpti
         }
       : null;
 
+  // what rust reports for a phone video, so the info panel can be tested without ffmpeg
+  const sampleVideo = (path: string) => ({
+    path,
+    name: path.split("/").pop() ?? path,
+    kind: "video",
+    format: "MP4 / QuickTime",
+    sizeBytes: 48_200_000,
+    modifiedMs: 1_763_000_000_000,
+    width: 1080,
+    height: 1920,
+    durationSecs: 21.4,
+    bitRate: 18_000_000,
+    video: {
+      codec: "hevc",
+      codecName: "H.265 / HEVC (High Efficiency Video Coding)",
+      profile: "Main 10",
+      pixelFormat: "yuv420p10le",
+      bitDepth: 10,
+      codedWidth: 1920,
+      codedHeight: 1080,
+      frameRate: 30000 / 1001,
+      frameRateText: "30000/1001",
+      variableFrameRate: true,
+      frameCount: 641,
+      bitRate: 17_700_000,
+      rotation: 90,
+      color: { space: "bt2020nc", primaries: "bt2020", transfer: "arib-std-b67", range: "tv" },
+      hdr: { format: "hlg", masteringDisplay: null, maxCll: null, maxFall: null },
+    },
+    audio: [
+      {
+        codec: "aac",
+        codecName: "AAC (Advanced Audio Coding)",
+        channels: 2,
+        channelLayout: "stereo",
+        sampleRate: 48000,
+        bitRate: 192_000,
+        language: null,
+        title: null,
+      },
+    ],
+    subtitles: [],
+    image: null,
+    chapters: 0,
+    tags: [
+      { group: "File", key: "com.apple.quicktime.make", value: "Apple" },
+      {
+        group: "File",
+        key: "com.apple.quicktime.location.ISO6709",
+        value: "+51.5072-000.1276+011.000/",
+      },
+      { group: "Video", key: "handler_name", value: "Core Media Video" },
+    ],
+    hasLocation: true,
+  });
+
+  const noPreview = (args: Json, kind: string) => ({
+    source: String(args.path),
+    kind,
+    state: { state: "ready", file: null, meta: null },
+  });
+
   const handlers: Record<string, (args: Json) => unknown> = {
     app_info: () => ({ version: "0.1.0", settingsPath: "/fake/settings.json", os: "linux" }),
     get_settings: () => state.settings,
@@ -488,6 +550,20 @@ export function installFakeBackend({ fixture, fileKinds, windowLabel }: FakeOpti
     open_result: () => null,
     list_jobs: () => ({ jobs: [], waiting: [], revision: 0 }),
     ui_event: () => null,
+    // the browser has no ffmpeg or files to read, so media answers "nothing to show"
+    media_capabilities: () => ({ ffmpeg: null, hardware: null }),
+    probe_media: (args) => {
+      const path = String(args.path);
+      if (!path.endsWith(".mp4")) throw new Error("the e2e backend can only read mp4 files");
+      return sampleVideo(path);
+    },
+    strip_metadata: () => 900,
+    media_thumbnail: (args) => noPreview(args, "thumbnail"),
+    media_filmstrip: (args) => noPreview(args, "filmstrip"),
+    media_waveform: (args) => noPreview(args, "waveform"),
+    waveform_overview: () => null,
+    media_cache_stats: () => ({ bytes: 0, entries: 0, limitBytes: 2048 * 1024 * 1024, path: "" }),
+    clean_media_cache: () => ({ bytes: 0, entries: 0, limitBytes: 2048 * 1024 * 1024, path: "" }),
     "plugin:event|listen": (args) => {
       const id = nextListener++;
       const event = String(args.event);

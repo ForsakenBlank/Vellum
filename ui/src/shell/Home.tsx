@@ -12,14 +12,12 @@ import { formatAgo, formatBytes } from "../lib/format";
 import { inDesktopApp, ipc } from "../lib/ipc";
 import { kindOf } from "../lib/routing";
 import { useCommands } from "../state/commands";
+import { assetFile, useAsset } from "../state/media";
 import { useRecent } from "../state/recent";
 import { useUi } from "../state/ui";
 import { quickTools, type QuickTool } from "../workspaces/quickTools";
 import { workspaceInfo } from "../workspaces/workspaces";
 import { openPaths, openTool, pickAndOpen } from "./actions";
-
-/** images under this size show themselves as thumbnails until phase 2 caches real ones */
-const DIRECT_THUMBNAIL_LIMIT = 20_000_000;
 
 export function Home() {
   const files = useRecent((s) => s.files);
@@ -256,30 +254,29 @@ function FileCard({ file }: { file: RecentFile }) {
 }
 
 function Thumbnail({ file }: { file: RecentFile }) {
-  const [broken, setBroken] = useState(false);
+  const [broken, setBroken] = useState<string | null>(null);
   const row = kindOf(file.path);
   const Icon = row ? workspaceInfo(row.workspace).icon : FolderOpen;
-  const direct =
-    inDesktopApp &&
-    !broken &&
-    row?.kind === "image" &&
-    file.sizeBytes !== null &&
-    file.sizeBytes < DIRECT_THUMBNAIL_LIMIT;
+  const asset = useAsset("thumbnail", inDesktopApp ? file.path : null);
+  const thumb = assetFile(asset);
+  const shown = thumb !== null && thumb !== broken ? thumb : null;
 
   return (
     <div className="grain relative aspect-[4/3] w-full overflow-hidden rounded-lg border border-line bg-raised">
-      {direct ? (
+      {shown ? (
         <img
-          src={convertFileSrc(file.path)}
+          src={convertFileSrc(shown)}
           alt=""
           loading="lazy"
           decoding="async"
           draggable={false}
           onError={() => {
-            setBroken(true);
+            setBroken(shown);
           }}
           className="checker size-full object-cover"
         />
+      ) : asset?.state === "pending" ? (
+        <Skeleton className="size-full rounded-none" />
       ) : (
         <div className="flex size-full flex-col items-center justify-center gap-2 bg-gradient-to-br from-elevated to-raised text-fg-subtle">
           <Icon className="size-6" strokeWidth={1.4} />

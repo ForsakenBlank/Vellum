@@ -7,6 +7,7 @@ import { performAction } from "./shell/notify";
 import { useCommands } from "./state/commands";
 import { useDocuments } from "./state/documents";
 import { resultPath, useJobs } from "./state/jobs";
+import { useMedia } from "./state/media";
 import { useNotifications } from "./state/notifications";
 import { useRecent } from "./state/recent";
 import { applyAppearance, useSettings } from "./state/settings";
@@ -51,10 +52,16 @@ export async function connectToRust() {
     onRustEvent("autosave:changed", (status) => {
       useUi.getState().setAutosave(status);
     }),
+    onRustEvent("media:asset", (asset) => {
+      useMedia.getState().apply(asset);
+    }),
+    onRustEvent("media:capabilities", (capabilities) => {
+      useMedia.getState().setCapabilities(capabilities);
+    }),
     listenForFileDrops(),
   ]);
 
-  const [settings, jobs, commands, keymap, documents, recent, notifications, autosave] =
+  const [settings, jobs, commands, keymap, documents, recent, notifications, autosave, media] =
     await Promise.all([
       ipc.getSettings(),
       ipc.listJobs(),
@@ -64,6 +71,7 @@ export async function connectToRust() {
       ipc.listRecent(),
       ipc.listNotifications(),
       ipc.autosaveStatus(),
+      ipc.mediaCapabilities(),
     ]);
   useSettings.getState().replace(settings);
   applyAppearance(settings);
@@ -74,6 +82,8 @@ export async function connectToRust() {
   // notifications from before this window opened are already known, so no toasts for them
   useNotifications.getState().replace(notifications);
   useUi.getState().setAutosave(autosave);
+  // the hardware check may finish before or after this, keep whichever knows more
+  if (!useMedia.getState().capabilities?.hardware) useMedia.getState().setCapabilities(media);
   setInitialDocuments(documents);
 
   if (isMainWindow) {

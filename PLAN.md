@@ -499,12 +499,18 @@ workspaces (image, video, audio, etc) can be placeholders for now. write playwri
 **Goal:** read anything, probe it, make thumbnails and waveforms, cache intelligently, and encode with hardware acceleration.
 
 **Done when:**
-- [ ] FFmpeg integration for decode and encode with hardware acceleration detection
-- [ ] Image decoding for PNG, JPG, WebP, AVIF, HEIC, TIFF, GIF, RAW, SVG, PSD (flattened preview)
-- [ ] Media probe returns a unified `MediaInfo` struct
-- [ ] Thumbnail, filmstrip and waveform generation as cached jobs
-- [ ] SQLite-backed cache with size limit and cleanup
-- [ ] File info panel in the UI with "strip metadata"
+- [x] FFmpeg integration for decode and encode with hardware acceleration detection
+- [x] Image decoding for PNG, JPG, WebP, AVIF, HEIC, TIFF, GIF, RAW, SVG, PSD (flattened preview) (HEIC photos stored in tiles, like most iPhone photos, need FFmpeg 7.1 or newer)
+- [x] Media probe returns a unified `MediaInfo` struct
+- [x] Thumbnail, filmstrip and waveform generation as cached jobs
+- [x] SQLite-backed cache with size limit and cleanup
+- [x] File info panel in the UI with "strip metadata"
+
+**How it was built, where it differs from the prompt below** (details and reasons in `ARCHITECTURE.md` section 22):
+- FFmpeg runs as the `ffmpeg` and `ffprobe` programs instead of being linked through `ffmpeg-next`, so builds need nothing native, a crashing decoder cannot take the app down, and the LGPL story stays simple. Phase 8 decides whether playback needs a linked decoder.
+- Camera raw uses `rawler` (pure Rust) instead of libraw, and AVIF, HEIC and JPEG XL are decoded by FFmpeg instead of separate native libraries.
+- Big images are previewed by scaling while decoding (JPEG DCT scaling, row by row PNG) instead of libvips. Tiled editing of huge images is phase 5's canvas.
+- Benchmark, 4K H.265, software decode on 4 cores: probe about 120 ms, thumbnail 230 to 350 ms, 8 frame filmstrip about 1.1 s.
 
 **Model:** Opus 5.5 · **Effort:** xhigh
 
