@@ -356,7 +356,7 @@ impl MediaService {
             }));
         }
         let owned = path.to_owned();
-        let title = format!("Thumbnail for {}", file_name(&path));
+        let title = format!("Thumbnail for {}", file_name(path));
         let request = format!("thumb:{size}:{}", key.path);
         self.background(&request, title, path, "thumbnail", move |service, _ctx| {
             let thumbnail = service.make_thumbnail(&owned, size, &key)?;
@@ -431,7 +431,7 @@ impl MediaService {
             }));
         }
         let owned = path.to_owned();
-        let title = format!("Filmstrip for {}", file_name(&path));
+        let title = format!("Filmstrip for {}", file_name(path));
         let request = format!("filmstrip:{params}:{}", key.path);
         self.background(&request, title, path, "filmstrip", move |service, ctx| {
             let filmstrip = service.make_filmstrip(&owned, count, height, &key, ctx)?;
@@ -491,7 +491,7 @@ impl MediaService {
             return Ok(Some(peaks.view(columns)));
         }
         let owned = path.to_owned();
-        let title = format!("Waveform for {}", file_name(&path));
+        let title = format!("Waveform for {}", file_name(path));
         let request = format!("waveform:{}", key.path);
         self.background(&request, title, path, "waveform", move |service, ctx| {
             service.make_waveform(&owned, &key, ctx)?;
