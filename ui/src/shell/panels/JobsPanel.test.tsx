@@ -39,6 +39,7 @@ function job(id: number, overrides: Partial<JobSnapshot>): JobSnapshot {
     attempt: 0,
     maxRetries: 0,
     background: false,
+    owner: null,
     error: null,
     result: null,
     createdAtMs: id,

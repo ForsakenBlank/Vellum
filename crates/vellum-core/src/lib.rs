@@ -20,6 +20,7 @@ pub mod files;
 pub mod history;
 pub mod jobs;
 pub mod notifications;
+pub mod quick_tool;
 pub mod recent;
 pub mod recovery;
 pub mod settings;

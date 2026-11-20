@@ -1,6 +1,6 @@
 [package]
 name = "vellum-export"
-description = "Export presets, size targeting and the render queue."
+description = "The quick tools: export to a size, video to gif, gif tools and the converter."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -8,6 +8,22 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
+vellum-core.workspace = true
+vellum-media.workspace = true
+parking_lot.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+ts-rs.workspace = true
+tempfile.workspace = true
+gif = "0.14"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "ico", "bmp", "tiff", "gif", "webp"] }
+oxipng = { version = "10", default-features = false, features = ["parallel"] }
+quantette = { version = "0.6", default-features = false, features = ["image", "threads", "kmeans"] }
+color_quant = "1.1"
+png = "0.18"
+resvg = "0.50"
 
 [lints]
 workspace = true

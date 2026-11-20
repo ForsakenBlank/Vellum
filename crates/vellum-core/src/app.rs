@@ -23,6 +23,7 @@ use crate::files::{FileKind, display_name};
 use crate::history::HistoryLimits;
 use crate::jobs::{JobLimits, JobQueue};
 use crate::notifications::{NewNotification, NotificationCenter, NotificationLevel};
+use crate::quick_tool::QuickToolDocument;
 use crate::recent;
 use crate::recent::{RecentFiles, RecentStore, now_ms};
 use crate::recovery::Recovery;
@@ -260,10 +261,8 @@ impl AppServices {
             };
             let mut meta = DocumentMeta::for_tool(tool, paths.to_vec());
             meta.window = window.to_owned();
-            match self
-                .documents
-                .open(PlaceholderDocument::titled(title), meta)
-            {
+            let doc = QuickToolDocument::new(title, paths.to_vec());
+            match self.documents.open(doc, meta) {
                 Ok(info) => result.opened.push(info),
                 Err(err) => result.skipped.extend(paths.iter().map(|p| SkippedFile {
                     path: p.display().to_string(),

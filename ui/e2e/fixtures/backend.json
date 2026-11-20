@@ -700,6 +700,63 @@
       "enabled": true,
       "intervalSecs": 60
     },
+    "export": {
+      "outputFolder": null,
+      "presets": [
+        {
+          "amount": 20.0,
+          "id": "discord",
+          "label": "Discord",
+          "note": "Free accounts, since August 2026",
+          "unit": "MiB"
+        },
+        {
+          "amount": 50.0,
+          "id": "discord_basic",
+          "label": "Discord Nitro Basic",
+          "note": "",
+          "unit": "MiB"
+        },
+        {
+          "amount": 1000.0,
+          "id": "discord_nitro",
+          "label": "Discord Nitro",
+          "note": "",
+          "unit": "MB"
+        },
+        {
+          "amount": 18.0,
+          "id": "email",
+          "label": "Email",
+          "note": "Gmail allows 25 MB, but attachments grow by a third when sent",
+          "unit": "MB"
+        },
+        {
+          "amount": 16.0,
+          "id": "whatsapp",
+          "label": "WhatsApp",
+          "note": "Videos and photos sent as media",
+          "unit": "MB"
+        },
+        {
+          "amount": 2000.0,
+          "id": "telegram",
+          "label": "Telegram",
+          "note": "",
+          "unit": "MB"
+        },
+        {
+          "amount": 512.0,
+          "id": "x",
+          "label": "X (Twitter)",
+          "note": "Videos",
+          "unit": "MB"
+        }
+      ],
+      "safetyMarginPercent": 3.0,
+      "targetAmount": 10.0,
+      "unit": "MB"
+    },
     "history": {
       "maxMemoryMb": 1024,
       "maxSteps": 500

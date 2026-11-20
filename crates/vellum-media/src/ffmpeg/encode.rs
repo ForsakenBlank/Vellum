@@ -36,6 +36,9 @@ pub struct VideoEncode {
     pub width: Option<u32>,
     pub height: Option<u32>,
     pub fps: Option<f64>,
+    /// ffmpeg filters that run before scaling, eg a crop or a rotation
+    #[serde(default)]
+    pub filters: Vec<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -101,6 +104,65 @@ pub struct EncodeRequest {
     pub strip_metadata: bool,
     /// the input's duration, for progress. none shows indeterminate progress.
     pub duration: Option<f64>,
+    pub passes: Passes,
+    /// output options added after the codecs, eg `-tag:v hvc1` or `-loop 0`
+    pub extra_args: Vec<String>,
+}
+
+impl EncodeRequest {
+    /// copies every stream from `input` to `output`, a starting point to change from
+    pub fn new(input: impl Into<PathBuf>, output: impl Into<PathBuf>) -> Self {
+        Self {
+            input: input.into(),
+            output: output.into(),
+            start: None,
+            end: None,
+            video: StreamPlan::Copy,
+            audio: StreamPlan::Copy,
+            allow_hardware: false,
+            strip_metadata: false,
+            duration: None,
+            passes: Passes::One,
+            extra_args: Vec::new(),
+        }
+    }
+}
+
+/// two pass encoding reads the whole video once to learn where the bits are needed, then
+/// spends them there, which is how a file lands on an exact size. only software encoders
+/// that support it get two passes, the rest quietly use one.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub enum Passes {
+    #[default]
+    One,
+    /// both passes. `log` names the statistics files, in a folder the caller cleans up.
+    Two { log: PathBuf },
+    /// only the second pass, reusing statistics from an earlier `Two` with the same log.
+    /// used to retry at a corrected bitrate without reading the video again.
+    Second { log: PathBuf },
+}
+
+/// software encoders that can do two passes from the ffmpeg command line
+pub fn supports_two_pass(encoder: &str) -> bool {
+    matches!(
+        encoder,
+        "libx264" | "libx265" | "libvpx-vp9" | "libvpx" | "libaom-av1"
+    )
+}
+
+fn pass_args(encoder: &str, pass: u8, log_name: &str) -> Vec<String> {
+    if encoder == "libx265" {
+        return vec![
+            "-x265-params".into(),
+            format!("pass={pass}:stats={log_name}:log-level=error"),
+        ];
+    }
+    vec![
+        "-pass".into(),
+        pass.to_string(),
+        "-passlogfile".into(),
+        log_name.to_owned(),
+    ]
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, TS)]
@@ -129,6 +191,20 @@ pub fn encode(
         ),
         _ => None,
     };
+    let wants_passes = !matches!(request.passes, Passes::One);
+    if wants_passes
+        && let Some(encoder) = encoder
+        && encoder.hardware.is_none()
+        && supports_two_pass(&encoder.name)
+    {
+        run_passes(ffmpeg, request, encoder, control)?;
+        return Ok(EncodeOutcome {
+            output: request.output.display().to_string(),
+            encoder: Some(encoder.name.clone()),
+            hardware: None,
+            fell_back: None,
+        });
+    }
     let first = run_once(ffmpeg, request, encoder, control);
     let (encoder, fell_back) = match (first, encoder) {
         (Ok(()), _) => (encoder, None),
@@ -151,6 +227,80 @@ pub fn encode(
         hardware: encoder.and_then(|e| e.hardware),
         fell_back,
     })
+}
+
+/// runs pass 1 (unless only the second is asked for) and pass 2. the statistics files are
+/// named relative to their folder, which becomes ffmpeg's working folder, because x265
+/// takes its file name inside a colon separated list where a windows drive letter breaks.
+fn run_passes(
+    ffmpeg: &Ffmpeg,
+    request: &EncodeRequest,
+    encoder: &EncoderInfo,
+    control: &dyn Control,
+) -> MediaResult<()> {
+    let (log, first_pass) = match &request.passes {
+        Passes::Two { log } => (log, true),
+        Passes::Second { log } => (log, false),
+        Passes::One => return run_once(ffmpeg, request, Some(encoder), control),
+    };
+    let dir = log
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .unwrap_or(Path::new("."))
+        .to_path_buf();
+    let log_name = log
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_else(|| "pass".to_owned());
+    let mut request = request.clone();
+    request.input =
+        std::path::absolute(&request.input).map_err(|err| MediaError::io(&request.input, err))?;
+    request.output =
+        std::path::absolute(&request.output).map_err(|err| MediaError::io(&request.output, err))?;
+
+    if first_pass {
+        control.message("Reading the video (pass 1 of 2)");
+        let mut first = request.clone();
+        first.audio = StreamPlan::Drop;
+        first.strip_metadata = false;
+        let mut args = build_args(&first, Some(encoder), Path::new("-"));
+        // the output is thrown away, only the statistics matter
+        let out = args.len() - 1;
+        args.splice(out.., ["-f".to_owned(), "null".to_owned(), "-".to_owned()]);
+        insert_before_progress(&mut args, pass_args(&encoder.name, 1, &log_name));
+        let span = crate::control::Span {
+            inner: control,
+            start: 0.0,
+            end: 0.45,
+        };
+        run_args(ffmpeg, &request, args, Some(&dir), &span)?;
+        control.message("Encoding (pass 2 of 2)");
+    }
+    let partial = partial_path(&request.output);
+    let mut args = build_args(&request, Some(encoder), &partial);
+    insert_before_progress(&mut args, pass_args(&encoder.name, 2, &log_name));
+    let start = if first_pass { 0.45 } else { 0.0 };
+    let span = crate::control::Span {
+        inner: control,
+        start,
+        end: 1.0,
+    };
+    match run_args(ffmpeg, &request, args, Some(&dir), &span) {
+        Ok(()) => std::fs::rename(&partial, &request.output)
+            .map_err(|err| MediaError::io(&request.output, err)),
+        Err(err) => {
+            let _ = std::fs::remove_file(&partial);
+            Err(err)
+        }
+    }
+}
+
+fn insert_before_progress(args: &mut Vec<String>, extra: Vec<String>) {
+    let at = args
+        .iter()
+        .position(|a| a == "-progress")
+        .unwrap_or(args.len());
+    args.splice(at..at, extra);
 }
 
 fn missing_encoder(codec: VideoCodec) -> MediaError {
@@ -176,23 +326,8 @@ fn run_once(
     control: &dyn Control,
 ) -> MediaResult<()> {
     let partial = partial_path(&request.output);
-    let mut cmd = ffmpeg.command();
-    cmd.args(build_args(request, encoder, &partial));
-    let span = match (request.start, request.end.or(request.duration)) {
-        (start, Some(end)) => Some(end - start.unwrap_or(0.0)),
-        _ => None,
-    };
-    let parser = ProgressParser::new(span);
-    let result = (|| {
-        let mut running = Running::spawn(cmd)?;
-        running.lines(control, |line| {
-            if let Some(fraction) = parser.and_then(|p| p.parse(line)) {
-                control.progress(fraction);
-            }
-        })?;
-        running.finish()
-    })();
-    match result {
+    let args = build_args(request, encoder, &partial);
+    match run_args(ffmpeg, request, args, None, control) {
         Ok(()) => std::fs::rename(&partial, &request.output)
             .map_err(|err| MediaError::io(&request.output, err)),
         Err(err) => {
@@ -200,6 +335,33 @@ fn run_once(
             Err(err)
         }
     }
+}
+
+/// runs ffmpeg with `args`, reporting progress across the trimmed length of the input
+fn run_args(
+    ffmpeg: &Ffmpeg,
+    request: &EncodeRequest,
+    args: Vec<String>,
+    dir: Option<&Path>,
+    control: &dyn Control,
+) -> MediaResult<()> {
+    let mut cmd = ffmpeg.command();
+    cmd.args(args);
+    if let Some(dir) = dir {
+        cmd.current_dir(dir);
+    }
+    let span = match (request.start, request.end.or(request.duration)) {
+        (start, Some(end)) => Some(end - start.unwrap_or(0.0)),
+        _ => None,
+    };
+    let parser = ProgressParser::new(span);
+    let mut running = Running::spawn(cmd)?;
+    running.lines(control, |line| {
+        if let Some(fraction) = parser.and_then(|p| p.parse(line)) {
+            control.progress(fraction);
+        }
+    })?;
+    running.finish()
 }
 
 /// `clip.mp4` becomes `clip.vellum-part.mp4`, keeping the extension so ffmpeg still picks
@@ -263,6 +425,7 @@ pub fn build_args(
             }
         }
     }
+    args.extend(request.extra_args.iter().cloned());
     if request.strip_metadata {
         args.extend([
             "-map_metadata".into(),
@@ -289,7 +452,7 @@ pub fn build_args(
 }
 
 fn video_args(settings: &VideoEncode, encoder: &EncoderInfo) -> Vec<String> {
-    let mut filters = Vec::new();
+    let mut filters = settings.filters.clone();
     match (settings.width, settings.height) {
         (Some(w), Some(h)) => filters.push(format!("scale={w}:{h}")),
         (Some(w), None) => filters.push(format!("scale={w}:-2")),
@@ -392,6 +555,8 @@ mod tests {
             allow_hardware: true,
             strip_metadata: true,
             duration: Some(10.0),
+            passes: Passes::One,
+            extra_args: Vec::new(),
         }
     }
 
@@ -412,6 +577,7 @@ mod tests {
                 width: Some(1280),
                 height: None,
                 fps: Some(30.0),
+                filters: Vec::new(),
             },
         });
         let args = build_args(&req, Some(&x264()), Path::new("out.vellum-part.mp4")).join(" ");
@@ -452,6 +618,7 @@ mod tests {
                 width: None,
                 height: None,
                 fps: None,
+                filters: Vec::new(),
             },
         });
         let args = build_args(&req, Some(&vaapi), Path::new("o.mp4")).join(" ");

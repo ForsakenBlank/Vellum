@@ -453,6 +453,153 @@ impl Default for MediaSettings {
     }
 }
 
+/// megabytes as people count them (1000 * 1000 bytes) or as windows counts them (1024 * 1024)
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub enum SizeUnit {
+    #[default]
+    #[serde(rename = "MB")]
+    Mb,
+    #[serde(rename = "MiB")]
+    Mib,
+}
+
+impl SizeUnit {
+    pub fn bytes(self) -> u64 {
+        match self {
+            Self::Mb => 1_000_000,
+            Self::Mib => 1_048_576,
+        }
+    }
+}
+
+/// a named upload limit, eg discord's
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct SizePreset {
+    pub id: String,
+    pub label: String,
+    pub amount: f64,
+    pub unit: SizeUnit,
+    /// a short note shown under the chip, eg where the number came from
+    #[serde(default)]
+    pub note: String,
+}
+
+impl SizePreset {
+    fn new(id: &str, label: &str, amount: f64, unit: SizeUnit, note: &str) -> Self {
+        Self {
+            id: id.to_owned(),
+            label: label.to_owned(),
+            amount,
+            unit,
+            note: note.to_owned(),
+        }
+    }
+
+    pub fn bytes(&self) -> u64 {
+        // amounts are clamped by sanitize, so this cannot overflow
+        (self.amount * self.unit.bytes() as f64) as u64
+    }
+}
+
+/// upload limits as the platforms published them in november 2026. they change, which is
+/// why they live in settings where people can edit them.
+pub fn default_size_presets() -> Vec<SizePreset> {
+    use SizeUnit::{Mb, Mib};
+    vec![
+        SizePreset::new(
+            "discord",
+            "Discord",
+            20.0,
+            Mib,
+            "Free accounts, since August 2026",
+        ),
+        SizePreset::new("discord_basic", "Discord Nitro Basic", 50.0, Mib, ""),
+        SizePreset::new("discord_nitro", "Discord Nitro", 1000.0, Mb, ""),
+        SizePreset::new(
+            "email",
+            "Email",
+            18.0,
+            Mb,
+            "Gmail allows 25 MB, but attachments grow by a third when sent",
+        ),
+        SizePreset::new(
+            "whatsapp",
+            "WhatsApp",
+            16.0,
+            Mb,
+            "Videos and photos sent as media",
+        ),
+        SizePreset::new("telegram", "Telegram", 2000.0, Mb, ""),
+        SizePreset::new("x", "X (Twitter)", 512.0, Mb, "Videos"),
+    ]
+}
+
+/// the quick tools: export to a size, gif, convert
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(default, rename_all = "camelCase")]
+#[ts(export)]
+pub struct ExportSettings {
+    /// the size "export to size" starts with
+    pub target_amount: f64,
+    pub unit: SizeUnit,
+    /// aim this far under the limit so files never land just over it
+    pub safety_margin_percent: f64,
+    pub presets: Vec<SizePreset>,
+    /// where results go. none puts them next to the original.
+    pub output_folder: Option<String>,
+}
+
+impl Default for ExportSettings {
+    fn default() -> Self {
+        Self {
+            target_amount: 10.0,
+            unit: SizeUnit::Mb,
+            safety_margin_percent: 3.0,
+            presets: default_size_presets(),
+            output_folder: None,
+        }
+    }
+}
+
+pub const MAX_SIZE_PRESETS: usize = 32;
+
+impl ExportSettings {
+    fn sanitize(&mut self) {
+        let defaults = Self::default();
+        if !self.target_amount.is_finite() || self.target_amount <= 0.0 {
+            self.target_amount = defaults.target_amount;
+        }
+        self.target_amount = self.target_amount.clamp(0.01, 100_000.0);
+        if !self.safety_margin_percent.is_finite() {
+            self.safety_margin_percent = defaults.safety_margin_percent;
+        }
+        self.safety_margin_percent = self.safety_margin_percent.clamp(0.0, 50.0);
+        let mut ids: Vec<String> = Vec::new();
+        self.presets.retain_mut(|preset| {
+            preset.label = preset.label.trim().chars().take(40).collect();
+            preset.note = preset.note.trim().chars().take(120).collect();
+            let keep = !preset.label.is_empty()
+                && preset.amount.is_finite()
+                && preset.amount > 0.0
+                && !ids.contains(&preset.id);
+            preset.amount = preset.amount.clamp(0.01, 100_000.0);
+            ids.push(preset.id.clone());
+            keep
+        });
+        self.presets.truncate(MAX_SIZE_PRESETS);
+        if self
+            .output_folder
+            .as_deref()
+            .is_some_and(|f| f.trim().is_empty())
+        {
+            self.output_folder = None;
+        }
+    }
+}
+
 /// one group of panels shown as tabs inside a dock
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[serde(default, rename_all = "camelCase")]
@@ -617,6 +764,7 @@ pub struct AppSettings {
     pub shortcuts: ShortcutSettings,
     pub layout: LayoutSettings,
     pub media: MediaSettings,
+    pub export: ExportSettings,
 }
 
 impl SettingsSchema for AppSettings {
@@ -642,6 +790,7 @@ impl SettingsSchema for AppSettings {
         self.media.cache_limit_mb = self.media.cache_limit_mb.clamp(64, 1024 * 1024);
         shortcuts::sanitize(&mut self.shortcuts);
         self.layout.sanitize();
+        self.export.sanitize();
     }
 }
 
@@ -867,6 +1016,35 @@ mod tests {
         assert_eq!(settings.appearance.accent, DEFAULT_ACCENT);
         assert_eq!(settings.jobs.max_cpu_jobs, 1);
         assert_eq!(settings.autosave.interval_secs, 5);
+    }
+
+    #[test]
+    fn size_presets_are_cleaned() {
+        let (_dir, path) = temp();
+        let (store, _) = SettingsStore::<AppSettings>::open(&path, None).unwrap();
+        let settings = store
+            .update(|s| {
+                s.export.target_amount = f64::NAN;
+                s.export.safety_margin_percent = 90.0;
+                s.export.output_folder = Some("  ".into());
+                let mut copy = s.export.presets[0].clone();
+                copy.label = "Discord again".into();
+                s.export.presets.push(copy);
+                s.export
+                    .presets
+                    .push(SizePreset::new("z", "Zero", 0.0, SizeUnit::Mb, ""));
+                s.export
+                    .presets
+                    .push(SizePreset::new("y", "   ", 5.0, SizeUnit::Mb, ""));
+            })
+            .unwrap();
+        let export = &settings.export;
+        assert_eq!(export.target_amount, 10.0);
+        assert_eq!(export.safety_margin_percent, 50.0);
+        assert_eq!(export.output_folder, None);
+        // the duplicate id, the empty size and the blank label are gone
+        assert_eq!(export.presets, default_size_presets());
+        assert_eq!(export.presets[0].bytes(), 20 * 1024 * 1024);
     }
 
     #[test]

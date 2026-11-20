@@ -23,7 +23,11 @@ attempt: number, maxRetries: number,
 /**
  * housekeeping like thumbnails, hidden from the jobs panel and never notified
  */
-background: boolean, error: string | null, result: unknown, createdAtMs: number, 
+background: boolean, 
+/**
+ * the document that started it, see `JobSpec::owner`
+ */
+owner: string | null, error: string | null, result: unknown, createdAtMs: number, 
 /**
  * increases with every update across all jobs. events can arrive out of order across
  * threads, so the ui drops any snapshot older than the one it already has.

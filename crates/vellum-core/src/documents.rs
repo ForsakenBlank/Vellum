@@ -67,6 +67,12 @@ pub trait DocumentModel: Send + Sized + 'static {
     fn title(&self) -> Option<String> {
         None
     }
+
+    /// the files a quick tool session works on, when the document itself keeps that list
+    /// (so adding and removing files can be undone). none uses the files it was opened with.
+    fn inputs(&self) -> Option<Vec<PathBuf>> {
+        None
+    }
 }
 
 /// where a document came from and where it is shown
@@ -165,6 +171,7 @@ pub struct DocumentSnapshot {
 trait OpenDocument: Send {
     fn doc_type(&self) -> &'static str;
     fn title(&self) -> Option<String>;
+    fn inputs(&self) -> Option<Vec<PathBuf>>;
     fn execute(&mut self, record: &CommandRecord) -> Result<(), CommandError>;
     fn undo(&mut self) -> Result<bool, CommandError>;
     fn redo(&mut self) -> Result<bool, CommandError>;
@@ -192,6 +199,9 @@ impl<D: DocumentModel> OpenDocument for Open<D> {
     }
     fn title(&self) -> Option<String> {
         self.model.title()
+    }
+    fn inputs(&self) -> Option<Vec<PathBuf>> {
+        self.model.inputs()
     }
     fn execute(&mut self, record: &CommandRecord) -> Result<(), CommandError> {
         let command = self.commands.instantiate(record)?;
@@ -260,19 +270,22 @@ impl Entry {
             Some(path) => display_name(path),
             None => "Untitled".to_owned(),
         });
+        let inputs = self
+            .doc
+            .inputs()
+            .unwrap_or_else(|| self.meta.inputs.clone());
+        let kind = match self.meta.tool {
+            Some(_) => inputs.iter().find_map(|p| FileKind::of_path(p)),
+            None => self.meta.kind,
+        };
         DocumentInfo {
             id: self.id.clone(),
             title,
             path: self.meta.path.as_ref().map(|p| p.display().to_string()),
-            kind: self.meta.kind,
+            kind,
             workspace: self.meta.workspace,
             tool: self.meta.tool.clone(),
-            inputs: self
-                .meta
-                .inputs
-                .iter()
-                .map(|p| p.display().to_string())
-                .collect(),
+            inputs: inputs.iter().map(|p| p.display().to_string()).collect(),
             window: self.meta.window.clone(),
             dirty: self.doc.is_dirty(),
             doc_type: self.doc.doc_type().to_owned(),
@@ -329,6 +342,7 @@ impl DocumentManager {
             bus,
         };
         manager.register_type::<PlaceholderDocument>();
+        manager.register_type::<crate::quick_tool::QuickToolDocument>();
         manager
     }
 
@@ -359,6 +373,8 @@ impl DocumentManager {
             .flat_map(|t| t.infos.iter().cloned())
             .collect();
         infos.sort_by_key(|info| info.kind);
+        // shared commands like rename belong to several types but are one entry
+        infos.dedup_by_key(|info| info.kind);
         infos
     }
 
@@ -661,27 +677,38 @@ impl RenameDocument {
     pub const KIND: &'static str = "document.rename";
 }
 
-impl Command<PlaceholderDocument> for RenameDocument {
+/// a document with a name people can change, so every document type shares one rename
+pub trait Titled {
+    fn title_mut(&mut self) -> &mut String;
+}
+
+impl Titled for PlaceholderDocument {
+    fn title_mut(&mut self) -> &mut String {
+        &mut self.title
+    }
+}
+
+impl<T: Titled + 'static> Command<T> for RenameDocument {
     fn kind(&self) -> &'static str {
         Self::KIND
     }
     fn name(&self) -> String {
         format!("Rename to \"{}\"", self.title)
     }
-    fn apply(&mut self, doc: &mut PlaceholderDocument) -> Result<(), CommandError> {
+    fn apply(&mut self, doc: &mut T) -> Result<(), CommandError> {
         let title = self.title.trim();
         if title.is_empty() {
             return Err(CommandError::failed("a document needs a name"));
         }
-        self.previous = Some(std::mem::replace(&mut doc.title, title.to_owned()));
+        self.previous = Some(std::mem::replace(doc.title_mut(), title.to_owned()));
         Ok(())
     }
-    fn revert(&mut self, doc: &mut PlaceholderDocument) -> Result<(), CommandError> {
+    fn revert(&mut self, doc: &mut T) -> Result<(), CommandError> {
         let previous = self
             .previous
             .take()
             .ok_or_else(|| CommandError::failed("nothing to undo"))?;
-        doc.title = previous;
+        *doc.title_mut() = previous;
         Ok(())
     }
     fn params(&self) -> Result<serde_json::Value, CommandError> {
@@ -971,6 +998,16 @@ mod tests {
     fn command_infos_list_document_commands() {
         let (manager, _) = manager();
         let kinds: Vec<_> = manager.command_infos().iter().map(|i| i.kind).collect();
-        assert_eq!(kinds, [EditNotes::KIND, RenameDocument::KIND]);
+        // rename belongs to both document types but is listed once
+        assert_eq!(
+            kinds,
+            [
+                EditNotes::KIND,
+                RenameDocument::KIND,
+                "tool.add_inputs",
+                "tool.remove_inputs",
+                "tool.set_options"
+            ]
+        );
     }
 }

@@ -7,7 +7,7 @@ use std::cell::Cell;
 use common::{fixture, mean};
 use vellum_media::control::{Control, Unattended};
 use vellum_media::ffmpeg::encode::{
-    self, AudioCodec, AudioEncode, EncodeRequest, StreamPlan, VideoEncode, VideoQuality,
+    self, AudioCodec, AudioEncode, EncodeRequest, Passes, StreamPlan, VideoEncode, VideoQuality,
 };
 use vellum_media::ffmpeg::hw::{self, VideoCodec};
 use vellum_media::probe::{self, HdrFormat, MediaKind};
@@ -335,6 +335,7 @@ fn encoding_scales_reports_progress_and_lands_under_the_final_name() {
                 width: Some(160),
                 height: None,
                 fps: None,
+                filters: Vec::new(),
             },
         },
         audio: StreamPlan::Encode {
@@ -348,6 +349,8 @@ fn encoding_scales_reports_progress_and_lands_under_the_final_name() {
         allow_hardware: false,
         strip_metadata: true,
         duration: Some(2.0),
+        passes: Passes::One,
+        extra_args: Vec::new(),
     };
     let progress = Progress::default();
     let outcome = encode::encode(&fx.ffmpeg, &support, &request, &progress).unwrap();
@@ -366,6 +369,51 @@ fn encoding_scales_reports_progress_and_lands_under_the_final_name() {
     assert!((info.duration_secs.unwrap() - 1.0).abs() < 0.15);
     assert_eq!(info.audio[0].channels, 1);
     assert!(!dir.path().join("small.vellum-part.mp4").exists());
+}
+
+#[test]
+fn two_passes_land_near_the_bitrate_and_clean_up() {
+    let Some(fx) = fixture() else { return };
+    let Some(input) = fx.file("h264.mp4") else {
+        return;
+    };
+    let support = hw::detect(&fx.ffmpeg).unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let logs = tempfile::tempdir().unwrap();
+    let output = dir.path().join("sized.mp4");
+    let mut request = EncodeRequest::new(input, &output);
+    request.video = StreamPlan::Encode {
+        settings: VideoEncode {
+            codec: VideoCodec::H264,
+            quality: VideoQuality::Bitrate { kbps: 200 },
+            width: None,
+            height: None,
+            fps: None,
+            filters: vec!["hflip".into()],
+        },
+    };
+    request.audio = StreamPlan::Drop;
+    request.duration = Some(2.0);
+    request.passes = Passes::Two {
+        log: logs.path().join("x264"),
+    };
+    let progress = Progress::default();
+    encode::encode(&fx.ffmpeg, &support, &request, &progress).unwrap();
+    let bytes = std::fs::metadata(&output).unwrap().len();
+    // 200 kbps for 2 seconds is 50 kB of video
+    assert!((35_000..65_000).contains(&bytes), "{bytes} bytes");
+    assert!(progress.last.get() > 0.9);
+
+    // a second pass on its own reuses the statistics
+    request.passes = Passes::Second {
+        log: logs.path().join("x264"),
+    };
+    if let StreamPlan::Encode { settings } = &mut request.video {
+        settings.quality = VideoQuality::Bitrate { kbps: 100 };
+    }
+    encode::encode(&fx.ffmpeg, &support, &request, &progress).unwrap();
+    let smaller = std::fs::metadata(&output).unwrap().len();
+    assert!(smaller < bytes * 3 / 4, "{smaller} vs {bytes}");
 }
 
 #[test]
@@ -389,12 +437,15 @@ fn a_cancelled_encode_leaves_nothing_behind() {
                 width: None,
                 height: None,
                 fps: None,
+                filters: Vec::new(),
             },
         },
         audio: StreamPlan::Drop,
         allow_hardware: false,
         strip_metadata: false,
         duration: Some(2.0),
+        passes: Passes::One,
+        extra_args: Vec::new(),
     };
     let err = encode::encode(&fx.ffmpeg, &support, &request, &CancelSoon::default()).unwrap_err();
     assert!(matches!(err, MediaError::Cancelled), "{err}");

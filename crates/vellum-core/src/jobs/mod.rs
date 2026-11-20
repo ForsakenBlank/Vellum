@@ -127,6 +127,9 @@ pub struct JobSpec {
     /// housekeeping the user did not ask for directly, like thumbnails. the jobs panel hides
     /// it, it never notifies, and it leaves the queue as soon as it finishes.
     pub background: bool,
+    /// the document that started it, eg a quick tool session, so that view can list its own
+    /// runs. none for jobs nobody owns.
+    pub owner: Option<String>,
 }
 
 impl JobSpec {
@@ -138,6 +141,7 @@ impl JobSpec {
             max_retries: 0,
             retry_delay: Duration::from_secs(2),
             background: false,
+            owner: None,
         }
     }
 
@@ -161,6 +165,12 @@ impl JobSpec {
     /// see [`JobSpec::background`]
     pub fn background(mut self) -> Self {
         self.background = true;
+        self
+    }
+
+    /// see [`JobSpec::owner`]
+    pub fn owned_by(mut self, document: impl Into<String>) -> Self {
+        self.owner = Some(document.into());
         self
     }
 
@@ -247,6 +257,8 @@ pub struct JobSnapshot {
     pub max_retries: u32,
     /// housekeeping like thumbnails, hidden from the jobs panel and never notified
     pub background: bool,
+    /// the document that started it, see `JobSpec::owner`
+    pub owner: Option<String>,
     pub error: Option<String>,
     #[ts(type = "unknown")]
     pub result: Option<JobOutput>,
