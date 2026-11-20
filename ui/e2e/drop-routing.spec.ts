@@ -47,7 +47,7 @@ test.describe("dropping files", () => {
       "aria-selected",
       "true",
     );
-    await expect(page.getByText("Video to GIF is on its way")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Make GIF" })).toBeVisible();
   });
 
   test("a card says no to files it cannot use, and nothing opens", async ({ page }) => {

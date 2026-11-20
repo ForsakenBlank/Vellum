@@ -167,9 +167,26 @@ impl Command<QuickToolDocument> for SetOptions {
         Self::KIND
     }
 
+    /// "Change fps" for one option, "Change crop" for the parts of one option
     fn name(&self) -> String {
-        match self.keys().as_slice() {
-            [one] => format!("Change {}", one.rsplit('.').next().unwrap_or(one)),
+        let keys = self.keys();
+        let Some((first, rest)) = keys.split_first() else {
+            return "Change options".to_owned();
+        };
+        let mut common: Vec<&str> = first.split('.').collect();
+        if !rest.is_empty() {
+            for key in rest {
+                let parts: Vec<&str> = key.split('.').collect();
+                let same = common
+                    .iter()
+                    .zip(&parts)
+                    .take_while(|(a, b)| a == b)
+                    .count();
+                common.truncate(same);
+            }
+        }
+        match common.last() {
+            Some(last) if !last.is_empty() => format!("Change {last}"),
             _ => "Change options".to_owned(),
         }
     }
@@ -365,6 +382,10 @@ mod tests {
             json!({ "patch": { "crop": { "x": 4 } } }),
         );
         assert_eq!(doc.options, json!({ "fps": 12, "crop": { "x": 4 } }));
+        let crop = SetOptions::new(json!({ "anim": { "crop": { "x": 1, "y": 2 } } }));
+        assert_eq!(Command::<QuickToolDocument>::name(&crop), "Change crop");
+        let mixed = SetOptions::new(json!({ "fps": 1, "width": 2 }));
+        assert_eq!(Command::<QuickToolDocument>::name(&mixed), "Change options");
 
         history.undo(&mut doc).unwrap();
         assert_eq!(doc.options, json!({ "fps": 12 }));

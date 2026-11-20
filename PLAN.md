@@ -536,12 +536,19 @@ include a folder of small test media files (generate them with ffmpeg in a scrip
 **Goal:** ship the must-have features early so the app is already useful.
 
 **Done when:**
-- [ ] Export to X MB works for video, image, GIF and audio, default 10 MB, lands under the limit every time in tests
-- [ ] Platform presets (editable), MB/MiB toggle, safety margin, strategy picker
-- [ ] Video to GIF tool with trim, crop, fps, speed, boomerang, captions, and WebP/APNG/MP4 alternatives
-- [ ] GIF frame editor and optimiser
-- [ ] Universal converter with instant remux where possible
-- [ ] Batch mode for all three, and "copy result as file" to clipboard
+- [x] Export to X MB works for video, image, GIF and audio, default 10 MB, lands under the limit every time in tests
+- [x] Platform presets (editable), MB/MiB toggle, safety margin, strategy picker
+- [x] Video to GIF tool with trim, crop, fps, speed, boomerang, captions, and WebP/APNG/MP4 alternatives (and AVIF)
+- [x] GIF frame editor and optimiser
+- [x] Universal converter with instant remux where possible
+- [x] Batch mode for all three, and "copy result as file" to clipboard
+
+**How it was built, where it differs from the prompt below** (details and reasons in `ARCHITECTURE.md` section 23):
+- GIFs use FFmpeg's palette filters and Vellum's own lossy pass instead of gifski, which is AGPL. PNG palettes use quantette and color_quant instead of libimagequant, which is GPL.
+- The export code lives in `crates/vellum-export` as `size/`, `anim/` and `convert.rs`, not `vellum-export/size_target`.
+- Discord's free limit is 20 MB since August 2026, so the Discord preset is 20 MiB while the starting size stays 10 MB as asked. That is a choice for the owner to revisit.
+- GIF tools is its own quick tool card, since the frame editor, optimiser, splitter and GIF to video did not fit inside Video to GIF.
+- Not done yet: video merge and split, batch rename, and Explorer and Finder context menu entries, which are left for phase 16 as the prompt allows.
 
 **Model:** Opus 5.5 · **Effort:** high
 

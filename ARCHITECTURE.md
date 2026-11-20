@@ -21,8 +21,11 @@ Every section ends with the alternatives that were considered and why they lost,
  crates/vellum-media/         MediaService: ffmpeg, image decoders, probe, seek,
                               previews, metadata, the sqlite media cache (section 22)
          ▲
+ crates/vellum-export/        QuickTools: export to size, video to gif, gif tools,
+                              the converter (section 23)
+         ▲
  crates/vellum-gpu, -image, -timeline, -audio, -ai,
-        -export, -capture, -vector, -automation   (stubs until their phase)
+        -capture, -vector, -automation   (stubs until their phase)
 ```
 
 Rules that keep this healthy:
@@ -209,9 +212,9 @@ Alternatives considered:
 
 Directory: `apps/desktop/` (crate `vellum-desktop`, binary `vellum`).
 
-- `AppState` holds the `AppServices` from `vellum-core` (section 12), the `MediaService` from `vellum-media` (section 22) and a counter for window labels. It is created in Tauri's `setup` hook and managed by Tauri. Everything that used to live here in phase 0 (job limit following, logging the ready event) moved into `AppServices` so it is tested.
+- `AppState` holds the `AppServices` from `vellum-core` (section 12), the `MediaService` from `vellum-media` (section 22), the `QuickTools` from `vellum-export` (section 23) and a counter for window labels. It is created in Tauri's `setup` hook and managed by Tauri. Everything that used to live here in phase 0 (job limit following, logging the ready event) moved into `AppServices` so it is tested.
 - `TauriSink` forwards bus events to every window.
-- IPC commands (`src/ipc.rs`) stay thin: parse, call into the core, map errors to strings with `IpcError`. The list covers settings, app commands (`list_commands`, `run_command`, `get_keymap`), documents and their history, recent files, recovery, notifications, job results and the job queue, the media commands from phase 2 (`media_capabilities`, `probe_media`, `media_thumbnail`, `media_filmstrip`, `media_waveform`, `waveform_overview`, `strip_metadata`, `media_cache_stats`, `clean_media_cache`), and `start_sample_job`, which is kept so the queue can still be tried by hand. Media commands that touch the disk are `async` and run on a blocking thread, so a slow disk or an ffprobe call never freezes the window.
+- IPC commands (`src/ipc.rs`) stay thin: parse, call into the core, map errors to strings with `IpcError`. The list covers settings, app commands (`list_commands`, `run_command`, `get_keymap`), documents and their history, recent files, recovery, notifications, job results and the job queue, the media commands from phase 2 (`media_capabilities`, `probe_media`, `media_thumbnail`, `media_filmstrip`, `media_waveform`, `waveform_overview`, `strip_metadata`, `media_cache_stats`, `clean_media_cache`), the quick tool commands from phase 3 in `src/tools.rs` (`run_quick_tool`, `size_plan`, `anim_estimate`, `gif_frames`, `convert_targets`, `media_frame`, `preview_file`, `copy_files`), and `start_sample_job`, which is kept so the queue can still be tried by hand. Media commands that touch the disk are `async` and run on a blocking thread, so a slow disk or an ffprobe call never freezes the window.
 - **Plugins:** `tauri-plugin-dialog` for the open file dialog and `tauri-plugin-opener` for opening job results. The opener is only called from Rust, from `open_result`, which refuses any path that is not the result of a job in the queue. The webview has no opener permission of its own, so it cannot be used to open arbitrary files.
 - **Thumbnails** use the asset protocol. Its scope starts empty; Rust allows each file one at a time as it is opened or listed in recent files (`allow_asset`), plus the media cache folder, which holds nothing but Vellum's own previews.
 - **Windows:** the first window is `main`. `tear_off_document` builds a new window labelled `doc-1`, `doc-2` and so on, loading the same UI, and moves the document there. The capability file covers `main` and `doc-*`. When a document window is destroyed its documents move back to `main`, and closing `main` quits the app.
@@ -297,7 +300,7 @@ File: `crates/vellum-core/src/recovery.rs`.
 
 Every running Vellum owns a session folder under `recovery/` in the app data folder, holding a `lock` file, `manifest.json` (the open documents, when they were saved, whether Vellum exited cleanly) and one state file per document.
 
-- **An OS file lock tells a live session from a dead one.** Each session holds an exclusive `File::lock` (stable since Rust 1.89) on its `lock` file. On start-up any folder whose lock can be taken belongs to a session that is gone. Two Vellum windows running at once never offer each other's work, which a pid file cannot promise across platforms.
+- **An OS file lock tells a live session from a dead one.** Each session holds an exclusive `File::lock` (stable since Rust 1.89) on its `lock` file. On start-up any folder whose lock can be taken belongs to a session that is gone. Two Vellum windows running at once never offer each other's work, which a pid file cannot promise across platforms. Folders are claimed with `create_dir`, which fails if the folder exists, so two sessions started in the same millisecond never share one, and a session never waits for its own lock (`try_lock`). Phase 3 found the old naming could deadlock under load.
 - **Autosave writes atomically** (temp file, flush, rename, the same helper as settings) every N seconds from settings, and only if the document revision changed. State files of closed documents are removed.
 - **Nothing is deleted until the user decides.** Old sessions found at start-up are held, locked, until the prompt is answered. Restore opens every document (unsaved ones marked unsaved) and only then deletes the folder; a document that cannot be loaded (an unknown type from a newer Vellum) keeps its folder. Discard deletes them.
 - **Crash or quit.** A clean exit writes a last autosave with `cleanExit: true` and deletes the folder only if nothing is unsaved. So the next launch can say either "Vellum did not close properly" or "Vellum was closed with unsaved changes". Like VS Code's hot exit, quitting with unsaved work never loses it, but here the user is asked rather than surprised.
@@ -522,3 +525,85 @@ No media files are committed. `testmedia.rs` makes about 30 small files on deman
 - *libheif and libavif.* Better HEIC support than FFmpeg 6.1 (tiled images), but two more native libraries. A newer FFmpeg handles tiles, and phase 18 ships one.
 - *One FFmpeg pass for filmstrips* (`select` across the whole file). One process instead of eight, but it has to read the whole file; for a two hour video that is far slower than eight seeks.
 - *Hiding thumbnails outside the job queue.* Simpler, but they would escape the CPU limit, cancel on exit and panic handling. A flag on the job was a few lines.
+
+## 23. Quick tools
+
+Crate: `crates/vellum-export`. Phase 3.
+
+The four quick tools that work today: Export to X MB (`size/`), Video to GIF and the other loop formats (`anim/`), GIF tools (`anim/frames.rs`, `anim/lossy.rs`) and the converter (`convert.rs`). Each is a plain function over files that reports through a `Control`, like the media core, so tests and the phase 16 CLI call them directly. `service.rs` (`QuickTools`) runs them for the app.
+
+```
+ quick tool document (core, quick_tool.rs): title, inputs, options as json
+      │ run_quick_tool
+      ▼
+ QuickTools::run ── one job per file, owned by the document, about that file
+      │                (a slideshow is one job for all the pictures)
+      ├── size::fit ──── video.rs (two pass) / image.rs (search) / gif.rs (ladder) / audio.rs
+      ├── anim::render ── one ffmpeg filter graph, then lossy.rs for gifs
+      ├── frames.rs ───── frame editor and splitter, written by vellum itself
+      └── convert ─────── remux, encode, frames, stills, icons, slideshows
+ job result = ToolResult { path, bytes, changes, notes, ... }
+```
+
+### Sessions are documents
+
+A quick tool session is a `QuickToolDocument` in core (`quick_tool.rs`): its title, its files and its options as JSON. Core does not know what each tool's options mean; the export crate reads them into typed structs with `#[serde(default)]`, so a session saved by an older Vellum still opens. Every change is a command (`tool.set_options`, `tool.add_inputs`, `tool.remove_inputs`), so options undo, autosave and come back after a crash like any edit, as section 5 of the plan asks. Slider drags merge into one step when they touch the same option.
+
+`tool.set_options` merges objects key by key but stores `null` as a value. A JSON merge patch (what settings use) would delete the key instead, and for tool options null means something: "keep the source width", "use the size from settings". Deleting it would quietly bring the default back.
+
+The view keeps its own copy of a change only until Rust's state catches up, so sliders never lag (`ui/src/workspaces/tools/session.ts`).
+
+Jobs gained two optional fields: `owner` (the document that started the job) and `subject` (the file it works on). The view lists its own runs by owner and shows progress next to each file by subject, all from the job queue, so a reloaded window loses nothing.
+
+Defaults for every tool's options are written by a Rust test to `ui/src/bindings/toolDefaults.json`, like `fileKinds.json`, so the UI fills gaps from the real defaults instead of a copy.
+
+### Export to X MB
+
+`size/budget.rs` is pure maths and has the most tests: target bytes after the margin, a share kept for the container, the audio bitrate (stepping down and to mono on long clips), and the picture. The picture plan walks a list of candidate sizes and frame rates from best to worst and takes the first with enough bits per pixel per frame (0.045 for H.264, scaled for newer codecs). Best quality drops 60 fps to 30 first, then shrinks to 360p, then slows to 24, 20 and 15 fps, then shrinks further. Below 360p or 15 fps it still fits but says it will look soft. The plan's changes are plain sentences the UI shows before and after.
+
+Video uses two pass encoding with a software encoder, because hardware encoders cannot land on a size reliably. `vellum-media`'s encoder gained `Passes::Two` and `Passes::Second`: if the result is over, only the second pass runs again at a corrected bitrate, reusing the first pass's statistics. Statistics files are named relative to their folder, which becomes FFmpeg's working folder, because x265 takes the name inside a colon separated list that a Windows drive letter would break. SVT-AV1 and OpenH264 have no two pass mode from the command line and use one pass plus the correction loop.
+
+Images search quality by bisection (JPEG in process, WebP and AVIF through FFmpeg), and scale down by about the square root of how far over the lowest quality was, then search again. PNGs are optimised losslessly first (oxipng), then reduced to a 256 colour palette, then scaled. MP3 below 32 kbps only exists at lower sample rates, which LAME will not pick by itself, so those are set explicitly.
+
+GIFs have no bitrate. `size/gif.rs` builds a ladder of ever smaller settings (lossy, fewer colours, narrower, fewer frames) and binary searches it with real renders, at most six for eighteen steps. The same search is the "fit to X MB" box in Video to GIF and GIF tools. After a GIF, the same clip is encoded as an MP4, and if that is clearly smaller the result says so.
+
+A file that already fits and has no trim or other change is left alone and reported as such.
+
+**Tests** encode deliberately noisy files at several targets and strategies, with every codec, and check every result on disk is under its limit and opens as the right kind of file.
+
+### Video to GIF
+
+`anim::render` builds one FFmpeg filter graph: input seek, speed (`setpts`), `fps`, crop, Lanczos scale, caption, reverse or boomerang (`reverse`, dropping the frame at the turn), then for GIFs `palettegen` with `stats_mode=diff` and `paletteuse` with `diff_mode=rectangle`, which only redraws what moved. WebP, APNG, AVIF and MP4 use their own encoders on the same graph. Reverse keeps every frame in memory, so long clips are refused with the length that would fit.
+
+**Captions** are drawn by resvg into a transparent picture FFmpeg lays over the frames, not by FFmpeg's `drawtext`, which needs a build with freetype that an LGPL build may lack. The font, Inter Black, is bundled (`assets/`, OFL licence), so captions look the same everywhere. Classic captions are white capitals with a black outline; the bar style pads the picture with white bars.
+
+**Lossy GIFs** (`lossy.rs`): pixels within a colour distance of what the viewer already sees are left transparent, so long runs of one index compress far better. It compares against the displayed frame, not the source's previous frame, so error cannot build up. Frames with nothing new fold into the previous frame's delay. At level 0 it only skips identical pixels, which is lossless and is what the frame editor uses.
+
+The live **size estimate** renders a sample of up to 1.5 seconds from the middle of the selection with the real settings and scales it. In the real app it landed within a few percent.
+
+### GIF tools
+
+The frame editor and splitter decode with vellum-media and write GIFs with the `gif` crate rather than FFmpeg, so every delay is exactly what the user typed. Frames from a GIF almost always share 255 colours or fewer, which then go in exactly; otherwise a palette is learned from samples of every frame (NeuQuant). See-through GIFs keep their transparency. The editor's frame list is an option of the session, so deleting, duplicating, moving and retiming frames all undo. Thumbnails come from one cached sheet image.
+
+### Converter
+
+`targets_for(kind)` lists what each kind of file can become; the UI offers what every file in the batch has in common. When nothing changes but the container and the streams suit the new one, they are copied (`can_remux`, mirrored in TypeScript for the "instant" hint), which is how MKV to MP4 takes a second. Pictures go through the media decoders, so camera raw, HEIC, PSD and SVG at any size all convert. Icons hold every size asked for, padded square. Pictures converted to a video become one slideshow job.
+
+### Results, previews and the clipboard
+
+Results never overwrite anything (`naming.rs`): `clip (10 MB).mp4`, then `clip (10 MB 2).mp4`. Names are reserved in process until the job ends, so two jobs of a batch writing into one folder cannot pick the same name. Settings can send every result to one folder.
+
+`preview_file` and `copy_files` only accept files a quick tool was given or a job made, like `open_result`. "Copy as file" uses `clipboard-rs`, which puts files on the clipboard the way a file manager does (CF_HDROP on Windows, file URLs on macOS and X11), so they paste into chat apps. On Linux the URLs are percent encoded by Vellum, since the crate does not. Checked under X11: the clipboard offers `text/uri-list` and GNOME's copied files format. Wayland without XWayland is not supported by the crate.
+
+### Platform presets
+
+`ExportSettings` holds the starting size (10 MB, as the plan asks), MB or MiB, the margin (3 percent), an output folder and the presets. The presets were checked in November 2026: Discord free 20 MiB (raised from 10 MB in August 2026, per Discord's own FAQ), Nitro Basic 50 MiB, Nitro 1000 MB (the FAQ says "up to 1 GB"), email 18 MB (Gmail allows 25 MB but encoding grows attachments by a third), WhatsApp 16 MB, Telegram 2000 MB, X 512 MB for video. Where a source was vague the smaller reading won. They are new fields with defaults, so the settings version stays 1.
+
+### Alternatives considered
+
+- *gifski for GIFs, as the plan says.* It makes slightly nicer GIFs, but it is AGPL, which would force all of Vellum to be open source. FFmpeg's palette filters are LGPL and close in quality.
+- *libimagequant (pngquant) for palettes.* GPL. quantette (k-means in Oklab, MIT) and color_quant for pictures with transparency instead.
+- *gifsicle's lossy LZW.* GPL too, and a separate program. The transparency approach above is Vellum's own.
+- *FFmpeg `drawtext` for captions.* Needs freetype and fontconfig in the FFmpeg build and draws differently on each OS.
+- *Options in the UI only.* Simpler, but then they would not undo, autosave or recover, and a macro could not replay them.
+- *An exact size estimate for GIFs.* Only a full render knows; the sample is fast and close enough to steer by.

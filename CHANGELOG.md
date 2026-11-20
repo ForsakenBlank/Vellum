@@ -4,6 +4,28 @@ All notable changes to Vellum are listed here. Dates are in YYYY-MM-DD.
 
 ## Unreleased
 
+### Phase 3: quick tools (2026-11-20)
+
+Added
+
+- Export to X MB. Drop a video, photo, GIF or song and get a copy under the size, 10 MB unless you pick another. Chips for Discord, Discord Nitro Basic, Discord Nitro, email, WhatsApp, Telegram and X, editable in Settings. MB or MiB, a safety margin, and a choice of what to keep when something has to give. Before anything is encoded it says what will happen, like "1280×720 at 30 fps, 1,850 kbps picture, 128 kbps sound", and after it shows the final size, how much smaller it got and what changed. Files that already fit are left alone.
+- Video to GIF. Pick the moment on a filmstrip with handles that land on real frames (arrow keys move one frame), drag a crop on the picture, add a classic meme caption or a caption bar, and set the width, frame rate, speed, colours, dithering, lossy compression and how many times it plays. Reverse and boomerang. It shows roughly how big the result will be before making it, and can step the settings down until it fits a size. Also makes animated WebP, APNG, AVIF and silent MP4 loops, and says when an MP4 would be much smaller.
+- GIF tools: make a GIF smaller, edit it frame by frame (delete, duplicate, move and retime frames, all undoable), split it into pictures, or turn it into an MP4.
+- Convert: any format to any format that makes sense. Changing only the container copies the streams, so it is instant and lossless, and the tool says so before you start. Pull the sound out of a video, save frames as pictures, turn photos into a slideshow, make Windows icons with every size, draw SVGs at any width, and convert camera raw, HEIC and Photoshop files. Resize, turn, flip, trim, mute and change the speed on the way.
+- Every quick tool takes many files at once, shows progress and the result next to each file, and takes more files dropped onto its list. Results open, show in their folder, compare before and after, or copy as a file you can paste straight into Discord or any chat.
+- Settings, Export and quick tools: the starting size, the margin, where results go (next to the original by default) and the size presets.
+- Quick tool options undo and redo, are autosaved and come back after a crash, like any other change.
+
+Fixed
+
+- Two Vellum sessions started in the same millisecond in one process could claim the same recovery folder, and the second then waited forever for the first one's lock. It only showed up in the test suite under heavy load, but it could have frozen start-up. Each session now claims a folder of its own.
+
+Notes
+
+- Nothing a quick tool makes ever replaces an existing file.
+- GIFs are made with FFmpeg's palette tools rather than gifski, which would force Vellum to be open source. Captions use the bundled Inter font, so they look the same on every computer.
+- Explorer and Finder right click menus are left for phase 16.
+
 ### Phase 2: media core (2026-11-20)
 
 Added

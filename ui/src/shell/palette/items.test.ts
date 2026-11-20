@@ -47,7 +47,7 @@ describe("palette items", () => {
   });
 
   it("finds things by what they do, not only by name", () => {
-    expect(titles("discord")).toEqual([]);
+    expect(titles("discord")).toContain("Size presets");
     expect(titles("shrink")[0]).toBe("Export to 10 MB");
     expect(titles("preferences")).toContain("Theme");
   });

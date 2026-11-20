@@ -129,6 +129,28 @@ pub struct Recovery {
     autosaved: Mutex<Autosaved>,
 }
 
+/// makes a session folder no other session has. `create_dir` fails when the folder exists,
+/// so two sessions started in the same millisecond in one process get different folders.
+fn claim_folder(root: &Path, started_at_ms: u64) -> Result<PathBuf, RecoveryError> {
+    let pid = std::process::id();
+    for n in 0..1000 {
+        let name = if n == 0 {
+            format!("session-{started_at_ms}-{pid}")
+        } else {
+            format!("session-{started_at_ms}-{pid}-{n}")
+        };
+        let dir = root.join(name);
+        match fs::create_dir(&dir) {
+            Ok(()) => return Ok(dir),
+            Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(err) => return Err(io_err(&dir)(err)),
+        }
+    }
+    Err(io_err(root)(std::io::Error::other(
+        "no free session folder, the recovery folder may be full of old sessions",
+    )))
+}
+
 impl Recovery {
     /// claims a new session folder under `root` and finds what earlier sessions left behind
     pub fn start(root: &Path) -> Result<Self, RecoveryError> {
@@ -136,11 +158,14 @@ impl Recovery {
         let pending = find_pending(root);
 
         let started_at_ms = now_ms();
-        let session_dir = root.join(format!("session-{started_at_ms}-{}", std::process::id()));
-        fs::create_dir_all(&session_dir).map_err(io_err(&session_dir))?;
+        let session_dir = claim_folder(root, started_at_ms)?;
         let lock_path = session_dir.join(LOCK);
         let lock = File::create(&lock_path).map_err(io_err(&lock_path))?;
-        lock.lock().map_err(io_err(&lock_path))?;
+        // the folder is new and ours alone, so the lock is free. never wait for it: an
+        // earlier version shared a folder between two sessions started in the same
+        // millisecond and the second one waited for the first forever.
+        lock.try_lock()
+            .map_err(|err| io_err(&lock_path)(std::io::Error::other(err.to_string())))?;
 
         Ok(Self {
             session_dir,
@@ -468,6 +493,18 @@ mod tests {
         recovery.discard();
         assert!(recovery.offer().is_none());
         assert_eq!(sessions(root.path()), 1);
+    }
+
+    #[test]
+    fn sessions_started_together_never_share_a_folder() {
+        let root = tempfile::tempdir().unwrap();
+        // the same millisecond, the same process: the case that used to hang
+        let first = claim_folder(root.path(), 42).unwrap();
+        let second = claim_folder(root.path(), 42).unwrap();
+        assert_ne!(first, second);
+        let a = Recovery::start(root.path()).unwrap();
+        let b = Recovery::start(root.path()).unwrap();
+        assert_ne!(a.session_dir, b.session_dir);
     }
 
     #[test]

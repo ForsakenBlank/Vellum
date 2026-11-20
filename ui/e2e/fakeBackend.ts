@@ -22,6 +22,9 @@ export function installFakeBackend({ fixture, fileKinds, windowLabel }: FakeOpti
     notes: string;
     name: string;
     kind: string;
+    /** quick tool sessions keep their files and options in each step */
+    inputs?: string[];
+    options?: Json;
   }
   interface Doc {
     id: string;
@@ -55,6 +58,7 @@ export function installFakeBackend({ fixture, fileKinds, windowLabel }: FakeOpti
   };
   const kinds = fileKinds as { kind: string; workspace: string; extensions: string[] }[];
   const KEY = "vellum.fake";
+  const runnable = new Set(["export_to_size", "video_to_gif", "gif_tools", "convert"]);
   const rustCommands = new Set([
     "edit.undo",
     "edit.redo",
@@ -124,6 +128,111 @@ export function installFakeBackend({ fixture, fileKinds, windowLabel }: FakeOpti
     return out;
   };
 
+  // tool options keep null as a value, unlike settings patches
+  const mergeOptions = (target: unknown, patch: unknown): unknown => {
+    if (typeof patch !== "object" || patch === null || Array.isArray(patch)) return patch;
+    if (typeof target !== "object" || target === null || Array.isArray(target)) return patch;
+    const out: Json = { ...(target as Json) };
+    for (const [key, value] of Object.entries(patch as Json)) {
+      out[key] = key in out ? mergeOptions(out[key], value) : value;
+    }
+    return out;
+  };
+
+  // jobs the fake runs: they start, report progress, then finish with a tool result
+  const jobs = new Map<number, Json>();
+  let nextJob = 1;
+  let revision = 1;
+  const jobUpdate = (job: Json) => {
+    job.revision = revision++;
+    jobs.set(job.id as number, job);
+    emit("job:changed", { type: "updated", job: structuredClone(job) });
+  };
+  const fakeResult = (doc: Doc, path: string) => {
+    const options = current(doc).options ?? {};
+    const name = fileName(path);
+    const stem = name.includes(".") ? name.slice(0, name.lastIndexOf(".")) : name;
+    const dir = path.slice(0, path.length - name.length);
+    const ext = name.split(".").pop() ?? "";
+    switch (doc.tool) {
+      case "export_to_size": {
+        const target = (options.target as { amount: number; unit: string } | null) ?? {
+          amount: 10,
+          unit: "MB",
+        };
+        return {
+          path: `${dir}${stem} (${String(target.amount)} ${target.unit}).${ext}`,
+          bytes: 9_412_000,
+          sourceBytes: 48_200_000,
+          targetBytes: 9_700_000,
+          changes: ["Scaled down from 1920×1080 to 1280×720 so it stays sharp at this size."],
+          notes: [],
+        };
+      }
+      case "video_to_gif":
+        return {
+          path: `${dir}${stem}.gif`,
+          bytes: 3_100_000,
+          sourceBytes: 48_200_000,
+          targetBytes: null,
+          changes: [],
+          notes: [
+            "As an MP4 this would be about 0.6 MB instead of 3.1 MB, at full size and frame rate. Discord and most chats play MP4s just like GIFs.",
+          ],
+        };
+      default:
+        return {
+          path: `${dir}${stem} (2).${ext}`,
+          bytes: 1_000_000,
+          sourceBytes: 2_000_000,
+          targetBytes: null,
+          changes: [],
+          notes: [],
+        };
+    }
+  };
+  const runTool = (doc: Doc) => {
+    const inputs = current(doc).inputs ?? [];
+    if (inputs.length === 0)
+      throw new Error("Add a file first. Drop one on the window or use Add files.");
+    return inputs.map((path) => {
+      const id = nextJob++;
+      const job: Json = {
+        id,
+        title: `${toolTitle(doc.tool ?? "")} ${fileName(path)}`,
+        resource: "cpu",
+        priority: "normal",
+        state: "running",
+        progress: 0.4,
+        message: "Encoding (pass 2 of 2)",
+        etaSecs: 3,
+        elapsedSecs: 1,
+        attempt: 0,
+        maxRetries: 0,
+        background: false,
+        owner: doc.id,
+        subject: path,
+        error: null,
+        result: null,
+        createdAtMs: Date.now(),
+        revision: 0,
+      };
+      jobUpdate(job);
+      // finishes when the test says so, so it can look at the running state first
+      fake.pendingJobs.push(() => {
+        jobUpdate({
+          ...job,
+          state: "completed",
+          progress: 1,
+          message: null,
+          etaSecs: null,
+          result: { source: path, alreadyFits: false, folder: false, ...fakeResult(doc, path) },
+        });
+      });
+      return id;
+    });
+  };
+
   const look = () => state.settings.appearance as Json;
   const shortcuts = () =>
     state.settings.shortcuts as { preset: string; overrides: Record<string, string[]> };
@@ -165,10 +274,10 @@ export function installFakeBackend({ fixture, fileKinds, windowLabel }: FakeOpti
     kind: doc.kind,
     workspace: doc.workspace,
     tool: doc.tool,
-    inputs: doc.inputs,
+    inputs: doc.tool ? (current(doc).inputs ?? doc.inputs) : doc.inputs,
     window: doc.window,
     dirty: doc.at !== doc.saved,
-    docType: "placeholder",
+    docType: doc.tool && runnable.has(doc.tool) ? "quick_tool" : "placeholder",
   });
   const summary = (doc: Doc) => ({
     canUndo: doc.at > 0,
@@ -194,7 +303,7 @@ export function installFakeBackend({ fixture, fileKinds, windowLabel }: FakeOpti
       tool: null,
       inputs: [],
       window: "main",
-      steps: [{ title, notes, name: "Start", kind: "" }],
+      steps: [{ title, notes, name: "Start", kind: "", inputs: fields.inputs ?? [], options: {} }],
       at: 0,
       saved: dirty ? -1 : 0,
       sealed: true,
@@ -285,6 +394,45 @@ export function installFakeBackend({ fixture, fileKinds, windowLabel }: FakeOpti
         doc.at++;
       }
       doc.sealed = false;
+    } else if (record.kind === "tool.set_options") {
+      const patch = params.patch as Json;
+      const keys = JSON.stringify(Object.keys(patch).sort());
+      const merge =
+        !doc.sealed &&
+        now.kind === `tool.set_options:${keys}` &&
+        doc.at === doc.steps.length - 1 &&
+        doc.at !== doc.saved;
+      const options = mergeOptions(now.options ?? {}, patch) as Json;
+      const name =
+        Object.keys(patch).length === 1
+          ? `Change ${Object.keys(patch)[0] ?? ""}`
+          : "Change options";
+      if (merge) {
+        doc.steps[doc.at] = { ...now, options };
+      } else {
+        doc.steps = doc.steps.slice(0, doc.at + 1);
+        doc.steps.push({ ...now, options, name, kind: `tool.set_options:${keys}` });
+        doc.at++;
+      }
+      doc.sealed = false;
+    } else if (record.kind === "tool.add_inputs" || record.kind === "tool.remove_inputs") {
+      const paths = params.paths as string[];
+      const before = now.inputs ?? [];
+      const adding = record.kind === "tool.add_inputs";
+      const inputs = adding
+        ? [...before, ...paths.filter((p) => !before.includes(p))]
+        : before.filter((p) => !paths.includes(p));
+      if (inputs.length === before.length) throw new Error("nothing changed");
+      const count = Math.abs(inputs.length - before.length);
+      doc.steps = doc.steps.slice(0, doc.at + 1);
+      doc.steps.push({
+        ...now,
+        inputs,
+        name: `${adding ? "Add" : "Remove"} ${count === 1 ? "a file" : `${String(count)} files`}`,
+        kind: record.kind,
+      });
+      doc.at++;
+      doc.sealed = true;
     } else {
       throw new Error(`no command is registered as \`${String(record.kind)}\``);
     }
@@ -483,7 +631,14 @@ export function installFakeBackend({ fixture, fileKinds, windowLabel }: FakeOpti
     },
     get_document: (args) => {
       const doc = findDoc(args.id);
-      return { info: info(doc), state: { title: current(doc).title, notes: current(doc).notes } };
+      const step = current(doc);
+      if (doc.tool) {
+        return {
+          info: info(doc),
+          state: { title: step.title, inputs: step.inputs ?? [], options: step.options ?? {} },
+        };
+      }
+      return { info: info(doc), state: { title: step.title, notes: step.notes } };
     },
     document_history: (args) => {
       const doc = findDoc(args.id);
@@ -548,7 +703,41 @@ export function installFakeBackend({ fixture, fileKinds, windowLabel }: FakeOpti
     list_notifications: () => ({ items: [], unread: 0 }),
     dismiss_notification: () => null,
     open_result: () => null,
-    list_jobs: () => ({ jobs: [], waiting: [], revision: 0 }),
+    list_jobs: () => ({ jobs: [...jobs.values()], waiting: [], revision }),
+    retry_job: () => null,
+    run_quick_tool: (args) => runTool(findDoc(args.document)),
+    size_plan: (args) => ({
+      kind: "video",
+      goalBytes: 9_700_000,
+      sourceBytes: 48_200_000,
+      alreadyFits: false,
+      summary: `1280×720, 1180 kbps picture, 128 kbps sound. (${
+        ((args.options as Json).strategy as string | undefined) ?? ""
+      })`,
+      video: null,
+      problem: null,
+    }),
+    anim_estimate: (args) => ({
+      bytes: 2_400_000,
+      width: ((args.options as Json).width as number | null) ?? 1080,
+      height: 270,
+      seconds: 3,
+      frames: 45,
+    }),
+    gif_frames: () => ({
+      info: { width: 200, height: 100, delaysMs: [100, 100, 100, 50], loops: 0 },
+      sheet: "/cache/sheet.png",
+      columns: 4,
+      frameWidth: 144,
+      frameHeight: 72,
+    }),
+    convert_targets: () => ["mp4", "webm", "mkv", "mov", "gif"],
+    media_frame: (args) => `/cache/frame-${String(args.seconds)}.jpg`,
+    preview_file: () => null,
+    copy_files: (args) => {
+      fake.copied = args.paths as string[];
+      return null;
+    },
     ui_event: () => null,
     // the browser has no ffmpeg or files to read, so media answers "nothing to show"
     media_capabilities: () => ({ ffmpeg: null, hardware: null }),
@@ -587,6 +776,13 @@ export function installFakeBackend({ fixture, fileKinds, windowLabel }: FakeOpti
   const fake = {
     /** paths the next file dialogs return */
     nextDialog: [] as (string[] | null)[],
+    /** jobs waiting for the test to finish them */
+    pendingJobs: [] as (() => void)[],
+    finishJobs: () => {
+      for (const done of fake.pendingJobs.splice(0)) done();
+    },
+    /** what the last "copy as file" put on the clipboard */
+    copied: [] as string[],
     emit,
     /** what a clean quit does: the session stays only if something is unsaved */
     cleanExit: () => {
