@@ -684,6 +684,13 @@ mod tests {
     }
 
     #[test]
+    fn the_ui_event_map_knows_media_events() {
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../ui/src/lib/events.ts");
+        let source = fs::read_to_string(path).unwrap();
+        assert!(source.contains(&format!("\"{}\"", MediaEvent::NAME)));
+    }
+
+    #[test]
     fn thumbnails_are_made_once_then_served_from_the_cache() {
         let dir = tempfile::tempdir().unwrap();
         let (service, events) = service(dir.path());

@@ -15,6 +15,7 @@ export const sectionTitles: Record<SettingsSection, string> = {
   autosave: "Autosave and recovery",
   jobs: "Jobs",
   history: "Undo history",
+  media: "Media and cache",
   about: "About",
 };
 
@@ -109,6 +110,34 @@ export const settingsCatalog: SettingEntry[] = [
     label: "Undo memory",
     description: "How much memory undo may use per document.",
     keywords: "history ram limit",
+  },
+  {
+    id: "ffmpeg",
+    section: "media",
+    label: "FFmpeg",
+    description: "Reads and writes video and audio. Leave empty to find it automatically.",
+    keywords: "ffmpeg ffprobe path folder codec video audio",
+  },
+  {
+    id: "hardwareAcceleration",
+    section: "media",
+    label: "Hardware acceleration",
+    description: "Use the graphics card to encode and decode video when it works.",
+    keywords: "gpu nvenc quicksync amf videotoolbox vaapi encoder decoder speed",
+  },
+  {
+    id: "cacheLimit",
+    section: "media",
+    label: "Cache size",
+    description: "Disk space for thumbnails, waveforms and file details. Old ones go first.",
+    keywords: "disk space thumbnails waveform storage clean clear",
+  },
+  {
+    id: "maxImageMemory",
+    section: "media",
+    label: "Largest image",
+    description: "The most memory one image may use when opened.",
+    keywords: "memory ram huge big image megapixels limit",
   },
   {
     id: "version",

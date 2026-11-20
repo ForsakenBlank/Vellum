@@ -10,7 +10,9 @@ import { Switch } from "../../components/Switch";
 import { Tooltip } from "../../components/Tooltip";
 import { accentSwatches, isHexColour } from "../../lib/color";
 import { rank } from "../../lib/fuzzy";
+import { formatBytes } from "../../lib/format";
 import { inDesktopApp, ipc, type DeepPartial } from "../../lib/ipc";
+import { useMedia } from "../../state/media";
 import { useSettings } from "../../state/settings";
 import { useUi, type SettingsSection } from "../../state/ui";
 import { sectionTitles, settingsCatalog, type SettingEntry } from "./catalog";
@@ -134,6 +136,14 @@ function SettingsBody({ start, initialQuery }: { start: SettingsSection; initial
             <ShortcutEditor query="" />
           ) : section === "about" ? (
             <About />
+          ) : section === "media" ? (
+            <div className="flex flex-col gap-6">
+              <Rows
+                entries={settingsCatalog.filter((e) => e.section === "media")}
+                settings={settings}
+              />
+              <MediaStatusPanel />
+            </div>
           ) : (
             <Rows
               entries={settingsCatalog.filter((e) => e.section === section)}
@@ -371,9 +381,200 @@ function Control({ entry, settings }: { entry: SettingEntry; settings: AppSettin
           }}
         />
       );
+    case "ffmpeg":
+      return (
+        <TextField
+          id={id}
+          value={settings.media.ffmpegPath}
+          placeholder="Find automatically"
+          onChange={(ffmpegPath) => {
+            patch({ media: { ffmpegPath } });
+          }}
+        />
+      );
+    case "hardwareAcceleration":
+      return (
+        <Switch
+          id={id}
+          label="Hardware acceleration"
+          checked={settings.media.hardwareAcceleration}
+          onCheckedChange={(hardwareAcceleration) => {
+            patch({ media: { hardwareAcceleration } });
+          }}
+        />
+      );
+    case "cacheLimit":
+      return (
+        <NumberField
+          id={id}
+          value={settings.media.cacheLimitMb}
+          min={100}
+          max={1048576}
+          unit="MB"
+          onChange={(cacheLimitMb) => {
+            patch({ media: { cacheLimitMb } });
+          }}
+        />
+      );
+    case "maxImageMemory":
+      return (
+        <NumberField
+          id={id}
+          value={settings.media.maxImageMb}
+          min={256}
+          max={65536}
+          unit="MB"
+          onChange={(maxImageMb) => {
+            patch({ media: { maxImageMb } });
+          }}
+        />
+      );
     default:
       return null;
   }
+}
+
+function TextField({
+  id,
+  value,
+  placeholder,
+  onChange,
+}: {
+  id: string;
+  value: string;
+  placeholder: string;
+  onChange: (value: string) => void;
+}) {
+  const [draft, setDraft] = useState(value);
+  const [seen, setSeen] = useState(value);
+  if (seen !== value) {
+    setSeen(value);
+    setDraft(value);
+  }
+  const commit = () => {
+    if (draft.trim() !== value) onChange(draft.trim());
+  };
+  return (
+    <input
+      id={id}
+      value={draft}
+      placeholder={placeholder}
+      spellCheck={false}
+      onChange={(event) => {
+        setDraft(event.target.value);
+      }}
+      onBlur={commit}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") commit();
+      }}
+      className="h-(--row-sm) w-56 rounded-md border border-line-strong bg-raised px-2 font-mono text-xs text-fg outline-none placeholder:font-sans placeholder:text-fg-subtle focus:border-accent-line"
+    />
+  );
+}
+
+/** what the media core found: ffmpeg, the graphics card's encoders and the cache */
+function MediaStatusPanel() {
+  const status = useMedia((s) => s.status);
+  const [cleaning, setCleaning] = useState(false);
+  if (!inDesktopApp) {
+    return <p className="text-sm text-fg-muted">Media details show in the desktop app.</p>;
+  }
+  if (!status) return <p className="text-sm text-fg-muted">Checking media tools.</p>;
+
+  const byApi = new Map<string, string[]>();
+  for (const encoder of status.hardware?.encoders ?? []) {
+    const codecs = byApi.get(encoder.label) ?? [];
+    codecs.push(
+      encoder.codec === "hevc" ? "H.265" : encoder.codec.toUpperCase().replace("H264", "H.264"),
+    );
+    byApi.set(encoder.label, codecs);
+  }
+  const hardware = status.checkingHardware
+    ? "Checking your graphics card."
+    : byApi.size > 0
+      ? [...byApi].map(([api, codecs]) => `${api}: ${codecs.join(", ")}`).join("; ")
+      : status.hardware
+        ? "None found. Video is encoded on the processor, which is slower but looks the same."
+        : "Not checked yet.";
+  const cache = status.cache;
+
+  const rows: [string, ReactNode][] = [
+    [
+      "FFmpeg",
+      status.ffmpeg ? (
+        <span title={status.ffmpeg.ffmpegPath}>
+          Version {status.ffmpeg.version} at {status.ffmpeg.ffmpegPath}
+        </span>
+      ) : (
+        <span className="text-danger">
+          {status.ffmpegError ?? "Not found."} Images still open, video and audio need it.
+        </span>
+      ),
+    ],
+    ["Video hardware", hardware],
+    [
+      "Cache",
+      cache
+        ? `${formatBytes(cache.bytes)} of ${formatBytes(cache.limitBytes)} used, ${String(cache.entries)} items`
+        : (status.cacheError ?? "Off"),
+    ],
+  ];
+
+  return (
+    <section aria-label="Media status" className="flex flex-col gap-3">
+      <dl className="grid grid-cols-[8rem_1fr] gap-y-2 text-sm">
+        {rows.map(([label, value]) => (
+          <div key={label} className="contents">
+            <dt className="text-fg-muted">{label}</dt>
+            <dd className="min-w-0 text-xs leading-5 break-words text-fg-muted select-text">
+              {value}
+            </dd>
+          </div>
+        ))}
+      </dl>
+      <div className="flex gap-2">
+        <Button
+          tooltip="Try the graphics card's video encoders again, for example after a driver update"
+          disabled={status.checkingHardware || !status.ffmpeg}
+          onClick={() => {
+            void ipc.recheckHardware();
+          }}
+        >
+          Check hardware again
+        </Button>
+        <Button
+          variant="danger"
+          tooltip="Delete every cached thumbnail and waveform. They are made again when needed."
+          disabled={cleaning || !cache || cache.entries === 0}
+          onClick={() => {
+            setCleaning(true);
+            ipc
+              .cleanMediaCache()
+              .then((after) => {
+                useUi.getState().toast({
+                  level: "success",
+                  title: "Cache cleaned",
+                  body: `${formatBytes(cache?.bytes ?? 0)} freed.`,
+                });
+                useMedia.getState().setStatus({ ...status, cache: after });
+              })
+              .catch((err: unknown) => {
+                useUi.getState().toast({
+                  level: "error",
+                  title: "The cache could not be cleaned",
+                  body: String(err),
+                });
+              })
+              .finally(() => {
+                setCleaning(false);
+              });
+          }}
+        >
+          Clean cache
+        </Button>
+      </div>
+    </section>
+  );
 }
 
 function Segmented<T extends string>({

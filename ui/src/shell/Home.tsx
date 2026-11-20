@@ -12,14 +12,15 @@ import { formatAgo, formatBytes } from "../lib/format";
 import { inDesktopApp, ipc } from "../lib/ipc";
 import { kindOf } from "../lib/routing";
 import { useCommands } from "../state/commands";
+import { useThumbnail } from "../state/media";
 import { useRecent } from "../state/recent";
 import { useUi } from "../state/ui";
 import { quickTools, type QuickTool } from "../workspaces/quickTools";
 import { workspaceInfo } from "../workspaces/workspaces";
 import { openPaths, openTool, pickAndOpen } from "./actions";
 
-/** images under this size show themselves as thumbnails until phase 2 caches real ones */
-const DIRECT_THUMBNAIL_LIMIT = 20_000_000;
+/** thumbnails are made to fit this square, sharp on high density screens */
+const THUMBNAIL_SIZE = 320;
 
 export function Home() {
   const files = useRecent((s) => s.files);
@@ -259,18 +260,17 @@ function Thumbnail({ file }: { file: RecentFile }) {
   const [broken, setBroken] = useState(false);
   const row = kindOf(file.path);
   const Icon = row ? workspaceInfo(row.workspace).icon : FolderOpen;
-  const direct =
-    inDesktopApp &&
-    !broken &&
-    row?.kind === "image" &&
-    file.sizeBytes !== null &&
-    file.sizeBytes < DIRECT_THUMBNAIL_LIMIT;
+  const thumbnail = useThumbnail(inDesktopApp ? file.path : null, THUMBNAIL_SIZE);
+  const src =
+    !broken && typeof thumbnail === "object" && thumbnail.file
+      ? convertFileSrc(thumbnail.file)
+      : null;
 
   return (
     <div className="grain relative aspect-[4/3] w-full overflow-hidden rounded-lg border border-line bg-raised">
-      {direct ? (
+      {src ? (
         <img
-          src={convertFileSrc(file.path)}
+          src={src}
           alt=""
           loading="lazy"
           decoding="async"

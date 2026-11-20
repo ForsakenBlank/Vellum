@@ -7,6 +7,7 @@ import type { DocumentsChanged } from "../bindings/DocumentsChanged";
 import type { HistoryChanged } from "../bindings/HistoryChanged";
 import type { JobEvent } from "../bindings/JobEvent";
 import type { Keymap } from "../bindings/Keymap";
+import type { MediaEvent } from "../bindings/MediaEvent";
 import type { NotificationsChanged } from "../bindings/NotificationsChanged";
 import type { RecentFiles } from "../bindings/RecentFiles";
 import type { UiReady } from "../bindings/UiReady";
@@ -24,6 +25,7 @@ export interface RustEvents {
   "notifications:changed": NotificationsChanged;
   "keymap:changed": Keymap;
   "autosave:changed": AutosaveStatus;
+  "media:changed": MediaEvent;
 }
 
 /** events the ui sends to rust. rust only accepts the ones it registered. */

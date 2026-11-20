@@ -76,6 +76,14 @@ pub fn run() {
             ipc::move_job,
             ipc::start_sample_job,
             ipc::ui_event,
+            ipc::media_status,
+            ipc::probe_media,
+            ipc::media_thumbnail,
+            ipc::media_filmstrip,
+            ipc::media_waveform,
+            ipc::strip_metadata,
+            ipc::clean_media_cache,
+            ipc::recheck_hardware,
         ])
         .build(tauri::generate_context!());
 

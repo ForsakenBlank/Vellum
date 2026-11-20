@@ -66,7 +66,9 @@ impl MediaInfo {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export)]
 pub struct Rational {
+    #[ts(type = "number")]
     pub num: i64,
+    #[ts(type = "number")]
     pub den: i64,
 }
 

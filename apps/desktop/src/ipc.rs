@@ -21,6 +21,10 @@ use vellum_core::recovery::RecoveryOffer;
 use vellum_core::settings::SettingsError;
 use vellum_core::shortcuts::Keymap;
 use vellum_core::ui::AppInfo;
+use vellum_media::cache::CacheStats;
+use vellum_media::thumbnail::Filmstrip;
+use vellum_media::waveform::WaveformView;
+use vellum_media::{MediaError, MediaInfo, MediaService, MediaStatus, Thumbnail};
 
 use crate::state::{AppState, allow_asset};
 
@@ -39,6 +43,8 @@ pub enum IpcError {
     Document(#[from] DocumentError),
     #[error(transparent)]
     Tauri(#[from] tauri::Error),
+    #[error(transparent)]
+    Media(#[from] MediaError),
     #[error("{0}")]
     Invalid(String),
 }
@@ -368,4 +374,73 @@ pub fn ui_event(
     payload: serde_json::Value,
 ) -> IpcResult<()> {
     Ok(state.services.bus.dispatch_from_ui(&name, payload)?)
+}
+
+/// runs media work off the main thread. probing and cache lookups touch the disk and can
+/// spawn ffprobe, which must never stall the window.
+async fn on_worker<T: Send + 'static>(
+    state: &State<'_, AppState>,
+    work: impl FnOnce(MediaService) -> Result<T, MediaError> + Send + 'static,
+) -> IpcResult<T> {
+    let media = state.media.clone();
+    let joined = tauri::async_runtime::spawn_blocking(move || work(media)).await;
+    match joined {
+        Ok(result) => Ok(result?),
+        Err(err) => Err(IpcError::Invalid(format!("the media task stopped: {err}"))),
+    }
+}
+
+#[tauri::command]
+pub fn media_status(state: State<'_, AppState>) -> MediaStatus {
+    state.media.status()
+}
+
+#[tauri::command]
+pub async fn probe_media(state: State<'_, AppState>, path: PathBuf) -> IpcResult<MediaInfo> {
+    on_worker(&state, move |media| media.probe(&path)).await
+}
+
+/// the cached thumbnail, or null while one is made (a `media:changed` event follows)
+#[tauri::command]
+pub async fn media_thumbnail(
+    state: State<'_, AppState>,
+    path: PathBuf,
+    size: u32,
+) -> IpcResult<Option<Thumbnail>> {
+    on_worker(&state, move |media| media.thumbnail(&path, size)).await
+}
+
+#[tauri::command]
+pub async fn media_filmstrip(
+    state: State<'_, AppState>,
+    path: PathBuf,
+    count: u32,
+    height: u32,
+) -> IpcResult<Option<Filmstrip>> {
+    on_worker(&state, move |media| media.filmstrip(&path, count, height)).await
+}
+
+#[tauri::command]
+pub async fn media_waveform(
+    state: State<'_, AppState>,
+    path: PathBuf,
+    columns: u32,
+) -> IpcResult<Option<WaveformView>> {
+    on_worker(&state, move |media| media.waveform(&path, columns)).await
+}
+
+/// starts a job writing a copy without metadata, next to the original
+#[tauri::command]
+pub async fn strip_metadata(state: State<'_, AppState>, path: PathBuf) -> IpcResult<JobId> {
+    on_worker(&state, move |media| media.strip_metadata(&path)).await
+}
+
+#[tauri::command]
+pub async fn clean_media_cache(state: State<'_, AppState>) -> IpcResult<CacheStats> {
+    on_worker(&state, |media| media.clean_cache()).await
+}
+
+#[tauri::command]
+pub fn recheck_hardware(state: State<'_, AppState>) {
+    state.media.recheck_hardware();
 }

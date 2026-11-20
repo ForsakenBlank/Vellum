@@ -32,6 +32,7 @@ function job(id: number, overrides: Partial<JobSnapshot>): JobSnapshot {
     resource: "cpu",
     priority: "normal",
     state: "queued",
+    background: false,
     progress: null,
     message: null,
     etaSecs: null,

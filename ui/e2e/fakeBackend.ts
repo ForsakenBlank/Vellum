@@ -375,6 +375,51 @@ export function installFakeBackend({ fixture, fileKinds, windowLabel }: FakeOpti
         }
       : null;
 
+  // a plausible description of a file, enough for the info panel to fill in
+  function fakeProbe(path: string): Json {
+    const ext = path.split(".").pop()?.toLowerCase() ?? "";
+    const kind = kinds.find((k) => k.extensions.includes(ext))?.kind;
+    const base: Json = {
+      path,
+      format: ext,
+      formatLabel: `${ext.toUpperCase()} file`,
+      sizeBytes: 1_234_567,
+      durationSecs: null,
+      bitRate: null,
+      video: null,
+      audio: null,
+      image: null,
+      streams: [],
+      tags: [],
+      warnings: [],
+    };
+    if (kind === "image" || kind === "raw") {
+      return {
+        ...base,
+        kind: "image",
+        image: {
+          width: 4032,
+          height: 3024,
+          displayWidth: 4032,
+          displayHeight: 3024,
+          frames: 1,
+          loopCount: null,
+          hasAlpha: false,
+          bitDepth: 8,
+          colorModel: "RGB",
+          hasIccProfile: true,
+          orientation: 1,
+          dpi: 72,
+        },
+        tags: [{ group: "GPS", key: "GPSLatitude", value: "51 deg 30 min", sensitive: true }],
+      };
+    }
+    if (kind === "audio") {
+      return { ...base, kind: "audio", durationSecs: 180 };
+    }
+    return { ...base, kind: kind === "video" ? "video" : "other", durationSecs: 12.5 };
+  }
+
   const handlers: Record<string, (args: Json) => unknown> = {
     app_info: () => ({ version: "0.1.0", settingsPath: "/fake/settings.json", os: "linux" }),
     get_settings: () => state.settings,
@@ -488,6 +533,22 @@ export function installFakeBackend({ fixture, fileKinds, windowLabel }: FakeOpti
     open_result: () => null,
     list_jobs: () => ({ jobs: [], waiting: [], revision: 0 }),
     ui_event: () => null,
+    media_status: () => ({
+      ffmpeg: { ffmpegPath: "/fake/ffmpeg", ffprobePath: "/fake/ffprobe", version: "7.1" },
+      ffmpegError: null,
+      hardware: { encoders: [], decoders: [], softwareEncoders: ["libx264"], ffmpegVersion: "7.1" },
+      checkingHardware: false,
+      cache: { entries: 0, bytes: 0, limitBytes: 2 ** 31, path: "/fake/cache" },
+      cacheError: null,
+    }),
+    probe_media: (args) => fakeProbe(String(args.path)),
+    // thumbnails never finish here, so tiles keep their icons
+    media_thumbnail: () => null,
+    media_filmstrip: () => null,
+    media_waveform: () => null,
+    strip_metadata: () => 1,
+    clean_media_cache: () => ({ entries: 0, bytes: 0, limitBytes: 2 ** 31, path: "/fake/cache" }),
+    recheck_hardware: () => null,
     "plugin:event|listen": (args) => {
       const id = nextListener++;
       const event = String(args.event);

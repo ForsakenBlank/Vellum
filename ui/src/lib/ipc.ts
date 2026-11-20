@@ -3,22 +3,28 @@ import { invoke, isTauri } from "@tauri-apps/api/core";
 import type { AppInfo } from "../bindings/AppInfo";
 import type { AppSettings } from "../bindings/AppSettings";
 import type { AutosaveStatus } from "../bindings/AutosaveStatus";
+import type { CacheStats } from "../bindings/CacheStats";
 import type { CommandInfo } from "../bindings/CommandInfo";
 import type { CommandOutcome } from "../bindings/CommandOutcome";
 import type { DocumentInfo } from "../bindings/DocumentInfo";
 import type { DocumentState } from "../bindings/DocumentState";
+import type { Filmstrip } from "../bindings/Filmstrip";
 import type { HistoryView } from "../bindings/HistoryView";
 import type { JobId } from "../bindings/JobId";
 import type { JobPriority } from "../bindings/JobPriority";
 import type { JobResource } from "../bindings/JobResource";
 import type { JobsOverview } from "../bindings/JobsOverview";
 import type { Keymap } from "../bindings/Keymap";
+import type { MediaInfo } from "../bindings/MediaInfo";
+import type { MediaStatus } from "../bindings/MediaStatus";
 import type { NodeId } from "../bindings/NodeId";
 import type { NotificationsChanged } from "../bindings/NotificationsChanged";
 import type { OpenFilesResult } from "../bindings/OpenFilesResult";
 import type { RecentFiles } from "../bindings/RecentFiles";
 import type { RecoveryOffer } from "../bindings/RecoveryOffer";
 import type { SnapshotId } from "../bindings/SnapshotId";
+import type { Thumbnail } from "../bindings/Thumbnail";
+import type { WaveformView } from "../bindings/WaveformView";
 
 /** every field optional, all the way down, for settings patches. arrays are replaced whole. */
 export type DeepPartial<T> = {
@@ -82,4 +88,17 @@ export const ipc = {
   moveJob: (id: JobId, before: JobId | null) => invoke<null>("move_job", { id, before }),
   startSampleJob: (seconds: number, resource: JobResource, failFirst: boolean) =>
     invoke<JobId>("start_sample_job", { seconds, resource, failFirst }),
+
+  mediaStatus: () => invoke<MediaStatus>("media_status"),
+  probeMedia: (path: string) => invoke<MediaInfo>("probe_media", { path }),
+  /** null while the thumbnail is being made, a "media:changed" event follows */
+  mediaThumbnail: (path: string, size: number) =>
+    invoke<Thumbnail | null>("media_thumbnail", { path, size }),
+  mediaFilmstrip: (path: string, count: number, height: number) =>
+    invoke<Filmstrip | null>("media_filmstrip", { path, count, height }),
+  mediaWaveform: (path: string, columns: number) =>
+    invoke<WaveformView | null>("media_waveform", { path, columns }),
+  stripMetadata: (path: string) => invoke<JobId>("strip_metadata", { path }),
+  cleanMediaCache: () => invoke<CacheStats>("clean_media_cache"),
+  recheckHardware: () => invoke<null>("recheck_hardware"),
 };

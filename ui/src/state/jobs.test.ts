@@ -10,6 +10,7 @@ function job(id: number, revision: number, overrides: Partial<JobSnapshot> = {})
     resource: "cpu",
     priority: "normal",
     state: "queued",
+    background: false,
     progress: null,
     message: null,
     etaSecs: null,
@@ -29,6 +30,14 @@ describe("applyJobEvent", () => {
     let data = applyJobEvent(emptyJobs, { type: "updated", job: job(1, 1) });
     data = applyJobEvent(data, { type: "updated", job: job(1, 2, { state: "running" }) });
     expect(data.jobs[1]?.state).toBe("running");
+  });
+
+  it("leaves background jobs out", () => {
+    const data = applyJobEvent(emptyJobs, {
+      type: "updated",
+      job: job(7, 1, { background: true, title: "Thumbnail for a.png" }),
+    });
+    expect(data).toBe(emptyJobs);
   });
 
   it("ignores updates older than what it has", () => {

@@ -3,4 +3,4 @@
 /**
  * a frame rate as a fraction, so 30000/1001 stays exact
  */
-export type Rational = { num: bigint, den: bigint, };
+export type Rational = { num: number, den: number, };

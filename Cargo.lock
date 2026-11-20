@@ -5535,6 +5535,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "vellum-core",
+ "vellum-media",
 ]
 
 [[package]]

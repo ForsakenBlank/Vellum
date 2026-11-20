@@ -7,6 +7,7 @@ import { performAction } from "./shell/notify";
 import { useCommands } from "./state/commands";
 import { useDocuments } from "./state/documents";
 import { resultPath, useJobs } from "./state/jobs";
+import { useMedia } from "./state/media";
 import { useNotifications } from "./state/notifications";
 import { useRecent } from "./state/recent";
 import { applyAppearance, useSettings } from "./state/settings";
@@ -51,10 +52,13 @@ export async function connectToRust() {
     onRustEvent("autosave:changed", (status) => {
       useUi.getState().setAutosave(status);
     }),
+    onRustEvent("media:changed", (event) => {
+      useMedia.getState().apply(event);
+    }),
     listenForFileDrops(),
   ]);
 
-  const [settings, jobs, commands, keymap, documents, recent, notifications, autosave] =
+  const [settings, jobs, commands, keymap, documents, recent, notifications, autosave, media] =
     await Promise.all([
       ipc.getSettings(),
       ipc.listJobs(),
@@ -64,7 +68,9 @@ export async function connectToRust() {
       ipc.listRecent(),
       ipc.listNotifications(),
       ipc.autosaveStatus(),
+      ipc.mediaStatus(),
     ]);
+  useMedia.getState().setStatus(media);
   useSettings.getState().replace(settings);
   applyAppearance(settings);
   useJobs.getState().merge(jobs);

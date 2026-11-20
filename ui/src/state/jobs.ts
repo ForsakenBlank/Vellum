@@ -25,6 +25,8 @@ export function applyJobEvent(data: JobsData, event: JobEvent): JobsData {
   switch (event.type) {
     case "updated": {
       const { job } = event;
+      // thumbnails and other background work stay out of sight
+      if (job.background) return data;
       const current = data.jobs[job.id];
       const removedAt = data.removedAt[job.id];
       if ((current && current.revision >= job.revision) || (removedAt ?? -1) >= job.revision) {
