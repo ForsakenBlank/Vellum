@@ -748,6 +748,12 @@
       },
       "saved": []
     },
+    "media": {
+      "cacheLimitMb": 2048,
+      "ffmpegPath": "",
+      "hardwareAcceleration": true,
+      "maxImageMb": 2048
+    },
     "shortcuts": {
       "overrides": {},
       "preset": "vellum"

@@ -434,6 +434,33 @@ impl Default for HistorySettings {
     }
 }
 
+/// how vellum reads media files. used by `vellum-media`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(default, rename_all = "camelCase")]
+#[ts(export)]
+pub struct MediaSettings {
+    /// the most disk space thumbnails, waveforms and other cached files may take
+    pub cache_limit_mb: u32,
+    /// a folder holding ffmpeg and ffprobe (or the ffmpeg program itself) to use instead
+    /// of searching for them. empty searches.
+    pub ffmpeg_path: String,
+    /// use the graphics card's video encoders and decoders when they work
+    pub hardware_acceleration: bool,
+    /// the most memory one image may take when opened
+    pub max_image_mb: u32,
+}
+
+impl Default for MediaSettings {
+    fn default() -> Self {
+        Self {
+            cache_limit_mb: 2048,
+            ffmpeg_path: String::new(),
+            hardware_acceleration: true,
+            max_image_mb: 2048,
+        }
+    }
+}
+
 /// one group of panels shown as tabs inside a dock
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[serde(default, rename_all = "camelCase")]
@@ -597,6 +624,7 @@ pub struct AppSettings {
     pub history: HistorySettings,
     pub shortcuts: ShortcutSettings,
     pub layout: LayoutSettings,
+    pub media: MediaSettings,
 }
 
 impl SettingsSchema for AppSettings {
@@ -621,6 +649,10 @@ impl SettingsSchema for AppSettings {
         self.history.max_memory_mb = self.history.max_memory_mb.clamp(64, 64 * 1024);
         shortcuts::sanitize(&mut self.shortcuts);
         self.layout.sanitize();
+        let media = &mut self.media;
+        media.cache_limit_mb = media.cache_limit_mb.clamp(100, 1024 * 1024);
+        media.max_image_mb = media.max_image_mb.clamp(256, 64 * 1024);
+        media.ffmpeg_path = media.ffmpeg_path.trim().to_owned();
     }
 }
 
@@ -838,12 +870,16 @@ mod tests {
                 s.appearance.accent = "red".into();
                 s.jobs.max_cpu_jobs = 0;
                 s.autosave.interval_secs = 1;
+                s.media.cache_limit_mb = 1;
+                s.media.ffmpeg_path = "  /opt/ffmpeg  ".into();
             })
             .unwrap();
         assert_eq!(settings.appearance.ui_scale, 3.0);
         assert_eq!(settings.appearance.accent, DEFAULT_ACCENT);
         assert_eq!(settings.jobs.max_cpu_jobs, 1);
         assert_eq!(settings.autosave.interval_secs, 5);
+        assert_eq!(settings.media.cache_limit_mb, 100);
+        assert_eq!(settings.media.ffmpeg_path, "/opt/ffmpeg");
     }
 
     #[test]
