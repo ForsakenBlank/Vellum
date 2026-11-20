@@ -4,6 +4,7 @@
 //! `ARCHITECTURE.md` section 22 for why. this module finds them, runs them so cancel and
 //! pause work, and turns their output into vellum types.
 
+mod encode;
 mod hw;
 mod probe;
 mod process;
@@ -19,6 +20,7 @@ use ts_rs::TS;
 
 use crate::error::{MediaError, MediaResult};
 
+pub use encode::{Encode, EncodeOutcome, progress_line, run_encode};
 pub use hw::{HardwareSupport, HwDecoder, HwEncoder, VideoCodec, detect_hardware};
 pub use probe::{frame_rate_mode, probe_media};
 pub use process::{NoReporter, Reporter};
@@ -225,6 +227,20 @@ pub(crate) mod testing {
                 None
             }
         }
+    }
+
+    /// true when this ffmpeg build can write with `encoder`. tests that need an encoder
+    /// some builds leave out (aom, lame) check this first.
+    pub fn has_encoder(tools: &FfmpegTools, encoder: &str) -> bool {
+        let mut cmd = tools.ffmpeg();
+        cmd.arg("-encoders");
+        let found = run_output(&mut cmd, "ffmpeg")
+            .map(|out| String::from_utf8_lossy(&out).contains(&format!(" {encoder} ")))
+            .unwrap_or(false);
+        if !found {
+            eprintln!("skipping: this ffmpeg has no {encoder}");
+        }
+        found
     }
 
     /// runs ffmpeg to make a test file. `args` are split on whitespace, so no argument may

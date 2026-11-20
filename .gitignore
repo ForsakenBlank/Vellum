@@ -25,3 +25,6 @@ apps/desktop/gen/schemas/
 # playwright output
 ui/test-results/
 ui/playwright-report/
+
+# test media made by tests/media/generate.sh
+tests/media/out/

@@ -153,6 +153,22 @@ impl HardwareSupport {
         self.software_encoder_for(codec)
     }
 
+    /// encoders to hand to [`super::run_encode`] for `codec`: the working hardware ones
+    /// first when allowed, then the software one, so a failing driver falls back cleanly
+    pub fn encoder_chain(&self, codec: VideoCodec, allow_hardware: bool) -> Vec<String> {
+        let mut chain: Vec<String> = if allow_hardware {
+            self.encoders
+                .iter()
+                .filter(|e| e.codec == codec)
+                .map(|e| e.name.clone())
+                .collect()
+        } else {
+            Vec::new()
+        };
+        chain.extend(self.software_encoder_for(codec));
+        chain
+    }
+
     /// the fallback when a hardware encode fails part way
     pub fn software_encoder_for(&self, codec: VideoCodec) -> Option<String> {
         codec
@@ -378,6 +394,12 @@ mod tests {
             Some("libaom-av1")
         );
         assert_eq!(support.encoder_for(VideoCodec::Vp9, true), None);
+        assert_eq!(
+            support.encoder_chain(VideoCodec::Hevc, true),
+            ["hevc_nvenc", "libx265"]
+        );
+        assert_eq!(support.encoder_chain(VideoCodec::Hevc, false), ["libx265"]);
+        assert!(support.encoder_chain(VideoCodec::Vp9, true).is_empty());
     }
 
     #[test]

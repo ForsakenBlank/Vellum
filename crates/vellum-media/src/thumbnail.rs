@@ -171,28 +171,41 @@ pub fn make_filmstrip(
     let aspect = f64::from(video.display_width) / f64::from(video.display_height.max(1));
     let tile_width = ((f64::from(tile_height) * aspect).round() as u32).max(1);
     let mut strip = RgbImage::new(tile_width * count, tile_height);
-    let mut times = Vec::new();
-    for i in 0..count {
+    let times: Vec<f64> = (0..count)
+        .map(|i| duration * (f64::from(i) + 0.5) / f64::from(count))
+        .collect();
+    // decoding one keyframe barely uses more than one core, so several run side by side
+    let parallel = std::thread::available_parallelism().map_or(2, |n| n.get().clamp(1, 4));
+    let side = tile_width.max(tile_height);
+    let mut done = 0u32;
+    for batch in times.chunks(parallel) {
         reporter.checkpoint()?;
-        let time = duration * (f64::from(i) + 0.5) / f64::from(count);
-        let frame = grab(
-            tools,
-            path,
-            video.stream_index,
-            time,
-            tile_width.max(tile_height),
-        )?;
-        // the grabbed frame fits the box, so centre it in its tile
-        let frame = frame.resize_exact(
-            tile_width,
-            tile_height,
-            image::imageops::FilterType::Triangle,
-        );
-        strip
-            .copy_from(&frame.to_rgb8(), i * tile_width, 0)
-            .map_err(|err| MediaError::decode(err.to_string()))?;
-        times.push(time);
-        reporter.progress((i + 1) as f32 / count as f32);
+        let frames: Vec<MediaResult<DynamicImage>> = std::thread::scope(|scope| {
+            let handles: Vec<_> = batch
+                .iter()
+                .map(|time| scope.spawn(move || grab(tools, path, video.stream_index, *time, side)))
+                .collect();
+            handles
+                .into_iter()
+                .map(|h| {
+                    h.join()
+                        .unwrap_or_else(|_| Err(MediaError::decode("a frame grab crashed")))
+                })
+                .collect()
+        });
+        for frame in frames {
+            // the grabbed frame fits the box, so stretch it the last pixel or two to the tile
+            let frame = frame?.resize_exact(
+                tile_width,
+                tile_height,
+                image::imageops::FilterType::Triangle,
+            );
+            strip
+                .copy_from(&frame.to_rgb8(), done * tile_width, 0)
+                .map_err(|err| MediaError::decode(err.to_string()))?;
+            done += 1;
+        }
+        reporter.progress(done as f32 / count as f32);
     }
     Ok((
         strip,
@@ -279,6 +292,9 @@ mod tests {
         let Some(tools) = testing::tools() else {
             return;
         };
+        if !testing::has_encoder(&tools, "libmp3lame") {
+            return;
+        }
         let dir = tempfile::tempdir().unwrap();
         let plain = dir.path().join("plain.mp3");
         testing::make(&tools, "-f lavfi -i sine=d=1", &plain);

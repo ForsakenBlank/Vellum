@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 
 use crate::error::{MediaError, MediaResult};
 use crate::exif_tags;
-use crate::ffmpeg::{FfmpegTools, Reporter, run_lines};
+use crate::ffmpeg::{FfmpegTools, Reporter, progress_line, run_lines};
 use crate::sniff::Format;
 
 /// writes a cleaned copy next to `path` and returns where
@@ -102,11 +102,8 @@ fn strip_with_ffmpeg(
     }
     cmd.arg(temp);
     run_lines(&mut cmd, "ffmpeg", reporter, |line| {
-        if let (Some(value), Some(total)) = (line.strip_prefix("out_time_us="), duration_secs)
-            && let Ok(us) = value.trim().parse::<f64>()
-            && total > 0.0
-        {
-            reporter.progress((us / 1e6 / total).clamp(0.0, 1.0) as f32);
+        if let Some(fraction) = progress_line(line, duration_secs) {
+            reporter.progress(fraction);
         }
     })
 }

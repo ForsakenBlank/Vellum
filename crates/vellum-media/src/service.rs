@@ -355,30 +355,17 @@ impl MediaService {
                 ..thumb
             }));
         }
-        let path = path.to_owned();
+        let owned = path.to_owned();
         let title = format!("Thumbnail for {}", file_name(&path));
-        self.background(
-            &format!("thumb:{size}:{}", key.path),
-            title,
-            move |service, _ctx| {
-                let made = service.make_thumbnail(&path, size, &key);
-                let display = path.display().to_string();
-                match made {
-                    Ok(thumbnail) => {
-                        service.inner.bus.emit(MediaEvent::ThumbnailReady {
-                            path: display,
-                            size,
-                            thumbnail,
-                        });
-                        Ok(())
-                    }
-                    Err(err) => {
-                        service.failed(&display, "thumbnail", &err);
-                        Err(err)
-                    }
-                }
-            },
-        );
+        let request = format!("thumb:{size}:{}", key.path);
+        self.background(&request, title, path, "thumbnail", move |service, _ctx| {
+            let thumbnail = service.make_thumbnail(&owned, size, &key)?;
+            Ok(MediaEvent::ThumbnailReady {
+                path: owned.display().to_string(),
+                size,
+                thumbnail,
+            })
+        });
         Ok(None)
     }
 
@@ -443,28 +430,16 @@ impl MediaService {
                 ..strip
             }));
         }
-        let path = path.to_owned();
+        let owned = path.to_owned();
         let title = format!("Filmstrip for {}", file_name(&path));
-        self.background(
-            &format!("filmstrip:{params}:{}", key.path),
-            title,
-            move |service, ctx| {
-                let display = path.display().to_string();
-                match service.make_filmstrip(&path, count, height, &key, ctx) {
-                    Ok(filmstrip) => {
-                        service.inner.bus.emit(MediaEvent::FilmstripReady {
-                            path: display,
-                            filmstrip,
-                        });
-                        Ok(())
-                    }
-                    Err(err) => {
-                        service.failed(&display, "filmstrip", &err);
-                        Err(err)
-                    }
-                }
-            },
-        );
+        let request = format!("filmstrip:{params}:{}", key.path);
+        self.background(&request, title, path, "filmstrip", move |service, ctx| {
+            let filmstrip = service.make_filmstrip(&owned, count, height, &key, ctx)?;
+            Ok(MediaEvent::FilmstripReady {
+                path: owned.display().to_string(),
+                filmstrip,
+            })
+        });
         Ok(None)
     }
 
@@ -515,28 +490,15 @@ impl MediaService {
             peaks.set_bytes(&bytes);
             return Ok(Some(peaks.view(columns)));
         }
-        let path = path.to_owned();
+        let owned = path.to_owned();
         let title = format!("Waveform for {}", file_name(&path));
-        self.background(
-            &format!("waveform:{}", key.path),
-            title,
-            move |service, ctx| {
-                let display = path.display().to_string();
-                match service.make_waveform(&path, &key, ctx) {
-                    Ok(()) => {
-                        service
-                            .inner
-                            .bus
-                            .emit(MediaEvent::WaveformReady { path: display });
-                        Ok(())
-                    }
-                    Err(err) => {
-                        service.failed(&display, "waveform", &err);
-                        Err(err)
-                    }
-                }
-            },
-        );
+        let request = format!("waveform:{}", key.path);
+        self.background(&request, title, path, "waveform", move |service, ctx| {
+            service.make_waveform(&owned, &key, ctx)?;
+            Ok(MediaEvent::WaveformReady {
+                path: owned.display().to_string(),
+            })
+        });
         Ok(None)
     }
 
@@ -611,12 +573,16 @@ impl MediaService {
         });
     }
 
-    /// runs `work` as a background job unless the same request is already running
+    /// runs `work` as a background job unless the same request is already running. the
+    /// event it makes (or a failure event) is sent once the request is no longer pending,
+    /// so asking again straight after hearing of a failure tries again.
     fn background(
         &self,
         request: &str,
         title: String,
-        work: impl Fn(&MediaService, &JobContext) -> MediaResult<()> + Send + 'static,
+        path: &Path,
+        what: &'static str,
+        work: impl Fn(&MediaService, &JobContext) -> MediaResult<MediaEvent> + Send + 'static,
     ) {
         if !self.inner.pending.lock().insert(request.to_owned()) {
             return;
@@ -626,14 +592,25 @@ impl MediaService {
             request: request.to_owned(),
         }));
         let service = self.clone();
+        let display = path.display().to_string();
         let spec = JobSpec::cpu(title)
             .with_priority(JobPriority::Low)
             .in_background();
         self.inner.jobs.submit(spec, move |ctx: &JobContext| {
-            // dropped when this run ends, which clears the pending request
-            let _guard = guard.lock().take();
-            work(&service, ctx).map_err(JobError::from)?;
-            Ok(serde_json::Value::Null)
+            // the guard also clears the request if `work` panics
+            let pending = guard.lock().take();
+            let result = work(&service, ctx);
+            drop(pending);
+            match result {
+                Ok(event) => {
+                    service.inner.bus.emit(event);
+                    Ok(serde_json::Value::Null)
+                }
+                Err(err) => {
+                    service.failed(&display, what, &err);
+                    Err(JobError::from(err))
+                }
+            }
         });
     }
 }
@@ -714,7 +691,13 @@ mod tests {
 
         let cached = service.thumbnail(&photo, 160).unwrap().unwrap();
         assert_eq!(cached.file.as_deref(), Some(file.to_str().unwrap()));
-        assert!(events.recv_timeout(Duration::from_millis(300)).is_none());
+        // nothing more comes, apart from status changes from the hardware check
+        while let Some(event) = events.recv_timeout(Duration::from_millis(300)) {
+            assert!(
+                matches!(event, MediaEvent::StatusChanged { .. }),
+                "{event:?}"
+            );
+        }
         // the background job left the queue once it was done
         assert!(service.inner.jobs.list().is_empty());
     }

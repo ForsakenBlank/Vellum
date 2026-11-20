@@ -969,6 +969,9 @@ mod tests {
         let Some(tools) = testing::tools() else {
             return;
         };
+        if !testing::has_encoder(&tools, "libaom-av1") {
+            return;
+        }
         let dir = tempfile::tempdir().unwrap();
         let png = save(
             dir.path(),

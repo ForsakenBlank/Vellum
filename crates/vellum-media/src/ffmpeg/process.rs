@@ -314,11 +314,24 @@ fn spawn_error(tool: &str, err: &std::io::Error) -> MediaError {
     MediaError::tool(tool, format!("it could not be started: {err}"))
 }
 
-/// the last few useful lines of a tool's error output, on one line
+/// the last few useful lines of a tool's error output, on one line. ffmpeg starts lines
+/// with the part that complained ("[mov,mp4,m4a @ 0x55d0...] "), which means nothing to
+/// people, so that is cut off.
 fn summarise<'a>(lines: impl Iterator<Item = &'a str>) -> String {
-    let lines: Vec<&str> = lines.map(str::trim).filter(|l| !l.is_empty()).collect();
+    let lines: Vec<&str> = lines
+        .map(|line| {
+            let line = line.trim();
+            match line.split_once("] ") {
+                Some((context, rest)) if context.starts_with('[') && context.contains(" @ ") => {
+                    rest
+                }
+                _ => line,
+            }
+        })
+        .filter(|l| !l.is_empty())
+        .collect();
     let start = lines.len().saturating_sub(3);
-    let text = lines[start..].join(" ");
+    let text = lines[start..].join("; ");
     if text.is_empty() {
         "it gave no reason".to_owned()
     } else {
@@ -372,7 +385,10 @@ mod tests {
     #[test]
     fn summaries_keep_the_last_useful_lines() {
         let lines = ["", "a", "  ", "b", "c", "d"];
-        assert_eq!(summarise(lines.into_iter()), "b c d");
+        assert_eq!(summarise(lines.into_iter()), "b; c; d");
+        let ffmpeg = ["[mov,mp4,m4a,3gp,3g2,mj2 @ 0x55ef20f206c0] moov atom not found"];
+        assert_eq!(summarise(ffmpeg.into_iter()), "moov atom not found");
+        assert_eq!(summarise(["[x] y"].into_iter()), "[x] y");
         assert_eq!(summarise(std::iter::empty()), "it gave no reason");
     }
 

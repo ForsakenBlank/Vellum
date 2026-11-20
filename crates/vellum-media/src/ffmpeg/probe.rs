@@ -100,10 +100,14 @@ pub fn probe_media(tools: &FfmpegTools, path: &Path) -> MediaResult<MediaInfo> {
     cmd.args(["-print_format", "json", "-show_format", "-show_streams"])
         .arg(path);
     let out = run_output(&mut cmd, "ffprobe").map_err(|err| match err {
-        MediaError::Tool { message, .. } => MediaError::Unsupported(format!(
-            "Vellum could not read this file. It may be damaged, or in a format FFmpeg does \
-             not know. ({message})"
-        )),
+        MediaError::Tool { message, .. } => {
+            // ffprobe repeats the whole path, which the user already knows
+            let message = message.replace(&format!("{}: ", path.display()), "");
+            MediaError::Unsupported(format!(
+                "Vellum could not read this file. It may be damaged, or in a format FFmpeg \
+                 does not know. ({message})"
+            ))
+        }
         other => other,
     })?;
     let parsed: ProbeOutput = serde_json::from_slice(&out)
