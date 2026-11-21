@@ -11,6 +11,7 @@ import type { CommandOutcome } from "../bindings/CommandOutcome";
 import type { ConvertTarget } from "../bindings/ConvertTarget";
 import type { DocumentInfo } from "../bindings/DocumentInfo";
 import type { DocumentState } from "../bindings/DocumentState";
+import type { EngineStatus } from "../bindings/EngineStatus";
 import type { GifFramesView } from "../bindings/GifFramesView";
 import type { HistoryView } from "../bindings/HistoryView";
 import type { JobId } from "../bindings/JobId";
@@ -31,6 +32,9 @@ import type { RenamePlan } from "../bindings/RenamePlan";
 import type { SizeOptions } from "../bindings/SizeOptions";
 import type { SizePlan } from "../bindings/SizePlan";
 import type { SnapshotId } from "../bindings/SnapshotId";
+import type { TileId } from "../bindings/TileId";
+import type { ViewInfo } from "../bindings/ViewInfo";
+import type { ViewState } from "../bindings/ViewState";
 import type { WaveformOverview } from "../bindings/WaveformOverview";
 
 /** every field optional, all the way down, for settings patches. arrays are replaced whole. */
@@ -121,4 +125,11 @@ export const ipc = {
     invoke<string>("media_frame", { path, seconds, height }),
   previewFile: (path: string) => invoke<null>("preview_file", { path }),
   copyFiles: (paths: string[]) => invoke<null>("copy_files", { paths }),
+
+  // the gpu viewport, apps/desktop/src/render.rs
+  openView: (document: string) => invoke<ViewInfo>("open_view", { document }),
+  viewFrame: (document: string, view: ViewState, evicted: TileId[], reset: boolean) =>
+    invoke<ArrayBuffer>("view_frame", { document, view, evicted, reset }),
+  closeView: (document: string) => invoke<null>("close_view", { document }),
+  renderStatus: () => invoke<EngineStatus>("render_status"),
 };

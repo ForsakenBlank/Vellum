@@ -31,7 +31,8 @@ test.describe("dropping files", () => {
       "true",
     );
     await expect(page.getByRole("tab", { name: /theme\.mp3/ })).toBeVisible();
-    await expect(page.getByText("The image editor is on its way")).toBeVisible();
+    // pictures open in the render engine's viewport
+    await expect(page.getByTestId("gpu-viewport")).toBeVisible();
   });
 
   test("a video dropped on the GIF card opens that tool", async ({ page }) => {

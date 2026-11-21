@@ -9,12 +9,14 @@ use vellum_export::service::QuickTools;
 use vellum_media::MediaService;
 
 use crate::bridge::TauriSink;
+use crate::render::Renderer;
 
 /// everything the ipc commands need, managed by tauri
 pub struct AppState {
     pub services: AppServices,
     pub media: MediaService,
     pub tools: QuickTools,
+    pub renderer: Renderer,
     pub settings_path: PathBuf,
     next_window: AtomicU64,
 }
@@ -47,10 +49,12 @@ impl AppState {
         }
 
         let tools = QuickTools::new(&services, &media);
+        let renderer = Renderer::start(&services);
         Ok(Self {
             services,
             media,
             tools,
+            renderer,
             settings_path,
             next_window: AtomicU64::new(1),
         })

@@ -127,7 +127,9 @@ pub fn open_files(
 
 #[tauri::command]
 pub fn close_document(state: State<'_, AppState>, id: String) -> IpcResult<()> {
-    Ok(state.services.documents.close(&id)?)
+    state.services.documents.close(&id)?;
+    state.renderer.close(&id);
+    Ok(())
 }
 
 #[tauri::command]

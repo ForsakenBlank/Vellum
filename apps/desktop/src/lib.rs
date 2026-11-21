@@ -4,6 +4,7 @@
 
 mod bridge;
 mod ipc;
+mod render;
 mod state;
 mod tools;
 
@@ -86,6 +87,10 @@ pub fn run() {
             ipc::strip_metadata,
             ipc::media_cache_stats,
             ipc::clean_media_cache,
+            render::open_view,
+            render::view_frame,
+            render::close_view,
+            render::render_status,
             tools::run_quick_tool,
             tools::size_plan,
             tools::anim_estimate,

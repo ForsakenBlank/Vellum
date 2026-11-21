@@ -453,6 +453,31 @@ impl Default for MediaSettings {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(default, rename_all = "camelCase")]
+#[ts(export)]
+pub struct RenderSettings {
+    /// draw with the graphics card when there is a usable one, the processor otherwise
+    pub use_gpu: bool,
+    /// rendered results kept on the graphics card, in megabytes
+    pub gpu_cache_mb: u32,
+    /// rendered results kept in main memory, in megabytes
+    pub cpu_cache_mb: u32,
+    /// an icc profile file for the display; none shows colours as srgb
+    pub display_profile: Option<String>,
+}
+
+impl Default for RenderSettings {
+    fn default() -> Self {
+        Self {
+            use_gpu: true,
+            gpu_cache_mb: 1024,
+            cpu_cache_mb: 1024,
+            display_profile: None,
+        }
+    }
+}
+
 /// megabytes as people count them (1000 * 1000 bytes) or as windows counts them (1024 * 1024)
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export)]
@@ -765,6 +790,7 @@ pub struct AppSettings {
     pub layout: LayoutSettings,
     pub media: MediaSettings,
     pub export: ExportSettings,
+    pub render: RenderSettings,
 }
 
 impl SettingsSchema for AppSettings {
@@ -788,6 +814,16 @@ impl SettingsSchema for AppSettings {
         self.history.max_steps = self.history.max_steps.clamp(10, 10_000);
         self.history.max_memory_mb = self.history.max_memory_mb.clamp(64, 64 * 1024);
         self.media.cache_limit_mb = self.media.cache_limit_mb.clamp(64, 1024 * 1024);
+        self.render.gpu_cache_mb = self.render.gpu_cache_mb.clamp(64, 64 * 1024);
+        self.render.cpu_cache_mb = self.render.cpu_cache_mb.clamp(64, 256 * 1024);
+        if self
+            .render
+            .display_profile
+            .as_ref()
+            .is_some_and(|p| p.trim().is_empty())
+        {
+            self.render.display_profile = None;
+        }
         shortcuts::sanitize(&mut self.shortcuts);
         self.layout.sanitize();
         self.export.sanitize();

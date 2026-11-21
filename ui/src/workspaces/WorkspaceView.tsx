@@ -5,6 +5,7 @@ import type { DocumentInfo } from "../bindings/DocumentInfo";
 import type { Workspace } from "../bindings/Workspace";
 import { Button, IconButton } from "../components/Button";
 import { EmptyState } from "../components/EmptyState";
+import { GpuViewport } from "../components/viewport/GpuViewport";
 import { Skeleton } from "../components/Skeleton";
 import { inDesktopApp, ipc } from "../lib/ipc";
 import { fileName, kindOf } from "../lib/routing";
@@ -154,7 +155,9 @@ function DocumentView({ doc }: { doc: DocumentInfo }) {
           <span className="truncate text-xs text-fg-subtle">
             {tool
               ? `${tool.title} · arrives in phase ${tool.phase}`
-              : `${space.label} workspace · arrives in phase ${space.phase}`}
+              : showsPicture(doc)
+                ? `${space.label} workspace · viewing only, editing arrives in phase ${space.phase}`
+                : `${space.label} workspace · arrives in phase ${space.phase}`}
             {doc.path ? ` · ${doc.path}` : ""}
           </span>
         </div>
@@ -185,7 +188,11 @@ function DocumentView({ doc }: { doc: DocumentInfo }) {
       </div>
 
       <div className="flex min-h-0 flex-1 gap-4 p-4">
-        <Canvas doc={doc} />
+        {showsPicture(doc) ? (
+          <GpuViewport document={doc.id} title={doc.title} />
+        ) : (
+          <Canvas doc={doc} />
+        )}
         <aside className="flex w-72 shrink-0 flex-col gap-2">
           <label htmlFor={`notes-${doc.id}`} className="text-xs font-medium text-fg-muted">
             Notes
@@ -265,6 +272,11 @@ function TitleField({ doc, onFail }: { doc: DocumentInfo; onFail: (err: unknown)
 }
 
 /** a stand in for the real editor, shaped like the workspace that will replace it */
+/** pictures open in the gpu viewport; the editor around it arrives in phase 5 */
+function showsPicture(doc: DocumentInfo): boolean {
+  return inDesktopApp && doc.workspace === "image" && doc.path !== null && doc.tool === null;
+}
+
 function Canvas({ doc }: { doc: DocumentInfo }) {
   const space = workspaceInfo(doc.workspace);
   const tool = doc.tool ? quickTool(doc.tool) : undefined;

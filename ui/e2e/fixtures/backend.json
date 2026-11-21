@@ -815,6 +815,12 @@
       "cacheLimitMb": 2048,
       "hardwareAcceleration": true
     },
+    "render": {
+      "cpuCacheMb": 1024,
+      "displayProfile": null,
+      "gpuCacheMb": 1024,
+      "useGpu": true
+    },
     "shortcuts": {
       "overrides": {},
       "preset": "vellum"
