@@ -489,7 +489,7 @@ fn video_args(settings: &VideoEncode, encoder: &EncoderInfo) -> Vec<String> {
 
 /// each encoder has its own idea of constant quality. `value` uses the x264 crf scale
 /// (0 to 51, 23 is the usual default) and is mapped onto the rest as closely as they allow.
-fn quality_args(encoder: &EncoderInfo, value: u8) -> Vec<String> {
+pub fn quality_args(encoder: &EncoderInfo, value: u8) -> Vec<String> {
     let value = value.min(51);
     let v = value.to_string();
     match encoder.hardware {

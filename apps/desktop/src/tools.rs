@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 
 use clipboard_rs::{Clipboard, ClipboardContext};
 use tauri::{AppHandle, State};
+use vellum_core::batch_rename::{self, RenamePattern, RenamePlan};
 use vellum_core::jobs::JobId;
 use vellum_export::anim::AnimOptions;
 use vellum_export::convert::ConvertTarget;
@@ -71,6 +72,25 @@ pub async fn convert_targets(
     path: PathBuf,
 ) -> IpcResult<Vec<ConvertTarget>> {
     off_main(&state, move |tools| Ok(tools.convert_targets(&path)?)).await
+}
+
+/// the new names a rename pattern gives the session's files, before anything is renamed.
+/// it reads the list from the document, so it can only look at files the user added.
+#[tauri::command]
+pub async fn rename_plan(
+    state: State<'_, AppState>,
+    document: String,
+    pattern: RenamePattern,
+) -> IpcResult<RenamePlan> {
+    let info = state
+        .services
+        .documents
+        .info(&document)
+        .map_err(|err| IpcError::Invalid(err.to_string()))?;
+    let inputs: Vec<PathBuf> = info.inputs.iter().map(PathBuf::from).collect();
+    tauri::async_runtime::spawn_blocking(move || Ok(batch_rename::plan(&inputs, &pattern)))
+        .await
+        .map_err(|err| IpcError::Invalid(format!("the rename task stopped: {err}")))?
 }
 
 /// the exact frame at `seconds` as a cached picture, for trim handles

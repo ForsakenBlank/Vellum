@@ -24,10 +24,10 @@ use vellum_media::{Control, MediaError, MediaResult, MediaService, Unattended};
 
 use crate::anim::frames::{self, EditedFrame, GifFrames};
 use crate::anim::{self, AnimFormat, AnimOptions, AnimSource, Dither};
-use crate::convert::{self, ConvertOptions, ConvertTarget};
+use crate::convert::{self, ConvertAction, ConvertOptions, ConvertTarget};
 use crate::size::budget::{self, VideoBudget, VideoPlan, VideoSource, human_bytes};
 use crate::size::{self, SizeJob, SizeOptions, TargetSize};
-use crate::{Env, ToolResult, naming};
+use crate::{Env, ToolResult, naming, parts};
 
 pub const EXPORT_TO_SIZE: &str = "export_to_size";
 pub const VIDEO_TO_GIF: &str = "video_to_gif";
@@ -419,6 +419,60 @@ impl QuickTools {
         options: ConvertOptions,
     ) -> Result<Vec<JobId>, ToolError> {
         let target = options.target;
+        match options.action {
+            ConvertAction::Convert => {}
+            ConvertAction::Rename => {
+                return Err(ToolError::Invalid(
+                    "Renaming happens straight away from the preview, there is nothing to run."
+                        .to_owned(),
+                ));
+            }
+            ConvertAction::Merge => {
+                if inputs.len() < 2 {
+                    return Err(ToolError::Invalid(
+                        "Add at least two files to join.".to_owned(),
+                    ));
+                }
+                let target = target.unwrap_or(ConvertTarget::Mp4);
+                let media = self.media.clone();
+                let inputs = inputs.to_vec();
+                let title = format!(
+                    "Join {} files into {}",
+                    inputs.len(),
+                    target.extension().to_uppercase()
+                );
+                let first = inputs[0].clone();
+                return Ok(vec![self.submit(owner, &first, title, move |env, ctx| {
+                    let mut probed = Vec::with_capacity(inputs.len());
+                    for input in &inputs {
+                        Control::checkpoint(ctx)?;
+                        probed.push((input.clone(), media.probe(input)?));
+                    }
+                    parts::merge(env, &probed, target, &options, ctx)
+                })]);
+            }
+            ConvertAction::Split => {
+                return Ok(inputs
+                    .iter()
+                    .map(|input| {
+                        let media = self.media.clone();
+                        let input = input.clone();
+                        let options = options.clone();
+                        let title = format!("Cut {} into parts", display_name(&input));
+                        self.submit(owner, &input.clone(), title, move |env, ctx| {
+                            let info = media.probe(&input)?;
+                            let fallback = if info.kind == MediaKind::Audio {
+                                ConvertTarget::Mp3
+                            } else {
+                                ConvertTarget::Mp4
+                            };
+                            let target = options.target.unwrap_or(fallback);
+                            parts::split(env, &input, &info, target, &options, ctx)
+                        })
+                    })
+                    .collect());
+            }
+        }
         let all_pictures = inputs.iter().all(|p| {
             matches!(
                 vellum_core::files::FileKind::of_path(p),

@@ -1,9 +1,13 @@
 // the universal converter. it offers the formats every file in the batch can become, then
 // only the options that make sense for that format. when the streams can simply be copied
 // into the new container it says so: that is instant and loses nothing.
+//
+// besides converting, it joins the list into one file, cuts files into parts and gives
+// files new names from a pattern.
 
 import { FlipHorizontal2, FlipVertical2, RotateCw, Zap } from "lucide-react";
 
+import type { ConvertAction } from "../../bindings/ConvertAction";
 import type { ConvertTarget } from "../../bindings/ConvertTarget";
 import type { DocumentInfo } from "../../bindings/DocumentInfo";
 import type { FileKind } from "../../bindings/FileKind";
@@ -15,11 +19,14 @@ import {
   canRemux,
   commonTargets,
   pictureTargets,
+  renamesFrom,
   targetInfo,
   videoTargets,
 } from "../../lib/tools";
 import { useMediaInfo } from "../../state/media";
 import { FilesColumn } from "./Files";
+import { RenameOptions, RenamePreview } from "./Rename";
+import { renameFiles, usePlan } from "./renaming";
 import { Field, Note, NumberField, Section, Segmented, Slider, Toggle } from "./parts";
 import { useSession } from "./session";
 
@@ -35,38 +42,121 @@ const mediaKinds: Partial<Record<FileKind, MediaKind>> = {
 
 const icoSizes = [16, 24, 32, 48, 64, 128, 256];
 
+const actions: { value: ConvertAction; label: string; tooltip: string }[] = [
+  { value: "convert", label: "Convert", tooltip: "Turn each file into another format" },
+  { value: "merge", label: "Join", tooltip: "Join every file into one, in the order of the list" },
+  { value: "split", label: "Cut into parts", tooltip: "Cut each file into parts of one length" },
+  { value: "rename", label: "Rename", tooltip: "Give the files new names from a pattern" },
+];
+
 export function Convert({ doc }: { doc: DocumentInfo }) {
   const session = useSession(doc, "convert");
   const { options, set, seal } = session;
   const kinds = [
     ...new Set(doc.inputs.map((p) => mediaKinds[kindOf(p)?.kind ?? "pdf"] ?? "unknown")),
   ];
-  const targets = commonTargets(kinds);
+  const action = options.action;
+  const joinsOrCuts = action === "merge" || action === "split";
+  const targets = commonTargets(kinds).filter(
+    (t) => !joinsOrCuts || videoTargets.includes(t) || audioTargets.includes(t),
+  );
   const target: ConvertTarget | null =
     options.target && targets.includes(options.target) ? options.target : (targets[0] ?? null);
   const first = doc.inputs[0] ?? null;
   const probe = useMediaInfo(first);
   const single = doc.inputs.length === 1;
   const allPictures = kinds.every((k) => k === "image" || k === "vector");
-  const slideshow = allPictures && target !== null && videoTargets.includes(target);
+  const slideshow =
+    action === "convert" && allPictures && target !== null && videoTargets.includes(target);
   const isVideo = target !== null && videoTargets.includes(target) && !slideshow;
   const isAudio = target !== null && audioTargets.includes(target);
   const isPicture = target !== null && pictureTargets.includes(target);
   const remux =
-    single && target && probe?.state === "ready" ? canRemux(probe.info, target, options) : false;
+    action === "convert" && single && target && probe?.state === "ready"
+      ? canRemux(probe.info, target, options)
+      : false;
   const timed =
+    action === "convert" &&
     (isVideo || isAudio || target === "gif" || target === "frames") &&
     kinds.some((k) => k === "video" || k === "audio" || k === "animation");
+  // cutting copies the streams unless exact cuts are asked for, so quality only matters then
+  const encodes = action !== "split" || options.splitExact;
+  const plan = usePlan(doc, options.rename);
+  const renames = renamesFrom(plan.value);
+
+  const actionPicker = (
+    <Section title="Do">
+      <Segmented<ConvertAction>
+        label="What to do"
+        value={action}
+        choices={actions}
+        onChange={(value) => {
+          set({ action: value });
+        }}
+      />
+      {action === "merge" && (
+        <Note>
+          {doc.inputs.length < 2
+            ? "Add at least two videos or sounds to join them."
+            : "The files are joined in the order of the list. Files recorded the same way join instantly; others are re-encoded to the shape of the first."}
+        </Note>
+      )}
+    </Section>
+  );
+
+  if (action === "rename") {
+    return (
+      <div className="grid min-h-0 flex-1 grid-rows-[1fr_auto] lg:grid-cols-[minmax(0,1fr)_24rem] lg:grid-rows-1">
+        <div className="flex min-h-0 flex-col gap-6 overflow-y-auto p-5">
+          {actionPicker}
+          <RenameOptions
+            pattern={options.rename}
+            set={(patch) => {
+              set({ rename: patch });
+            }}
+            seal={seal}
+            plan={plan.value}
+          />
+          <RenamePreview plan={plan.value} loading={plan.loading} />
+        </div>
+        <FilesColumn
+          doc={doc}
+          jobs={session.jobs}
+          onAdd={() => void session.addFiles()}
+          onRemove={session.removeFile}
+          runLabel={
+            renames.length === 1 ? "Rename 1 file" : `Rename ${String(renames.length)} files`
+          }
+          runTooltip="Rename the files now. Undo puts the old names back."
+          onRun={() => {
+            void renameFiles(doc, renames);
+          }}
+          canRun={renames.length > 0 && !plan.loading}
+        />
+      </div>
+    );
+  }
+
+  const runLabel = !target
+    ? "Convert"
+    : action === "merge"
+      ? `Join into ${targetInfo[target].label}`
+      : action === "split"
+        ? `Cut into ${targetInfo[target].label} parts`
+        : `Convert to ${targetInfo[target].label}`;
 
   return (
     <div className="grid min-h-0 flex-1 grid-rows-[1fr_auto] lg:grid-cols-[minmax(0,1fr)_24rem] lg:grid-rows-1">
       <div className="flex min-h-0 flex-col gap-6 overflow-y-auto p-5">
-        <Section title="Convert to">
+        {actionPicker}
+        <Section title={action === "convert" ? "Convert to" : "Format"}>
           {targets.length === 0 ? (
             <Note tone="warning">
               {doc.inputs.length === 0
                 ? "Add files to see what they can become."
-                : "These files have no format in common. Convert them in separate batches."}
+                : joinsOrCuts
+                  ? "Joining and cutting work on videos and sounds."
+                  : "These files have no format in common. Convert them in separate batches."}
             </Note>
           ) : (
             <div
@@ -120,28 +210,51 @@ export function Convert({ doc }: { doc: DocumentInfo }) {
 
         {target && (
           <Section title="Options">
-            {(isVideo ||
-              isAudio ||
-              (isPicture && ["jpg", "webp", "avif"].includes(target)) ||
-              target === "gif") && (
-              <Slider
-                label="Quality"
-                min={10}
-                max={100}
-                step={5}
-                value={options.quality}
-                onChange={(quality) => {
-                  set({ quality });
-                }}
-                onCommit={seal}
-                hint={
-                  isAudio
-                    ? "Higher keeps more detail in the sound."
-                    : "Higher looks better and makes bigger files."
-                }
-              />
+            {action === "split" && (
+              <>
+                <NumberField
+                  label="Each part lasts"
+                  suffix="seconds"
+                  min={0.5}
+                  step={5}
+                  value={options.splitSeconds}
+                  onChange={(splitSeconds) => {
+                    if (splitSeconds !== null) set({ splitSeconds: Math.max(0.5, splitSeconds) });
+                  }}
+                />
+                <Toggle
+                  label="Exact cuts"
+                  hint="Re-encodes so every part is exactly this long. Off copies the streams, which is instant, and cuts at the nearest keyframe."
+                  checked={options.splitExact}
+                  onChange={(splitExact) => {
+                    set({ splitExact });
+                  }}
+                />
+              </>
             )}
-            {isVideo && ["mp4", "mkv", "mov"].includes(target) && (
+            {encodes &&
+              (isVideo ||
+                isAudio ||
+                (isPicture && ["jpg", "webp", "avif"].includes(target)) ||
+                target === "gif") && (
+                <Slider
+                  label="Quality"
+                  min={10}
+                  max={100}
+                  step={5}
+                  value={options.quality}
+                  onChange={(quality) => {
+                    set({ quality });
+                  }}
+                  onCommit={seal}
+                  hint={
+                    isAudio
+                      ? "Higher keeps more detail in the sound."
+                      : "Higher looks better and makes bigger files."
+                  }
+                />
+              )}
+            {encodes && isVideo && ["mp4", "mkv", "mov"].includes(target) && (
               <Field label="Video codec">
                 <Segmented
                   label="Video codec"
@@ -173,7 +286,8 @@ export function Convert({ doc }: { doc: DocumentInfo }) {
                 }}
               />
             )}
-            {(isVideo || isPicture || target === "gif" || target === "frames" || slideshow) &&
+            {action !== "split" &&
+              (isVideo || isPicture || target === "gif" || target === "frames" || slideshow) &&
               target !== "ico" && (
                 <div className="flex flex-wrap gap-4">
                   <NumberField
@@ -203,45 +317,46 @@ export function Convert({ doc }: { doc: DocumentInfo }) {
                   />
                 </div>
               )}
-            {(isVideo || isPicture || target === "gif" || target === "frames") && (
-              <Field label="Turn and flip">
-                <div className="flex flex-wrap gap-1.5">
-                  <Button
-                    size="sm"
-                    tooltip="Turn a quarter clockwise"
-                    icon={<RotateCw className="size-3.5" />}
-                    variant={options.rotate % 360 !== 0 ? "primary" : "secondary"}
-                    onClick={() => {
-                      set({ rotate: (options.rotate + 90) % 360 });
-                    }}
-                  >
-                    {options.rotate % 360 === 0 ? "Turn" : `${String(options.rotate % 360)}°`}
-                  </Button>
-                  <Button
-                    size="sm"
-                    tooltip="Mirror left to right"
-                    icon={<FlipHorizontal2 className="size-3.5" />}
-                    variant={options.flipHorizontal ? "primary" : "secondary"}
-                    onClick={() => {
-                      set({ flipHorizontal: !options.flipHorizontal });
-                    }}
-                  >
-                    Mirror
-                  </Button>
-                  <Button
-                    size="sm"
-                    tooltip="Flip upside down"
-                    icon={<FlipVertical2 className="size-3.5" />}
-                    variant={options.flipVertical ? "primary" : "secondary"}
-                    onClick={() => {
-                      set({ flipVertical: !options.flipVertical });
-                    }}
-                  >
-                    Flip
-                  </Button>
-                </div>
-              </Field>
-            )}
+            {action === "convert" &&
+              (isVideo || isPicture || target === "gif" || target === "frames") && (
+                <Field label="Turn and flip">
+                  <div className="flex flex-wrap gap-1.5">
+                    <Button
+                      size="sm"
+                      tooltip="Turn a quarter clockwise"
+                      icon={<RotateCw className="size-3.5" />}
+                      variant={options.rotate % 360 !== 0 ? "primary" : "secondary"}
+                      onClick={() => {
+                        set({ rotate: (options.rotate + 90) % 360 });
+                      }}
+                    >
+                      {options.rotate % 360 === 0 ? "Turn" : `${String(options.rotate % 360)}°`}
+                    </Button>
+                    <Button
+                      size="sm"
+                      tooltip="Mirror left to right"
+                      icon={<FlipHorizontal2 className="size-3.5" />}
+                      variant={options.flipHorizontal ? "primary" : "secondary"}
+                      onClick={() => {
+                        set({ flipHorizontal: !options.flipHorizontal });
+                      }}
+                    >
+                      Mirror
+                    </Button>
+                    <Button
+                      size="sm"
+                      tooltip="Flip upside down"
+                      icon={<FlipVertical2 className="size-3.5" />}
+                      variant={options.flipVertical ? "primary" : "secondary"}
+                      onClick={() => {
+                        set({ flipVertical: !options.flipVertical });
+                      }}
+                    >
+                      Flip
+                    </Button>
+                  </div>
+                </Field>
+              )}
             {target === "ico" && (
               <Field
                 label="Icon sizes"
@@ -354,14 +469,22 @@ export function Convert({ doc }: { doc: DocumentInfo }) {
         jobs={session.jobs}
         onAdd={() => void session.addFiles()}
         onRemove={session.removeFile}
-        runLabel={target ? `Convert to ${targetInfo[target].label}` : "Convert"}
-        runTooltip="Convert every file in the list"
+        runLabel={runLabel}
+        runTooltip={
+          action === "merge"
+            ? "Join every file in the list into one"
+            : action === "split"
+              ? "Cut every file in the list into parts"
+              : "Convert every file in the list"
+        }
         onRun={() => {
           // the first format shown is the one used when the user has not picked one
           if (target && options.target !== target) set({ target });
           void session.run();
         }}
-        canRun={!session.running && target !== null}
+        canRun={
+          !session.running && target !== null && (action !== "merge" || doc.inputs.length > 1)
+        }
       />
     </div>
   );

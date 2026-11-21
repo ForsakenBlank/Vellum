@@ -15,6 +15,9 @@ Added
 - Every quick tool takes many files at once, shows progress and the result next to each file, and takes more files dropped onto its list. Results open, show in their folder, compare before and after, or copy as a file you can paste straight into Discord or any chat.
 - Settings, Export and quick tools: the starting size, the margin, where results go (next to the original by default) and the size presets.
 - Quick tool options undo and redo, are autosaved and come back after a crash, like any other change.
+- Convert can join a list of videos or sounds into one file. Files recorded the same way join instantly without re-encoding; others are fitted to the shape of the first, with silence added where a clip has no sound.
+- Convert can cut videos and sounds into parts of any length. It is instant by default, with an "Exact cuts" option that re-encodes so every part is exactly the same length.
+- Convert can rename files from a pattern like `holiday {n}`, with numbering, the date, find and replace, and lowercase or uppercase. A preview shows every new name first, names that are already taken are skipped, and undo puts the old names back.
 
 Fixed
 

@@ -548,7 +548,8 @@ include a folder of small test media files (generate them with ffmpeg in a scrip
 - The export code lives in `crates/vellum-export` as `size/`, `anim/` and `convert.rs`, not `vellum-export/size_target`.
 - Discord's free limit is 20 MB since August 2026, so the Discord preset is 20 MiB while the starting size stays 10 MB as asked. That is a choice for the owner to revisit.
 - GIF tools is its own quick tool card, since the frame editor, optimiser, splitter and GIF to video did not fit inside Video to GIF.
-- Not done yet: video merge and split, batch rename, and Explorer and Finder context menu entries, which are left for phase 16 as the prompt allows.
+- The converter also joins files into one, cuts files into parts and renames files from a pattern with a preview (section 8.1). Rename is an undoable command rather than a job.
+- Not done yet: Explorer and Finder context menu entries, which are left for phase 16 as the prompt allows.
 
 **Model:** Opus 5.5 · **Effort:** high
 

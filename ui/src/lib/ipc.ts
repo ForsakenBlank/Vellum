@@ -26,6 +26,8 @@ import type { NotificationsChanged } from "../bindings/NotificationsChanged";
 import type { OpenFilesResult } from "../bindings/OpenFilesResult";
 import type { RecentFiles } from "../bindings/RecentFiles";
 import type { RecoveryOffer } from "../bindings/RecoveryOffer";
+import type { RenamePattern } from "../bindings/RenamePattern";
+import type { RenamePlan } from "../bindings/RenamePlan";
 import type { SizeOptions } from "../bindings/SizeOptions";
 import type { SizePlan } from "../bindings/SizePlan";
 import type { SnapshotId } from "../bindings/SnapshotId";
@@ -113,6 +115,8 @@ export const ipc = {
     invoke<AnimEstimate>("anim_estimate", { path, options }),
   gifFrames: (path: string) => invoke<GifFramesView>("gif_frames", { path }),
   convertTargets: (path: string) => invoke<ConvertTarget[]>("convert_targets", { path }),
+  renamePlan: (document: string, pattern: RenamePattern) =>
+    invoke<RenamePlan>("rename_plan", { document, pattern }),
   mediaFrame: (path: string, seconds: number, height: number) =>
     invoke<string>("media_frame", { path, seconds, height }),
   previewFile: (path: string) => invoke<null>("preview_file", { path }),

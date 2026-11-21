@@ -107,6 +107,37 @@ test.describe("convert", () => {
     await expect(page.getByText(/Instant/)).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Convert to MKV" })).toBeVisible();
   });
+
+  test("joins the list into one file with one job", async ({ page }) => {
+    await openTool(page, "convert", ["/media/a.mp4", "/media/b.mp4"]);
+    await page.getByRole("radio", { name: "Join" }).click();
+    await expect(page.getByText(/joined in the order of the list/)).toBeVisible();
+    // pictures and gifs are not offered when joining
+    await expect(page.getByRole("radio", { name: /^GIF/ })).toHaveCount(0);
+    await page.getByRole("button", { name: "Join into MP4" }).click();
+    const files = page.getByRole("complementary", { name: "Files" });
+    await expect(files.getByRole("progressbar")).toHaveCount(1);
+  });
+
+  test("renames from a pattern, and undo brings the old names back", async ({ page }) => {
+    await openTool(page, "convert", ["/media/IMG_1.mp4", "/media/IMG_2.mp4"]);
+    await page.getByRole("radio", { name: "Rename" }).click();
+    await page.getByLabel("Pattern").fill("holiday {n}");
+    const preview = page.getByRole("list", { name: "New names" });
+    await expect(preview.getByText("holiday 01.mp4")).toBeVisible();
+    await expect(preview.getByText("holiday 02.mp4")).toBeVisible();
+
+    await page.getByLabel("Pattern").fill("{nmae}");
+    await expect(page.getByText("{nmae} is not a tag")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Rename 0 files" })).toBeDisabled();
+
+    await page.getByLabel("Pattern").fill("trip {n}");
+    await page.getByRole("button", { name: "Rename 2 files" }).click();
+    const files = page.getByRole("complementary", { name: "Files" });
+    await expect(files.getByText("trip 01.mp4")).toBeVisible();
+    await page.getByRole("button", { name: /^Undo/ }).click();
+    await expect(files.getByText("IMG_1.mp4")).toBeVisible();
+  });
 });
 
 test.describe("export settings", () => {

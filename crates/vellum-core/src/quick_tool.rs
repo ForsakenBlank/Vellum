@@ -12,6 +12,7 @@ use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
+use crate::batch_rename::RenameFiles;
 use crate::command::{Command, CommandError, CommandInfo, CommandRegistry, downcast, params_of};
 use crate::documents::{DocumentError, DocumentModel, RenameDocument, Titled};
 
@@ -69,6 +70,12 @@ impl DocumentModel for QuickToolDocument {
                 title: "Remove files",
                 category: "Quick tools",
                 description: "Take files out of the open quick tool.",
+            }),
+            registry.register::<RenameFiles>(CommandInfo {
+                kind: RenameFiles::KIND,
+                title: "Rename files",
+                category: "Quick tools",
+                description: "Give the files in the open quick tool new names.",
             }),
         ];
         for result in results {

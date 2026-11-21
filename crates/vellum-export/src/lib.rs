@@ -7,6 +7,7 @@
 //! - [`anim`]: video to gif (and webp, apng, avif, mp4 loops), captions, lossy gifs, the
 //!   gif frame editor
 //! - [`convert`]: any format to any format, remuxing when nothing needs re-encoding
+//! - [`parts`]: joining files into one and cutting one into parts
 //! - [`naming`]: where results go, never over an existing file
 //!
 //! see `ARCHITECTURE.md` section 23 for the design.
@@ -14,6 +15,7 @@
 pub mod anim;
 pub mod convert;
 pub mod naming;
+pub mod parts;
 pub mod service;
 pub mod size;
 

@@ -541,13 +541,14 @@ The four quick tools that work today: Export to X MB (`size/`), Video to GIF and
       ├── size::fit ──── video.rs (two pass) / image.rs (search) / gif.rs (ladder) / audio.rs
       ├── anim::render ── one ffmpeg filter graph, then lossy.rs for gifs
       ├── frames.rs ───── frame editor and splitter, written by vellum itself
-      └── convert ─────── remux, encode, frames, stills, icons, slideshows
+      ├── convert ─────── remux, encode, frames, stills, icons, slideshows
+      └── parts ───────── join many files into one, cut one into parts
  job result = ToolResult { path, bytes, changes, notes, ... }
 ```
 
 ### Sessions are documents
 
-A quick tool session is a `QuickToolDocument` in core (`quick_tool.rs`): its title, its files and its options as JSON. Core does not know what each tool's options mean; the export crate reads them into typed structs with `#[serde(default)]`, so a session saved by an older Vellum still opens. Every change is a command (`tool.set_options`, `tool.add_inputs`, `tool.remove_inputs`), so options undo, autosave and come back after a crash like any edit, as section 5 of the plan asks. Slider drags merge into one step when they touch the same option.
+A quick tool session is a `QuickToolDocument` in core (`quick_tool.rs`): its title, its files and its options as JSON. Core does not know what each tool's options mean; the export crate reads them into typed structs with `#[serde(default)]`, so a session saved by an older Vellum still opens. Every change is a command (`tool.set_options`, `tool.add_inputs`, `tool.remove_inputs`, `tool.rename_files`), so options undo, autosave and come back after a crash like any edit, as section 5 of the plan asks. Slider drags merge into one step when they touch the same option.
 
 `tool.set_options` merges objects key by key but stores `null` as a value. A JSON merge patch (what settings use) would delete the key instead, and for tool options null means something: "keep the source width", "use the size from settings". Deleting it would quietly bring the default back.
 
@@ -589,6 +590,14 @@ The frame editor and splitter decode with vellum-media and write GIFs with the `
 
 `targets_for(kind)` lists what each kind of file can become; the UI offers what every file in the batch has in common. When nothing changes but the container and the streams suit the new one, they are copied (`can_remux`, mirrored in TypeScript for the "instant" hint), which is how MKV to MP4 takes a second. Pictures go through the media decoders, so camera raw, HEIC, PSD and SVG at any size all convert. Icons hold every size asked for, padded square. Pictures converted to a video become one slideshow job.
 
+The converter has four actions (`ConvertAction`): convert, join, cut into parts and rename.
+
+**Join** (`parts::merge`) is one job for the whole list. When every file has the same codecs, picture size, pixel format and sound layout and they suit the container, FFmpeg's concat reader glues them together without decoding (`can_join_by_copy`), so joining clips from one camera is instant. Otherwise one filter graph fits every clip into the first clip's shape (scaled, letterboxed, same frame rate), adds a silent track for clips that have none, and concatenates. Picking a sound format joins only the sound, which also works for videos.
+
+**Cut into parts** (`parts::split`) uses FFmpeg's segment writer. By default the streams are copied, which is instant, and each cut lands on the next keyframe. "Exact cuts" re-encodes with a forced keyframe at every cut. AAC starts its sound a few milliseconds early, which pushed each cut just past its keyframe and merged the first two parts; half a frame of `segment_time_delta`, as the FFmpeg docs suggest for forced keyframes, fixes it.
+
+**Batch rename** (`vellum-core/src/batch_rename.rs`) is not a job. Rust turns a pattern (`{name}`, `{n}`, `{date}`, `{folder}`, `{ext}`, find and replace, letter case) into a preview, flagging names that are taken or used twice in the batch, compared ignoring case for Windows and macOS. Running it executes `tool.rename_files`, a document command, so Ctrl+Z puts the old names back. The command only renames files in the session's list and only within their folder, so it cannot be used to move other files. Every file goes to a temporary name first, so files can swap names and case only renames work on every file system; if any step fails, all names are put back. Recovery restores documents from their saved state rather than replaying commands, so restoring a session never renames anything again.
+
 ### Results, previews and the clipboard
 
 Results never overwrite anything (`naming.rs`): `clip (10 MB).mp4`, then `clip (10 MB 2).mp4`. Names are reserved in process until the job ends, so two jobs of a batch writing into one folder cannot pick the same name. Settings can send every result to one folder.
@@ -607,3 +616,5 @@ Results never overwrite anything (`naming.rs`): `clip (10 MB).mp4`, then `clip (
 - *FFmpeg `drawtext` for captions.* Needs freetype and fontconfig in the FFmpeg build and draws differently on each OS.
 - *Options in the UI only.* Simpler, but then they would not undo, autosave or recover, and a macro could not replay them.
 - *An exact size estimate for GIFs.* Only a full render knows; the sample is fast and close enough to steer by.
+- *Batch rename as a job that writes renamed copies.* Safer in one way, but nobody wants copies when they ask for a rename. A command gives real undo instead.
+- *Exact cuts by default.* Re-encoding is slow and loses a little quality; most people splitting a long recording for upload care more about speed than about each part being exactly 60 seconds.

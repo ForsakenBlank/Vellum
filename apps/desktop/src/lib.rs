@@ -91,6 +91,7 @@ pub fn run() {
             tools::anim_estimate,
             tools::gif_frames,
             tools::convert_targets,
+            tools::rename_plan,
             tools::media_frame,
             tools::preview_file,
             tools::copy_files,

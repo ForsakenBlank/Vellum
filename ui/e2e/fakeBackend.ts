@@ -192,9 +192,12 @@ export function installFakeBackend({ fixture, fileKinds, windowLabel }: FakeOpti
     }
   };
   const runTool = (doc: Doc) => {
-    const inputs = current(doc).inputs ?? [];
-    if (inputs.length === 0)
+    const all = current(doc).inputs ?? [];
+    if (all.length === 0)
       throw new Error("Add a file first. Drop one on the window or use Add files.");
+    // joining makes one job for the whole list, like rust
+    const joins = doc.tool === "convert" && current(doc).options?.action === "merge";
+    const inputs = joins ? all.slice(0, 1) : all;
     return inputs.map((path) => {
       const id = nextJob++;
       const job: Json = {
@@ -415,6 +418,18 @@ export function installFakeBackend({ fixture, fileKinds, windowLabel }: FakeOpti
         doc.at++;
       }
       doc.sealed = false;
+    } else if (record.kind === "tool.rename_files") {
+      const renames = params.renames as { from: string; to: string }[];
+      const inputs = (now.inputs ?? []).map((p) => renames.find((r) => r.from === p)?.to ?? p);
+      doc.steps = doc.steps.slice(0, doc.at + 1);
+      doc.steps.push({
+        ...now,
+        inputs,
+        name: renames.length === 1 ? "Rename a file" : `Rename ${String(renames.length)} files`,
+        kind: record.kind,
+      });
+      doc.at++;
+      doc.sealed = true;
     } else if (record.kind === "tool.add_inputs" || record.kind === "tool.remove_inputs") {
       const paths = params.paths as string[];
       const before = now.inputs ?? [];
@@ -732,6 +747,36 @@ export function installFakeBackend({ fixture, fileKinds, windowLabel }: FakeOpti
       frameHeight: 72,
     }),
     convert_targets: () => ["mp4", "webm", "mkv", "mov", "gif"],
+    // a small copy of batch_rename::plan: {name} and {n} only, and "taken" is always taken
+    rename_plan: (args) => {
+      const pattern = args.pattern as { pattern: string; start: number; digits: number };
+      const inputs = current(findDoc(args.document)).inputs ?? [];
+      const unknown = /\{(?!name\}|n\}|date\}|folder\}|ext\})([^}]*)\}/.exec(pattern.pattern);
+      if (unknown) {
+        return {
+          rows: inputs.map((p) => ({ from: p, to: p, problem: null })),
+          error: `{${unknown[1] ?? ""}} is not a tag. Use {name}, {n}, {date}, {folder} or {ext}.`,
+        };
+      }
+      return {
+        rows: inputs.map((from, i) => {
+          const slash = from.lastIndexOf("/");
+          const dir = from.slice(0, slash + 1);
+          const file = from.slice(slash + 1);
+          const dot = file.lastIndexOf(".");
+          const stem = dot > 0 ? file.slice(0, dot) : file;
+          const ext = dot > 0 ? file.slice(dot) : "";
+          const n = String(pattern.start + i).padStart(pattern.digits, "0");
+          const name = pattern.pattern.replaceAll("{name}", stem).replaceAll("{n}", n);
+          return {
+            from,
+            to: `${dir}${name}${ext}`,
+            problem: name === "taken" ? `A file called ${name}${ext} is already there.` : null,
+          };
+        }),
+        error: null,
+      };
+    },
     media_frame: (args) => `/cache/frame-${String(args.seconds)}.jpg`,
     preview_file: () => null,
     copy_files: (args) => {

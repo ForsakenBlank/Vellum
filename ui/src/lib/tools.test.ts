@@ -14,6 +14,7 @@ import {
   moveFrame,
   optionsFor,
   originalFrames,
+  renamesFrom,
   savings,
   setDelays,
   sizeLabel,
@@ -120,5 +121,25 @@ describe("jobs per file", () => {
     const latest = latestPerFile([job(9, "/a.mp4"), job(8, "/b.mp4"), job(3, "/a.mp4")]);
     expect(latest.get("/a.mp4")?.id).toBe(9);
     expect(latest.size).toBe(2);
+  });
+});
+
+describe("renamesFrom", () => {
+  it("keeps only files that get a new name", () => {
+    const plan = {
+      rows: [
+        { from: "/a/1.jpg", to: "/a/one.jpg", problem: null },
+        { from: "/a/2.jpg", to: "/a/2.jpg", problem: null },
+        {
+          from: "/a/3.jpg",
+          to: "/a/taken.jpg",
+          problem: "A file called taken.jpg is already there.",
+        },
+      ],
+      error: null,
+    };
+    expect(renamesFrom(plan)).toEqual([{ from: "/a/1.jpg", to: "/a/one.jpg" }]);
+    expect(renamesFrom({ ...plan, error: "bad tag" })).toEqual([]);
+    expect(renamesFrom(null)).toEqual([]);
   });
 });

@@ -1,5 +1,6 @@
 {
   "convert": {
+    "action": "convert",
     "codec": "h264",
     "end": null,
     "flipHorizontal": false,
@@ -19,9 +20,19 @@
     "maxWidth": null,
     "mute": false,
     "quality": 85,
+    "rename": {
+      "case": "keep",
+      "digits": 2,
+      "find": "",
+      "pattern": "{name}",
+      "replace": "",
+      "start": 1
+    },
     "rotate": 0,
     "slideSeconds": 3.0,
     "speed": 1.0,
+    "splitExact": false,
+    "splitSeconds": 60.0,
     "start": null,
     "target": null
   },

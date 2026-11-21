@@ -1006,6 +1006,7 @@ mod tests {
                 RenameDocument::KIND,
                 "tool.add_inputs",
                 "tool.remove_inputs",
+                "tool.rename_files",
                 "tool.set_options"
             ]
         );

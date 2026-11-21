@@ -13,6 +13,7 @@
 
 pub mod actions;
 pub mod app;
+pub mod batch_rename;
 pub mod command;
 pub mod documents;
 pub mod events;

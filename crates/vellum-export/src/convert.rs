@@ -12,6 +12,7 @@ use image::imageops::FilterType;
 use image::{DynamicImage, ExtendedColorType, RgbaImage};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
+use vellum_core::batch_rename::RenamePattern;
 use vellum_media::ffmpeg::encode::{
     self, AudioCodec, AudioEncode, EncodeRequest, StreamPlan, VideoEncode, VideoQuality,
 };
@@ -139,6 +140,11 @@ impl ConvertTarget {
     }
 }
 
+/// true for the formats that hold only sound
+pub(crate) fn is_audio(target: ConvertTarget) -> bool {
+    target.group() == Group::Audio
+}
+
 /// the formats a file of `kind` can become, most useful first
 pub fn targets_for(kind: MediaKind) -> Vec<ConvertTarget> {
     use ConvertTarget::*;
@@ -155,10 +161,27 @@ pub fn targets_for(kind: MediaKind) -> Vec<ConvertTarget> {
     }
 }
 
+/// what the converter does with the list
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub enum ConvertAction {
+    /// each file into another format
+    #[default]
+    Convert,
+    /// every file joined into one, in list order
+    Merge,
+    /// each file cut into parts of the same length
+    Split,
+    /// new names for the files themselves. this runs as a command, not a job.
+    Rename,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[serde(default, rename_all = "camelCase")]
 #[ts(export)]
 pub struct ConvertOptions {
+    pub action: ConvertAction,
     /// none picks the first target that fits each file
     pub target: Option<ConvertTarget>,
     /// 0 to 100
@@ -184,11 +207,18 @@ pub struct ConvertOptions {
     pub ico_sizes: Vec<u32>,
     /// how long each picture shows in a slideshow
     pub slide_seconds: f64,
+    /// the length of each part when splitting
+    pub split_seconds: f64,
+    /// re-encode so every part is exactly `split_seconds` long. without it the streams are
+    /// copied and each cut lands on the next keyframe, which is instant.
+    pub split_exact: bool,
+    pub rename: RenamePattern,
 }
 
 impl Default for ConvertOptions {
     fn default() -> Self {
         Self {
+            action: ConvertAction::Convert,
             target: None,
             quality: 85,
             max_width: None,
@@ -205,6 +235,9 @@ impl Default for ConvertOptions {
             frames_as_jpg: false,
             ico_sizes: vec![16, 24, 32, 48, 64, 128, 256],
             slide_seconds: 3.0,
+            split_seconds: 60.0,
+            split_exact: false,
+            rename: RenamePattern::default(),
         }
     }
 }
@@ -367,7 +400,7 @@ fn tempo_filter(speed: f64) -> Option<String> {
     Some(parts.join(","))
 }
 
-fn audio_settings(target: ConvertTarget, options: &ConvertOptions) -> AudioEncode {
+pub(crate) fn audio_settings(target: ConvertTarget, options: &ConvertOptions) -> AudioEncode {
     let q = options.quality();
     let step = |rates: [u32; 4]| match q {
         90.. => rates[0],

@@ -9,6 +9,7 @@ import type { GifToolOptions } from "../bindings/GifToolOptions";
 import type { JobSnapshot } from "../bindings/JobSnapshot";
 import type { MediaInfo } from "../bindings/MediaInfo";
 import type { MediaKind } from "../bindings/MediaKind";
+import type { RenamePlan } from "../bindings/RenamePlan";
 import type { SizeOptions } from "../bindings/SizeOptions";
 import type { SizePreset } from "../bindings/SizePreset";
 import type { SizeUnit } from "../bindings/SizeUnit";
@@ -263,4 +264,12 @@ export function savings(before: number, after: number): string | null {
   const change = Math.round((1 - after / before) * 100);
   if (change === 0) return "about the same size";
   return change > 0 ? `${String(change)}% smaller` : `${String(-change)}% bigger`;
+}
+
+/** the renames a plan would make, leaving out files that keep their name or clash */
+export function renamesFrom(plan: RenamePlan | null): { from: string; to: string }[] {
+  if (!plan || plan.error) return [];
+  return plan.rows
+    .filter((row) => row.problem === null && row.from !== row.to)
+    .map(({ from, to }) => ({ from, to }));
 }
