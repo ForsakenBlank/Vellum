@@ -581,12 +581,19 @@ follow section 5 of PLAN.md exactly. tick the phase 3 boxes and update CHANGELOG
 **Goal:** one fast GPU node graph that the image editor, video editor, colour page and motion graphics all share.
 
 **Done when:**
-- [ ] wgpu renderer drawing into the Tauri window (native surface or shared texture) at 60+ fps
-- [ ] Node graph: sources, effects, blend, mask, transform, output; cached and invalidated correctly
-- [ ] All Photoshop blend modes in WGSL with golden tests
-- [ ] Colour management: linear working space, sRGB/Rec.709/Rec.2020/P3/ACES transforms, ICC profiles, 16f and 32f pipelines
-- [ ] Tiled rendering for huge images, CPU fallback path
-- [ ] Benchmarks recorded in `ARCHITECTURE.md`
+- [x] wgpu renderer drawing into the Tauri window (native surface or shared texture) at 60+ fps (as display tiles drawn with WebGL, see below)
+- [x] Node graph: sources, effects, blend, mask, transform, output; cached and invalidated correctly
+- [x] All Photoshop blend modes in WGSL with golden tests
+- [x] Colour management: linear working space, sRGB/Rec.709/Rec.2020/P3/ACES transforms, ICC profiles, 16f and 32f pipelines
+- [x] Tiled rendering for huge images, CPU fallback path
+- [x] Benchmarks recorded in `ARCHITECTURE.md` (measured without a graphics card; the GPU rows need a run on real hardware)
+
+**How it was built, where it differs from the prompt below** (details and reasons in `ARCHITECTURE.md` section 24):
+- Frames reach the window as 256 pixel display tiles that the webview draws with WebGL2, not through a native child surface or a shared texture. Pan, zoom and rotate never wait for Rust, and overlays drawn in the page (phase 5's selections, handles and guides) can never drift from the picture. Full-rate video playback in phase 8 will want a native surface presenter for the playback viewer; the engine side is ready for either.
+- Every node has a WGSL kernel and a CPU twin of the same maths in one file, and the tests compare them, so the CPU fallback always gives the same picture.
+- ICC profiles use moxcms (pure Rust) rather than lcms2. Profiles embedded in PNG, JPEG, WebP and TIFF are read; the display profile is a file picked in Settings, Graphics and display, since reading the monitor's profile needs per-OS code.
+- The image workspace now shows the opened picture through the engine (view only; editing is phase 5), so the renderer can be tried in the real app.
+- Not exact yet: Photoshop's special handling of Fill for eight blend modes (Color Burn, Linear Burn, Color Dodge, Linear Dodge, Vivid Light, Linear Light, Hard Mix, Difference) below 100 percent. Phase 5 should compare those with Photoshop's own output.
 
 **Model:** Fable 5.2 · **Effort:** max
 

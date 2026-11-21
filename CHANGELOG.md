@@ -4,6 +4,25 @@ All notable changes to Vellum are listed here. Dates are in YYYY-MM-DD.
 
 ## Unreleased
 
+### Phase 4: render engine (2026-11-21)
+
+Added
+
+- Pictures now open in the image workspace and are drawn by Vellum's own render engine, on the graphics card when there is a usable one. Scroll to zoom around the pointer, drag to move, hold R and drag (or Shift and scroll) to turn the view, and use the bar under the picture to zoom in steps, fit, show actual pixels, straighten, mirror the view or show the pixel grid from 800%. With the picture selected, Ctrl+0 fits, Ctrl+1 shows actual pixels and Ctrl+= and Ctrl+- zoom (Cmd on a Mac). Editing arrives in phase 5.
+- Moving the view stays smooth however big the picture is: the window keeps what it has already been sent and only asks for the parts that come into view. Even very large pictures show a whole-picture preview straight away while the detail arrives.
+- Colour management: photos with an embedded colour profile (PNG, JPEG, WebP and TIFF) show their true colours, and Settings, Graphics and display can use your monitor's colour profile.
+- Settings, Graphics and display: turn the graphics card on or off, see which device is drawing and why, and set how much memory rendered results may keep.
+- Behind the scenes, the engine every later editor builds on: a graph of effects that caches every result and only redoes what changed, all 27 Photoshop blend modes, Gaussian blur, levels, hue and saturation, sharpen, transforms with perspective, gradients, masks, sRGB, Rec.709, Rec.2020 (with HDR), Display P3, Adobe RGB and ACES colour spaces, 8, 16 and 32 bit pipelines, and pictures far bigger than a graphics card can hold.
+
+Changed
+
+- The image workspace header says it is viewing only until the editor arrives.
+
+Notes
+
+- If the graphics card stops responding, Vellum reconnects to it on its own and draws with the processor in the meantime. Without a usable graphics card everything still works, just slower, and Settings says why.
+- The speed numbers in ARCHITECTURE.md were measured on a machine without a graphics card; the graphics card figures still need a run on real hardware.
+
 ### Phase 3: quick tools (2026-11-20)
 
 Added
