@@ -225,9 +225,9 @@ fn from_ftyp(head: &[u8]) -> Option<Format> {
     }
     let size = u32::from_be_bytes(head.get(0..4)?.try_into().ok()?) as usize;
     let end = size.min(head.len());
-    let major = head.get(8..12)?;
+    let major: &[u8; 4] = head.get(8..12)?.try_into().ok()?;
     let compatible = head.get(16..end).unwrap_or_default();
-    let brands = std::iter::once(major).chain(compatible.chunks_exact(4));
+    let brands = std::iter::once(major).chain(compatible.as_chunks::<4>().0);
     let mut found = None;
     for brand in brands {
         match brand {

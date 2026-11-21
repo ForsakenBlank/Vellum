@@ -82,8 +82,10 @@ impl Peaks {
 
     pub fn set_bytes(&mut self, bytes: &[u8]) {
         self.values = bytes
-            .chunks_exact(2)
-            .map(|b| i16::from_le_bytes([b[0], b[1]]))
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .map(|b| i16::from_le_bytes(*b))
             .collect();
     }
 }
@@ -140,10 +142,8 @@ pub fn make_peaks(
             // reads can split a sample, so keep the leftover bytes for next time
             carry.extend_from_slice(&buf[..n]);
             let whole = carry.len() / 4 * 4;
-            for sample in carry[..whole].chunks_exact(4) {
-                builder.push(f32::from_le_bytes([
-                    sample[0], sample[1], sample[2], sample[3],
-                ]));
+            for sample in carry[..whole].as_chunks::<4>().0 {
+                builder.push(f32::from_le_bytes(*sample));
             }
             carry.drain(..whole);
             if total_frames > 0 {
@@ -288,7 +288,7 @@ mod tests {
         assert_eq!(peaks.channels, 2);
         assert_eq!(peaks.len(), 96000 / 256);
         let view = peaks.view(10);
-        for column in view.peaks.chunks_exact(4) {
+        for column in view.peaks.as_chunks::<4>().0 {
             let (left_lo, left_hi, right_lo, right_hi) =
                 (column[0], column[1], column[2], column[3]);
             assert!(

@@ -335,7 +335,7 @@ fn decode_psd(path: &Path) -> MediaResult<DecodedImage> {
     let mut rgba = psd.rgba();
     // files saved without "maximise compatibility" have an empty composite, so build one
     // from the layers instead
-    if rgba.chunks_exact(4).all(|px| px[3] == 0) && !psd.layers().is_empty() {
+    if rgba.as_chunks::<4>().0.iter().all(|px| px[3] == 0) && !psd.layers().is_empty() {
         rgba = psd
             .flatten_layers_rgba(&|(_, layer)| layer.visible())
             .map_err(|err| {
