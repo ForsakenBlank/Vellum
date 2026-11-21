@@ -18,7 +18,10 @@ Every section ends with the alternatives that were considered and why they lost,
  crates/vellum-core/          AppServices: commands, documents, history, events,
                               settings, recent files, notifications, autosave, jobs
          ▲
- crates/vellum-media, -gpu, -image, -timeline, -audio, -ai,
+ crates/vellum-media/         MediaService: ffmpeg, probing, images, cache,
+                              thumbnails, waveforms, strip metadata (section 22)
+         ▲
+ crates/vellum-gpu, -image, -timeline, -audio, -ai,
         -export, -capture, -vector, -automation   (stubs until their phase)
 ```
 
@@ -206,11 +209,11 @@ Alternatives considered:
 
 Directory: `apps/desktop/` (crate `vellum-desktop`, binary `vellum`).
 
-- `AppState` holds the `AppServices` from `vellum-core` (section 12) and a counter for window labels. It is created in Tauri's `setup` hook and managed by Tauri. Everything that used to live here in phase 0 (job limit following, logging the ready event) moved into `AppServices` so it is tested.
+- `AppState` holds the `AppServices` from `vellum-core` (section 12), the `MediaService` from `vellum-media` (section 22) and a counter for window labels. It is created in Tauri's `setup` hook and managed by Tauri. Everything that used to live here in phase 0 (job limit following, logging the ready event) moved into `AppServices` so it is tested.
 - `TauriSink` forwards bus events to every window.
 - IPC commands (`src/ipc.rs`) stay thin: parse, call into the core, map errors to strings with `IpcError`. The list covers settings, app commands (`list_commands`, `run_command`, `get_keymap`), documents and their history, recent files, recovery, notifications, job results and the job queue, plus `start_sample_job`, which only exists so the queue can be tried by hand until real jobs arrive in phase 2. The sample job now writes a small text file as its result so "Open" can be tried too.
 - **Plugins:** `tauri-plugin-dialog` for the open file dialog and `tauri-plugin-opener` for opening job results. The opener is only called from Rust, from `open_result`, which refuses any path that is not the result of a job in the queue. The webview has no opener permission of its own, so it cannot be used to open arbitrary files.
-- **Thumbnails** use the asset protocol with an empty scope. Rust allows each file one at a time as it is opened or listed in recent files (`allow_asset`), so the webview can show those images and nothing else.
+- **Thumbnails** use the asset protocol. Its scope starts empty; Rust allows the media cache's blob folder (thumbnails and filmstrips, only ever written by Vellum) and each file the user opens or has in recent files, one at a time (`allow_asset`). Nothing else on disk can be loaded by the webview.
 - **Windows:** the first window is `main`. `tear_off_document` builds a new window labelled `doc-1`, `doc-2` and so on, loading the same UI, and moves the document there. The capability file covers `main` and `doc-*`. When a document window is destroyed its documents move back to `main`, and closing `main` quits the app.
 - On exit the shell calls `AppServices::shutdown`: stop autosave, cancel jobs, write the last autosave.
 - Errors reach the UI as plain strings via `IpcError`.
@@ -234,11 +237,11 @@ Directory: `ui/` (Vite, React 19, TypeScript strict with `noUncheckedIndexedAcce
 
 ## 10. Testing and CI
 
-- `cargo test --workspace` covers commands, history, the event bus, settings (including migrations, corruption and failed writes), the job queue, and from phase 1 the document manager, file routing, shortcuts and presets, recent files, notifications, autosave and recovery (crashes, clean exits, live sessions in another window, broken folders, unknown document types), the app command registry and `AppServices` start-up and shutdown.
+- `cargo test --workspace` covers commands, history, the event bus, settings (including migrations, corruption and failed writes), the job queue, and from phase 1 the document manager, file routing, shortcuts and presets, recent files, notifications, autosave and recovery (crashes, clean exits, live sessions in another window, broken folders, unknown document types), the app command registry and `AppServices` start-up and shutdown. From phase 2 `vellum-media` adds format sniffing, probing (rotation, variable frame rate, HDR), hardware detection, exact frame seeking, every image format, the cache (eviction, stale entries, broken indexes), thumbnails, filmstrips, waveforms, encoding with fallback and cancel, and strip metadata, mostly against real files FFmpeg makes during the test.
 - Vitest with Testing Library covers the stores and pure logic listed in section 9, the shell, the jobs panel and the palette's item list.
 - **Playwright** (`ui/e2e/`, `pnpm e2e`) covers drop routing, the command palette and crash recovery end to end (section 21).
 - Rust tests also write generated files the UI reads: the TypeScript bindings, `ui/src/bindings/fileKinds.json` and `ui/e2e/fixtures/backend.json`. A file is only rewritten when its contents change.
-- CI (`.github/workflows/ci.yml`) runs on Windows, macOS and Linux: `cargo fmt --check`, `cargo clippy --workspace --all-targets -D warnings`, `cargo test --workspace`, ESLint, Prettier, `tsc`, Vitest and a production build of the UI. The Linux job also installs the Tauri system packages and checks the generated files are committed and current. A separate Linux job installs Chromium and runs Playwright, keeping the report when something fails.
+- CI (`.github/workflows/ci.yml`) installs FFmpeg and runs on Windows, macOS and Linux: `cargo fmt --check`, `cargo clippy --workspace --all-targets -D warnings`, `cargo test --workspace`, ESLint, Prettier, `tsc`, Vitest and a production build of the UI. The Linux job also installs the Tauri system packages and checks the generated files are committed and current. A separate Linux job installs Chromium and runs Playwright, keeping the report when something fails.
 
 ## 11. Known limits and notes for later phases
 
@@ -246,7 +249,8 @@ Directory: `ui/` (Vite, React 19, TypeScript strict with `noUncheckedIndexedAcce
 - **Document state is JSON.** `DocumentModel::to_state` returns JSON, which is fine for placeholders. Big documents (a 50 megapixel image) should write binary sidecar files next to the manifest in their own phase, and autosave should then only write documents whose revision changed.
 - **One lock for all documents.** `DocumentManager` holds one mutex. Edits are instant today; once a command can take long (a filter on a huge image), documents need their own locks or the work belongs in a job.
 - **Autosave runs on its own thread, not as a job.** It writes a few small files and must not fill the jobs panel every minute. When document states get big it should become a hidden IO job so it shares the IO limit.
-- **Thumbnails are placeholders.** Recent images under 20 MB show themselves through the asset protocol; everything else shows a tile with its workspace icon. Phase 2 should generate cached thumbnails as jobs.
+- **Thumbnails come from the media cache** (section 22) for every kind of file. A file with no picture (audio without cover art) or one that failed keeps its workspace icon tile.
+- **Media limits for later phases** (section 22 has the detail): playback and scrubbing need an in-process decoder (phase 8); pause reaches a running FFmpeg on Linux and macOS but only between passes on Windows; HDR thumbnails are not tone mapped yet (phase 4 colour management); huge images are refused rather than tiled (phase 5); HEIC needs libheif tools or FFmpeg 7.1 until the installer bundles a new enough FFmpeg (phase 18); camera raw decoding is covered by rawler but has no test file, since no small raw can be made in a script.
 - **Torn off windows keep no layout.** They show tabs and the document, no rail or docks. Window titles are set when the window opens and do not follow a rename yet.
 - **Drag and drop between windows** is done by dragging a tab out of a window (new window) or from the tab menu (move to the main window). Dragging a tab straight into another existing window needs native drag support and is left for later.
 - **Commands in a workspace context** (like `image.brush`) are supported by the keymap and the shortcut handler, but no workspace registers any yet.
@@ -387,7 +391,7 @@ Playwright cannot drive the WebKit webview Tauri uses on Linux, so the e2e tests
 - **Real data, not copies.** The fake reads `e2e/fixtures/backend.json` (the registered commands, the keymap of every preset and the default settings) and `fileKinds.json`, both written by Rust tests. If a command or default changes in Rust, the e2e tests see it.
 - **Drops use Tauri's event names** (`tauri://drag-enter` and so on) with physical pixel positions, so the drop code path is the one the desktop app runs.
 - **A reload is a restart.** The fake keeps its state in `localStorage`; reloading without calling its `cleanExit()` leaves the session behind as a crash would, and the next load offers to restore it.
-- The tests cover drop routing (workspaces, several files, tool cards, refusals, files already open), the palette (shortcut, keyboard navigation, every registered command, recent files, settings, shortcut presets) and crash recovery (restore, discard, quit with unsaved work, clean quit, undo and redo from the shortcut and the edit menu).
+- The tests cover drop routing (workspaces, several files, tool cards, refusals, files already open), the palette (shortcut, keyboard navigation, every registered command, recent files, settings, shortcut presets), crash recovery (restore, discard, quit with unsaved work, clean quit, undo and redo from the shortcut and the edit menu) and the info panel (media details, private tags, strip metadata). The fake answers `probe_media` with a plausible `MediaInfo` per file kind and never finishes thumbnails.
 
 The Rust side of the same features (recovery folders, locks, routing, document history) is tested in `vellum-core`, and the whole app was also run on a virtual display to check it end to end, as noted in section 11.
 
@@ -395,3 +399,129 @@ Alternatives considered:
 
 - *`tauri-driver` with WebDriver.* Drives the real app, but only on Linux and Windows, needs a built binary per run, and cannot fake a crash or a file drop from outside. It is worth adding for smoke tests in phase 18.
 - *Tauri's `mockIPC` helper.* It mocks invoke well but events and window metadata less so, and it runs inside the bundle rather than before it loads. A small init script is clearer and lets the tests reload the page.
+
+## 22. Media core
+
+Crate: `crates/vellum-media`. Phase 2.
+
+```
+ MediaService (service.rs)            one per app, created by the desktop shell
+   ├─ FfmpegTools (ffmpeg/)           finds and runs ffmpeg and ffprobe
+   │    probe.rs   ffprobe json  ──>  MediaInfo (info.rs)
+   │    hw.rs      trial encodes ──>  HardwareSupport
+   │    seek.rs    packet times  ──>  FrameIndex, exact frames
+   │    encode.rs  progress, part files, hardware to software fallback
+   ├─ images.rs                       every still and animated image format
+   ├─ MediaCache (cache.rs)           sqlite index + blob files
+   ├─ thumbnail.rs, waveform.rs       what the cache holds
+   └─ strip.rs                        copies without metadata
+```
+
+### FFmpeg as programs, not libraries
+
+The plan asked for `ffmpeg-next` (linking the FFmpeg libraries). Vellum runs the `ffmpeg` and `ffprobe` executables instead, for now, for these reasons:
+
+- **Licensing.** An in-process FFmpeg has to be an LGPL build, which leaves out x264 and x265, the best H.264 and H.265 encoders and exactly what "Export to 10 MB" needs. A separate GPL `ffmpeg` program shipped next to the app is the usual way around that (HandBrake, Shotcut and many converters do the same).
+- **Crash isolation.** A damaged or hostile file can crash FFmpeg. As a child process that is a failed job with a message; in process it takes the app down with unsaved work.
+- **Cancel and pause.** A child process can be killed at once and, on Linux and macOS, suspended with `SIGSTOP`. A blocking library call can only be abandoned.
+- **Builds.** CI and contributors need no FFmpeg development headers on three operating systems. Any FFmpeg from 6.0 on works, and users can point Vellum at a newer one.
+
+The cost is speed for one specific job: real time playback and scrubbing (phase 8) need decoded frames in memory without starting a process per frame. Phase 8 should add an in-process **decoder** for that (an LGPL build is fine for decoding, since every decoder Vellum needs is in it) behind the same `FrameRequest` shape, and keep the programs for encoding, probing and everything else. `FrameIndex` already gives it exact frame times.
+
+**Finding FFmpeg** (`FfmpegTools::locate`): the folder or binary in Settings > Media, then `VELLUM_FFMPEG_DIR`, then the folder Vellum's own executable is in (where the installer will put the bundled copy in phase 18), then Homebrew and MacPorts folders on macOS and WinGet, Scoop and Chocolatey folders on Windows (apps started from the dock or start menu do not get the shell's `PATH`), then `PATH`. Each candidate must answer `ffmpeg -version`.
+
+**Running them** (`ffmpeg/process.rs`): every call gets `-nostdin -loglevel error`, no console window on Windows, stdin closed, and stderr drained on a thread into a 30 line tail for error messages (with FFmpeg's `[mov @ 0x55...]` prefixes and repeated paths removed). Jobs pass their `JobContext` as a `Reporter`; quick calls from the UI pass `NoReporter`.
+
+- `run_lines` reads `-progress pipe:1` output and checks cancel and pause ten times a second. Cancel kills the child. Pause sends `SIGSTOP`, blocks in `checkpoint` (the job gives up its slot like any paused job) and sends `SIGCONT` on resume. Windows has no way to suspend another process from safe Rust, so there a pause takes effect when the current pass ends; the job shows "Pausing" until then.
+- `run_reading` hands stdout to a reader (raw frames, audio samples, PNG bytes). Readers call `checkpoint` between chunks, and while they wait the pipe fills and FFmpeg blocks, which pauses it on every platform.
+- A `Running` child that is dropped early is always killed, so no FFmpeg is left behind a job that gave up.
+- `JobContext::is_pause_requested` was added to the core for this: a job has to suspend its child before it blocks in `checkpoint`.
+
+### Probing
+
+`probe_media` runs `ffprobe -show_format -show_streams` and maps the JSON into `MediaInfo`: kind, format, size, duration, bit rate, the first video and audio streams, every stream, and every tag (flagged `sensitive` when it looks like location, serial numbers, owner or camera details). Video details include:
+
+- **Shown size.** The display matrix (FFmpeg 5 and later) or the old `rotate` tag gives the clockwise rotation, and non square pixels widen the picture, so a portrait phone video reports 1080 × 1920.
+- **Variable frame rate.** A second, quick ffprobe run reads the timestamps of the first 600 packets. Sorted, the gaps should all match the median within a tick or two (33 and 34 ms at 29.97 fps is still constant). A file whose average and base rates disagree by more than 2% also counts as variable, which catches rate changes later in the file.
+- **HDR.** PQ is HDR10, HLG is HLG, a Dolby Vision configuration record wins. For HDR files a third run reads the first frame's side data for mastering display and content light levels, and HDR10+ metadata.
+
+Images are probed without FFmpeg where possible (`images::probe_image`): header sizes, colour type, bit depth, ICC profile, EXIF (through `kamadak-exif`, including orientation and DPI) and, for GIF, animated WebP and APNG, frame counts, durations and loop counts read straight from the container (`animation.rs`) without decoding a pixel. Probe results are cached, so the info panel is instant the second time.
+
+### Hardware encoders
+
+`ffmpeg -encoders` lists what the build includes, not what works: NVENC is listed on machines without an NVIDIA card. `detect_hardware` therefore tries every listed NVENC, Quick Sync, AMF, VideoToolbox and VA-API encoder with a three frame encode, all in parallel with a 10 second limit, and opens each hardware decoder's device. It takes a second or two, so the result is saved as `hardware.json` next to the cache and only checked again when the FFmpeg version changes or the user presses "Check hardware again". `HardwareSupport::encoder_chain` gives the encoders to try for a codec, hardware first (when the setting allows) and software last, and `run_encode` walks that chain: if a hardware encode fails part way, the job says so and starts again in software. Encodes write to `.name.part.ext` and rename at the end, and never overwrite.
+
+### Frame accurate seeking
+
+`FrameIndex::build` lists the presentation timestamp of every packet in a video stream (`ffprobe -show_entries packet=pts,dts,flags`, no decoding, so a feature film takes seconds), sorted into display order, with keyframes marked and packets FFmpeg will discard (edit lists) left out. Frame `n` is then an exact time, which is right for variable frame rate video where `n / fps` drifts.
+
+`extract_frame` asks for the frame at a time by seeking half a frame before it: FFmpeg decodes from the keyframe before and drops every frame that starts earlier than the seek point, so the first frame out is the one asked for, with no rounding risk at the boundary. A test encodes 50 frames whose grey level is their frame number, with B-frames and a 12 frame keyframe gap, and checks ten of them come back exactly. The quick mode (`accurate: false`) seeks to the keyframe before and decodes only that frame, for thumbnails. Raw output needs `-fps_mode passthrough`, or constant frame rate sync throws that keyframe away.
+
+### Images
+
+One call, `decode_image`, for every format, returning frames (all of them for animations when asked) as `DynamicImage` so 16 bit and float images keep their depth:
+
+| Format | Decoder |
+|---|---|
+| PNG, APNG, JPEG, GIF, WebP, TIFF, BMP, ICO, QOI, TGA, PNM, HDR, EXR | `image` crate |
+| SVG | resvg at any size, with system fonts loaded once |
+| PSD | `psd` crate, the stored composite, or the layers flattened when the file has none |
+| Camera raw | rawler: a full develop, or the embedded preview for thumbnails |
+| AVIF, JPEG XL | FFmpeg |
+| HEIC | libheif's `heif-dec`/`heif-convert`, then FFmpeg 7.1 or newer, then `sips` on macOS |
+
+- **Formats are sniffed from the first bytes** (`sniff.rs`), with the extension as a fallback, so a JPEG saved as `.png` still opens. Raw extensions win over the TIFF magic that most raw files share.
+- **Memory is checked before decoding.** The header gives the size, and an image that would need more than the "Largest image" setting (2 GB by default) is refused with a message saying how big it is. Huge images get tiled loading in phase 5, the image editor; until then this keeps a 30000 × 30000 TIFF from taking the machine down.
+- **Third party decoders run inside `catch_unwind`.** Raw and PSD decoders can panic on odd files; that becomes "This file is damaged" rather than a crash.
+- EXIF orientation is applied, so photos come out upright.
+- HEIC goes through external tools because FFmpeg only reads HEIC from 7.1 (Ubuntu 24.04 ships 6.1), and the libheif crate would add another native library to every build. Phase 18 should bundle an FFmpeg new enough to make the fallbacks unnecessary.
+
+### The cache
+
+`MediaCache` keeps generated things on disk: an SQLite index (`index.sqlite`, through `rusqlite` with SQLite bundled, so every platform has the same version) plus blob files in `blobs/`.
+
+- **Keys** are the file's canonical path, size and modified time, plus what was made (`kind`, eg `thumb`) and with which settings (`params`, eg `320`). Editing a file changes its size or time, so a stale entry is never served: a lookup that finds an entry for an older version deletes it.
+- **Writes are atomic.** A blob is written under a temp name and the index row is only added once it is complete, so a cancelled job never leaves half a thumbnail. A crash between the two leaves an orphan file, which the next start sweeps up.
+- **Least recently used eviction** whenever the total goes over the limit (Settings > Media, 2 GB by default). Last-used times are only written once a minute per entry, so browsing a folder of thumbnails does not turn every read into a write.
+- **A broken index is replaced, not fatal.** If it cannot be opened, fails `PRAGMA quick_check` or comes from a newer schema, it is moved aside, the blobs are cleared and a fresh index starts. The cache is disposable by design.
+- WAL mode and a two second busy timeout cover two Vellum windows or instances sharing the cache.
+- It lives in the OS cache folder (`app_cache_dir()/media`), which backup tools and system cleaners know they may skip or empty.
+
+### Thumbnails, filmstrips and waveforms
+
+- **Thumbnails** fit a square (320 for the home screen). Images go through `decode_image` with the raw preview shortcut. Videos use the quick keyframe grab at 10% in, then 30% and 50% if the frame is nearly black, so fade-ins do not give black tiles. Audio files show their cover art when they have one; otherwise the cache remembers there is nothing to show so the file is not opened again. FFmpeg returns the frame as PNG, so it does the rotation and pixel aspect maths. Opaque thumbnails are stored as JPEG, ones with transparency as PNG.
+- **Filmstrips** are evenly spaced frames tiled into one JPEG, with the tile size and times as JSON. Frames are grabbed four at a time, since decoding one keyframe barely uses more than one core.
+- **Waveforms** decode the first audio stream to 32 bit float (mixed down to at most stereo) and keep the minimum and maximum of every 256 samples, about 5 ms, as 16 bit pairs. Very long files use coarser peaks so no entry passes about 8 MB. The UI asks for as many columns as it has pixels and gets them merged down, so zooming out never misses a peak.
+
+All three run as **background jobs**, a small addition to the phase 0 queue: `JobSpec::in_background()` jobs wait for slots and can be cancelled like any job, but the UI leaves them out of the jobs panel, they never notify, and the queue removes them as soon as they finish (listeners still see the final snapshot first). Without that, opening a folder of 200 photos would fill the jobs panel with 200 thumbnail jobs. They run at low priority, so a user's export starts before waiting thumbnails.
+
+### Strip metadata
+
+`strip_metadata` writes `name-clean.ext` next to the original (`name-clean 2.ext` and so on if that exists) and never touches the original.
+
+- **JPEG, PNG, WebP and GIF are rewritten at the container level,** so not one pixel changes (the tests compare decoded pixels before and after). EXIF, XMP, IPTC, comments, PNG text and time chunks, WebP EXIF and XMP chunks and GIF comment and application blocks go. What is needed to show the picture right stays: JFIF and Adobe markers, ICC profiles, gamma and colour chunks, transparency, animation control and the GIF loop count. A photo whose EXIF said "turn me 90 degrees" gets a one tag EXIF block holding only the orientation, so it still shows upright. Anything after a JPEG's end marker (phones append extra "multi picture" images with their own EXIF) is dropped.
+- **Video and audio** go through FFmpeg with stream copy (fast, lossless): global, stream and chapter metadata removed, data tracks dropped (GoPro and some phones keep GPS in one), and `bitexact` so FFmpeg does not add its own encoder tags.
+- Other formats say they are not supported yet and suggest converting first.
+- It runs as a normal visible job whose result is `{ "path": ... }`, so the notification offers "Open" like any export.
+
+### MediaService and the UI
+
+`MediaService` owns the cache, the tools, the hardware check and a copy of the media settings, which it follows from the settings events (a new FFmpeg folder relocates the tools and checks hardware again; a new cache limit evicts at once). Its requests never wait on slow work: `thumbnail`, `filmstrip` and `waveform` answer from the cache, or start one background job (a pending set stops a second identical job) and answer `None`; the result arrives as a `media:changed` event. The pending entry is cleared before that event is sent, so asking again right after a failure tries again.
+
+The desktop shell creates the service in `AppState`, allows the cache's blob folder in the asset protocol scope (the only folder allowed as a whole, since only Vellum writes there), and exposes `media_status`, `probe_media`, `media_thumbnail`, `media_filmstrip`, `media_waveform`, `strip_metadata`, `clean_media_cache` and `recheck_hardware`. The media commands are `async` and run on a blocking worker, because probing can start ffprobe and Tauri runs plain commands on the main thread.
+
+In the UI, `state/media.ts` holds the status and a table of thumbnails by path and size (`applyMediaEvent` is pure and tested), `useThumbnail` asks once per path and size, the home screen shows cached thumbnails for every file type, the Info panel shows `describeMedia` (in `lib/mediaInfo.ts`) with "Copy info" and "Strip metadata", and Settings > Media and cache shows FFmpeg, the working hardware encoders and cache use, with "Check hardware again" and "Clean cache".
+
+### Testing and numbers
+
+Tests make their own media with FFmpeg (`testing::make`) instead of committing files, and skip with a note when FFmpeg is missing; CI installs FFmpeg on all three systems and sets `VELLUM_REQUIRE_FFMPEG=1` so it fails there instead. `tests/media/generate.sh` makes a folder of files in every format (including an HLG phone clip filmed sideways, variable frame rate, cover art, damaged files) for trying the app by hand, and `cargo run -p vellum-media --example probe_folder -- tests/media/out` runs each through probing and thumbnails.
+
+`cargo run --release -p vellum-media --example thumbnail_bench` times a 10 second 4K HEVC 10-bit clip. On a 4 thread cloud container with FFmpeg 6.1 and software decoding: probe 110 to 130 ms (three ffprobe runs), thumbnail 435 to 460 ms (almost all of it FFmpeg decoding one 4K keyframe, the same as running the command by hand), about 570 ms in all for the first view; 0.02 ms once cached; a 10 frame filmstrip 1.2 s.
+
+Alternatives considered:
+
+- *`ffmpeg-next` in process.* See above. Right for real time decoding, wrong for everything else today.
+- *libvips for large images.* Fast and memory frugal, but another large native dependency per platform for something the image editor's own tiles (phase 5) will do. Phase 2 refuses images over the memory limit with a clear message instead.
+- *The cache in one SQLite file with blobs inside.* Simpler to clean, but the webview cannot load a thumbnail from inside a database, and large blobs make SQLite files fragment and grow.
+- *Hashing file contents for cache keys.* Survives renames, but hashing a 4 GB video before showing its thumbnail defeats the point. Path, size and modified time is what file managers use.
+- *Thumbnail jobs in the jobs panel.* Honest but noisy; see background jobs above.

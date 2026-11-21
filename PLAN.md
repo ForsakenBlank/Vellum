@@ -499,12 +499,12 @@ workspaces (image, video, audio, etc) can be placeholders for now. write playwri
 **Goal:** read anything, probe it, make thumbnails and waveforms, cache intelligently, and encode with hardware acceleration.
 
 **Done when:**
-- [ ] FFmpeg integration for decode and encode with hardware acceleration detection
-- [ ] Image decoding for PNG, JPG, WebP, AVIF, HEIC, TIFF, GIF, RAW, SVG, PSD (flattened preview)
-- [ ] Media probe returns a unified `MediaInfo` struct
-- [ ] Thumbnail, filmstrip and waveform generation as cached jobs
-- [ ] SQLite-backed cache with size limit and cleanup
-- [ ] File info panel in the UI with "strip metadata"
+- [x] FFmpeg integration for decode and encode with hardware acceleration detection (runs the ffmpeg and ffprobe programs rather than linking them, see `ARCHITECTURE.md` section 22; phase 8 adds an in-process decoder for playback)
+- [x] Image decoding for PNG, JPG, WebP, AVIF, HEIC, TIFF, GIF, RAW, SVG, PSD (flattened preview) (HEIC needs libheif's tools or FFmpeg 7.1+; raw has no test file yet)
+- [x] Media probe returns a unified `MediaInfo` struct
+- [x] Thumbnail, filmstrip and waveform generation as cached jobs
+- [x] SQLite-backed cache with size limit and cleanup
+- [x] File info panel in the UI with "strip metadata"
 
 **Model:** Opus 5.5 · **Effort:** xhigh
 

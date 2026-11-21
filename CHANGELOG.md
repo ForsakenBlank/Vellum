@@ -4,6 +4,31 @@ All notable changes to Vellum are listed here. Dates are in YYYY-MM-DD.
 
 ## Unreleased
 
+### Phase 2: media core (2026-11-20)
+
+Added
+
+- Vellum reads media through the FFmpeg and FFprobe programs. It finds them in a folder you choose in Settings > Media and cache, next to Vellum itself, in the usual install folders or on `PATH`, and says plainly when they are missing. Images still open without FFmpeg.
+- Probing any file gives one description: format, size, length, bit rate, codecs, the size a video is shown at (rotation and non square pixels included), frame rate and whether it varies, colour, HDR (HDR10, HDR10+, HLG, Dolby Vision, with brightness details), audio channels and sample rate, and every metadata tag, with likely private ones (location, serial numbers, owner, camera) flagged.
+- One image decoder for PNG, APNG, JPEG, GIF and animated WebP (every frame), TIFF, BMP, ICO, QOI, TGA, PNM, HDR, EXR, SVG at any size, Photoshop documents (flattened), camera raw, AVIF, JPEG XL and HEIC. Photos turn upright from their EXIF orientation, files are recognised by their contents rather than their name, and images too big for memory are refused with a clear message instead of freezing the computer.
+- Hardware video encoders and decoders (NVIDIA NVENC, Intel Quick Sync, AMD AMF, Apple VideoToolbox, VA-API) are tried for real once per FFmpeg version, and encodes fall back to the processor if the graphics card fails part way.
+- Frame accurate seeking that also works for variable frame rate phone and screen recordings.
+- A media cache for thumbnails, filmstrips, waveforms and file details, with a size limit (2 GB by default) and a Clean cache button. Changed files are never served stale.
+- Thumbnails for every kind of file on the home screen, including videos (skipping black openings) and music with cover art.
+- The Info panel shows everything Vellum knows about the open file, with Copy info and Strip metadata. Strip metadata saves a copy without location, camera and other hidden details: photos keep every pixel, their orientation and their colour profile, and videos lose GPS tracks too. The original is never touched.
+- Settings > Media and cache: FFmpeg folder, hardware acceleration, cache size, the largest image to open, the hardware encoders found and how much cache is used.
+- `tests/media/generate.sh` makes a folder of test files in every format, and a benchmark example times 4K HEVC thumbnails.
+
+Changed
+
+- Small background work like thumbnails runs as background jobs: it waits its turn like any job but stays out of the jobs panel and notifications.
+- CI installs FFmpeg on Windows, macOS and Linux and runs the media tests there.
+
+Notes
+
+- A thumbnail for a 10 second 4K HEVC 10-bit video takes about 0.57 s the first time on a 4 thread machine without hardware decoding (0.11 s to read the file, 0.45 s to decode one frame) and 0.02 ms after that. A 10 frame filmstrip of it takes 1.2 s.
+- HEIC photos need libheif's tools or FFmpeg 7.1 or newer for now. Pausing a running FFmpeg pass works on Linux and macOS; on Windows the pause happens when the pass ends.
+
 ### Phase 1: app shell and UX foundations (2026-11-19)
 
 Added
