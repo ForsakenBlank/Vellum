@@ -516,6 +516,8 @@ In the UI, `state/media.ts` holds the status and a table of thumbnails by path a
 
 Tests make their own media with FFmpeg (`testing::make`) instead of committing files, and skip with a note when FFmpeg is missing; CI installs FFmpeg on all three systems and sets `VELLUM_REQUIRE_FFMPEG=1` so it fails there instead. `tests/media/generate.sh` makes a folder of files in every format (including an HLG phone clip filmed sideways, variable frame rate, cover art, damaged files) for trying the app by hand, and `cargo run -p vellum-media --example probe_folder -- tests/media/out` runs each through probing and thumbnails.
 
+The real app was also run on Linux under a virtual display with the generated files in its recent list: every format showed a thumbnail (WAV, which has no picture, kept its icon), the Info panel read the HLG phone clip correctly, Strip metadata wrote a clean copy that kept its rotation, and Clean cache emptied the blob folder. That run caught one bug the fake backend could not (the settings section showed the cache as it was at start-up).
+
 `cargo run --release -p vellum-media --example thumbnail_bench` times a 10 second 4K HEVC 10-bit clip. On a 4 thread cloud container with FFmpeg 6.1 and software decoding: probe 110 to 130 ms (three ffprobe runs), thumbnail 435 to 460 ms (almost all of it FFmpeg decoding one 4K keyframe, the same as running the command by hand), about 570 ms in all for the first view; 0.02 ms once cached; a 10 frame filmstrip 1.2 s.
 
 Alternatives considered:
