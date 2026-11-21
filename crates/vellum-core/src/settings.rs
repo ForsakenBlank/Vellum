@@ -439,7 +439,8 @@ impl Default for HistorySettings {
 #[serde(default, rename_all = "camelCase")]
 #[ts(export)]
 pub struct MediaSettings {
-    /// the most disk space thumbnails, waveforms and other cached files may take
+    /// the most disk space thumbnails, waveforms and other cached files may take, in
+    /// decimal megabytes like file managers show
     pub cache_limit_mb: u32,
     /// a folder holding ffmpeg and ffprobe (or the ffmpeg program itself) to use instead
     /// of searching for them. empty searches.

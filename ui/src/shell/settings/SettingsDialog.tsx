@@ -476,6 +476,10 @@ function TextField({
 function MediaStatusPanel() {
   const status = useMedia((s) => s.status);
   const [cleaning, setCleaning] = useState(false);
+  // the cache grows quietly as thumbnails are made, so read it fresh when this opens
+  useEffect(() => {
+    if (inDesktopApp) void ipc.mediaStatus().then(useMedia.getState().setStatus);
+  }, []);
   if (!inDesktopApp) {
     return <p className="text-sm text-fg-muted">Media details show in the desktop app.</p>;
   }

@@ -136,7 +136,7 @@ impl MediaService {
         jobs: JobQueue,
         bus: EventBus,
     ) -> Self {
-        let limit = u64::from(settings.cache_limit_mb) * 1024 * 1024;
+        let limit = cache_limit_bytes(settings);
         let (cache, cache_error) = match MediaCache::open(cache_dir, limit) {
             Ok(cache) => (Some(cache), None),
             Err(err) => {
@@ -190,7 +190,7 @@ impl MediaService {
         *self.inner.settings.write() = next.clone();
         if previous.cache_limit_mb != next.cache_limit_mb
             && let Some(cache) = &self.inner.cache
-            && let Err(err) = cache.set_limit(u64::from(next.cache_limit_mb) * 1024 * 1024)
+            && let Err(err) = cache.set_limit(cache_limit_bytes(next))
         {
             tracing::warn!(%err, "could not apply the new cache limit");
         }
@@ -615,6 +615,12 @@ impl MediaService {
     }
 }
 
+/// disk sizes use decimal megabytes, like the file managers on macos and linux and like
+/// the ui's `formatBytes`, so "2048 MB" shows as "2.0 GB" everywhere
+fn cache_limit_bytes(settings: &MediaSettings) -> u64 {
+    u64::from(settings.cache_limit_mb) * 1_000_000
+}
+
 fn locate(settings: &MediaSettings) -> Result<FfmpegTools, String> {
     let custom = Some(Path::new(&settings.ffmpeg_path)).filter(|p| !p.as_os_str().is_empty());
     FfmpegTools::locate(custom).map_err(|err| err.to_string())
@@ -758,10 +764,7 @@ mod tests {
             ..MediaSettings::default()
         };
         service.apply_settings(&next);
-        assert_eq!(
-            service.status().cache.unwrap().limit_bytes,
-            300 * 1024 * 1024
-        );
+        assert_eq!(service.status().cache.unwrap().limit_bytes, 300_000_000);
     }
 
     #[test]
