@@ -21,12 +21,12 @@
 //! revisions they read, so the engine only redraws what changed.
 
 use std::hash::Hasher;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 use vellum_gpu::graph::{Graph, ImageSource, Node, NodeId};
 use vellum_gpu::image::SourcePixels;
 use vellum_gpu::nodes::{self, blend::mode_param};
-use vellum_gpu::{BlendMode, ColorTransform, IRect, WorkingSpace};
+use vellum_gpu::{BlendMode, ColorTransform, IRect, NodeRegistry, WorkingSpace};
 
 use crate::document::{Content, ImageDocument, Layer, LayerId};
 use crate::raster::{Channels, Raster};
@@ -37,6 +37,8 @@ pub enum Part {
     Pixels(LayerId),
     Mask(LayerId),
     Selection,
+    /// a smart object's filter mask
+    FilterMask(LayerId),
 }
 
 /// temporary changes shown while a tool is in use, never stored in the document
@@ -114,11 +116,18 @@ impl ImageSource for RasterSource {
     }
 }
 
+/// every render node, for adjustments and filters named by id
+pub fn registry() -> &'static NodeRegistry {
+    static REGISTRY: OnceLock<NodeRegistry> = OnceLock::new();
+    REGISTRY.get_or_init(NodeRegistry::with_builtins)
+}
+
 struct Builder<'a> {
     g: Graph,
     preview: &'a Preview,
     /// the selection, which floats the pixels a transform moves
     selection: Option<&'a Raster>,
+    doc: &'a ImageDocument,
 }
 
 impl Builder<'_> {
@@ -151,7 +160,7 @@ impl Builder<'_> {
 
     /// the layer's own pixels, or its isolated group composite
     fn content(&mut self, layer: &Layer) -> Option<NodeId> {
-        match &layer.content {
+        let node = match &layer.content {
             Content::Pixels(raster) => {
                 let raster = self
                     .replaced(&Part::Pixels(layer.id))
@@ -161,22 +170,118 @@ impl Builder<'_> {
                     return None;
                 }
                 let (dx, dy) = self.shift(layer.id);
-                let node = self.source(RasterSource::new(raster).shifted(dx, dy));
-                if let Some(t) = self.transforming(&Part::Pixels(layer.id)).cloned() {
-                    let sel = match (t.plan.lift, self.selection) {
-                        (true, Some(s)) => Some(self.source(RasterSource::new(s.clone()))),
-                        _ => None,
-                    };
-                    if let Ok(moved) =
-                        crate::transform::pixels_node(&mut self.g, node, sel, &t.spec)
-                    {
-                        return Some(moved);
-                    }
-                }
-                Some(node)
+                self.source(RasterSource::new(raster).shifted(dx, dy))
             }
-            Content::Group { children, .. } => self.stack(children, None),
+            Content::Group { children, .. } => return self.stack(children, None),
+            Content::Adjustment(_) => return None,
+            Content::Fill(fill) => {
+                let n = crate::fills::node(fill, self.doc.canvas());
+                self.g.add(n)
+            }
+            Content::Smart(s) => self.smart(layer.id, s),
+        };
+        if let Some(t) = self.transforming(&Part::Pixels(layer.id)).cloned() {
+            let sel = match (t.plan.lift, self.selection) {
+                (true, Some(s)) => Some(self.source(RasterSource::new(s.clone()))),
+                _ => None,
+            };
+            if let Ok(moved) = crate::transform::pixels_node(&mut self.g, node, sel, &t.spec) {
+                return Some(moved);
+            }
         }
+        Some(node)
+    }
+
+    /// a smart object: its pixels placed by its transform, then each smart filter, then
+    /// the filter mask fading between the two
+    fn smart(&mut self, id: LayerId, s: &crate::smart::SmartObject) -> NodeId {
+        let (dx, dy) = self.shift(id);
+        let mut node = if s.is_identity_placement() {
+            let [.., e, f] = s.transform;
+            self.source(RasterSource::new(s.source.clone()).shifted(e as i32 + dx, f as i32 + dy))
+        } else {
+            let src = self.source(RasterSource::new(s.source.clone()));
+            let mut m = s.matrix();
+            m[2] += dx as f32;
+            m[5] += dy as f32;
+            self.g.add(
+                Node::of(nodes::TransformNode)
+                    .param("matrix", m)
+                    .input(0, src),
+            )
+        };
+        if !s.filters_visible || s.filters.iter().all(|f| !f.visible) {
+            return node;
+        }
+        let before = node;
+        let area = s.bounds().translate(dx, dy);
+        let canvas = self.doc.canvas();
+        for f in s.filters.iter().filter(|f| f.visible) {
+            let Some(n) = crate::smart::filter_node(&f.kind, &f.params, area, canvas, registry())
+            else {
+                continue;
+            };
+            let after = self.g.add(n.input(0, node));
+            node = crate::smart::blend_filter(&mut self.g, node, after, f);
+        }
+        if let Some(mask) = &s.filter_mask {
+            let mask = self.replaced(&Part::FilterMask(id)).unwrap_or(mask).clone();
+            let fill = mask.fill();
+            let m = self.source(RasterSource::new(mask));
+            node = self.g.add(
+                Node::of(nodes::style::MixNode)
+                    .param("masked", true)
+                    .param("outside", fill)
+                    .input(0, before)
+                    .input(1, node)
+                    .input(2, m),
+            );
+        }
+        node
+    }
+
+    /// lands an adjustment's result: faded by opacity and fill through the layer's mask,
+    /// or blended with its mode
+    fn land(&mut self, layer: &Layer, before: NodeId, after: NodeId) -> NodeId {
+        let amount = (layer.opacity * layer.fill).clamp(0.0, 1.0) * 100.0;
+        if layer.blend != BlendMode::Normal {
+            let after = self.masked(layer, after);
+            return self.blend(
+                Some(before),
+                after,
+                layer.blend,
+                layer.opacity,
+                layer.fill,
+                None,
+            );
+        }
+        let mut mix = Node::of(nodes::style::MixNode)
+            .param("amount", amount)
+            .input(0, before)
+            .input(1, after);
+        if let Some(mask) = layer.mask.as_ref().filter(|m| m.enabled) {
+            let raster = self
+                .replaced(&Part::Mask(layer.id))
+                .unwrap_or(&mask.raster)
+                .clone();
+            let fill = raster.fill();
+            let m = self.source(RasterSource::new(raster));
+            mix = mix.param("masked", true).param("outside", fill).input(2, m);
+        }
+        self.g.add(mix)
+    }
+
+    /// an adjustment layer applied to `backdrop`
+    fn adjust(&mut self, layer: &Layer, backdrop: Option<NodeId>) -> Option<NodeId> {
+        let Content::Adjustment(adj) = &layer.content else {
+            return backdrop;
+        };
+        let back = backdrop?;
+        let Some(node) = crate::adjustments::node(adj, self.doc, registry()) else {
+            return backdrop;
+        };
+        let after = self.g.add(node.input(0, back));
+        Some(self.land(layer, back, after))
     }
 
     /// hides parts of `node` with the layer's mask
@@ -249,6 +354,9 @@ impl Builder<'_> {
     }
 
     fn layer(&mut self, base: &Layer, clips: &[Layer], backdrop: Option<NodeId>) -> Option<NodeId> {
+        if matches!(base.content, Content::Adjustment(_)) {
+            return self.adjust(base, backdrop);
+        }
         if let Content::Group {
             children,
             pass_through: true,
@@ -283,6 +391,12 @@ impl Builder<'_> {
         };
         let base_fill = if clips.is_empty() { base.fill } else { 1.0 };
         for clip in clips.iter().filter(|c| c.visible) {
+            if matches!(clip.content, Content::Adjustment(_)) {
+                if let Some(r) = self.adjust(clip, Some(result)) {
+                    result = r;
+                }
+                continue;
+            }
             let Some(c) = self.content(clip) else {
                 continue;
             };
@@ -318,6 +432,7 @@ pub fn build_raw(doc: &ImageDocument, preview: &Preview) -> (Graph, NodeId) {
         g: Graph::new(),
         preview,
         selection: doc.selection.as_ref(),
+        doc,
     };
     if let Some(id) = preview.show_mask
         && let Some(mask) = doc.layer(id).and_then(|l| l.mask.as_ref())

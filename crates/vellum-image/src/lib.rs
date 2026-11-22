@@ -6,18 +6,22 @@
 //!
 //! see `ARCHITECTURE.md` section 25 for why it is shaped this way.
 
+pub mod adjustments;
 pub mod canvas;
 pub mod commands;
 pub mod compose;
 pub mod document;
 pub mod export;
+pub mod fills;
 pub mod flatten;
 pub mod format;
+pub mod layer_ops;
 pub mod paint;
 pub mod psd;
 pub mod raster;
 pub mod selection;
 pub mod service;
+pub mod smart;
 pub mod transform;
 
 pub use compose::{Part, Preview, build};

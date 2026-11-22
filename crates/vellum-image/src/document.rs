@@ -85,6 +85,12 @@ pub enum Content {
         /// first. photoshop's default for groups.
         pass_through: bool,
     },
+    /// changes the colours of everything below it
+    Adjustment(crate::adjustments::Adjustment),
+    /// a colour, gradient or pattern over the whole canvas
+    Fill(crate::fills::FillLayer),
+    /// placed pixels that keep their quality through transforms, with live filters
+    Smart(Box<crate::smart::SmartObject>),
 }
 
 #[derive(Clone, Debug)]
@@ -143,38 +149,81 @@ impl Layer {
     pub fn raster(&self) -> Option<&Raster> {
         match &self.content {
             Content::Pixels(r) => Some(r),
-            Content::Group { .. } => None,
+            _ => None,
         }
     }
 
     pub fn raster_mut(&mut self) -> Option<&mut Raster> {
         match &mut self.content {
             Content::Pixels(r) => Some(r),
-            Content::Group { .. } => None,
+            _ => None,
         }
     }
 
     pub fn children(&self) -> &[Layer] {
         match &self.content {
             Content::Group { children, .. } => children,
-            Content::Pixels(_) => &[],
+            _ => &[],
         }
     }
 
     pub fn children_mut(&mut self) -> Option<&mut Vec<Layer>> {
         match &mut self.content {
             Content::Group { children, .. } => Some(children),
-            Content::Pixels(_) => None,
+            _ => None,
         }
     }
 
-    /// the area this layer draws into, groups included
+    pub fn smart(&self) -> Option<&crate::smart::SmartObject> {
+        match &self.content {
+            Content::Smart(s) => Some(s),
+            _ => None,
+        }
+    }
+
+    pub fn smart_mut(&mut self) -> Option<&mut crate::smart::SmartObject> {
+        match &mut self.content {
+            Content::Smart(s) => Some(s),
+            _ => None,
+        }
+    }
+
+    /// what kind of layer this is, for messages and the layers panel
+    pub fn kind_name(&self) -> &'static str {
+        match &self.content {
+            Content::Pixels(_) => "layer",
+            Content::Group { .. } => "group",
+            Content::Adjustment(_) => "adjustment layer",
+            Content::Fill(_) => "fill layer",
+            Content::Smart(_) => "smart object",
+        }
+    }
+
+    /// the pixels painting tools change, or why there are none
+    pub fn paintable(&self) -> Result<&Raster, String> {
+        match &self.content {
+            Content::Pixels(r) => Ok(r),
+            Content::Group { .. } => {
+                Err("Groups have no pixels to paint. Pick a layer inside the group.".into())
+            }
+            _ => Err(format!(
+                "{} is a {}. Rasterize it (Layer, Rasterize) to paint on its pixels, or paint on its mask.",
+                self.name,
+                self.kind_name()
+            )),
+        }
+    }
+
+    /// the area this layer draws into, groups included. fills and adjustments cover
+    /// everything, which shows as an empty area here.
     pub fn bounds(&self) -> IRect {
         match &self.content {
             Content::Pixels(r) => r.content_bounds(),
             Content::Group { children, .. } => children
                 .iter()
                 .fold(IRect::EMPTY, |acc, c| acc.union(&c.bounds())),
+            Content::Smart(s) => s.bounds(),
+            Content::Adjustment(_) | Content::Fill(_) => IRect::EMPTY,
         }
     }
 }
@@ -187,6 +236,8 @@ pub enum EditTarget {
     #[default]
     Pixels,
     Mask,
+    /// a smart object's filter mask
+    FilterMask,
 }
 
 /// a guide line across the canvas, dragged out of a ruler

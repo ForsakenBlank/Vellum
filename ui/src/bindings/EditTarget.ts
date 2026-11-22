@@ -3,4 +3,4 @@
 /**
  * which part of the active layer tools change
  */
-export type EditTarget = "pixels" | "mask";
+export type EditTarget = "pixels" | "mask" | "filterMask";

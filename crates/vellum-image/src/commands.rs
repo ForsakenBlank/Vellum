@@ -1551,6 +1551,20 @@ pub fn registry() -> CommandRegistry<ImageDocument> {
     add::<crate::canvas::AddGuide>(&mut r, "View");
     add::<crate::canvas::MoveGuide>(&mut r, "View");
     add::<crate::canvas::ClearGuides>(&mut r, "View");
+    add::<crate::layer_ops::AddAdjustment>(&mut r, "Layers");
+    add::<crate::layer_ops::SetAdjustment>(&mut r, "Layers");
+    add::<crate::layer_ops::DeriveAdjustment>(&mut r, "Image");
+    add::<crate::layer_ops::MatchColorFrom>(&mut r, "Image");
+    add::<crate::layer_ops::AddFill>(&mut r, "Layers");
+    add::<crate::layer_ops::SetFill>(&mut r, "Layers");
+    add::<crate::layer_ops::ConvertToSmart>(&mut r, "Layers");
+    add::<crate::layer_ops::PlaceSmart>(&mut r, "File");
+    add::<crate::layer_ops::ReplaceContents>(&mut r, "Layers");
+    add::<crate::layer_ops::Rasterize>(&mut r, "Layers");
+    add::<crate::layer_ops::AddSmartFilter>(&mut r, "Filter");
+    add::<crate::layer_ops::SetSmartFilter>(&mut r, "Filter");
+    add::<crate::layer_ops::ApplyFilter>(&mut r, "Filter");
+    add::<crate::layer_ops::TargetFilterMask>(&mut r, "Filter");
     if let Err(err) = r.register::<RenameDocument>(CommandInfo {
         kind: RenameDocument::KIND,
         title: "Rename document",

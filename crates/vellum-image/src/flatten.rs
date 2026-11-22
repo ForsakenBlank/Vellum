@@ -47,6 +47,43 @@ fn render(
     .map_err(|err| format!("The layers could not be combined: {err}"))
 }
 
+/// renders `node` of `graph` over `rect` into a colour raster at `depth`, straight alpha,
+/// in the working space the document blends in
+pub fn node_to_raster(
+    graph: &vellum_gpu::Graph,
+    node: vellum_gpu::NodeId,
+    rect: IRect,
+    depth: Depth,
+    working: vellum_gpu::WorkingSpace,
+) -> Result<Raster, String> {
+    let mut out = Raster::rgba(depth);
+    if rect.is_empty() {
+        return Ok(out);
+    }
+    let req = RenderRequest::new(node, rect)
+        .working(working)
+        .precision(Precision::F32)
+        .backend(BackendChoice::Cpu);
+    render_tiled(engine(), graph, &req, 1024, |r, img| {
+        let straight: Vec<f32> = img
+            .data
+            .iter()
+            .flat_map(|p| {
+                let a = p[3];
+                if a > 0.0 {
+                    [p[0] / a, p[1] / a, p[2] / a, a]
+                } else {
+                    [0.0; 4]
+                }
+            })
+            .collect();
+        out.write(r, &straight);
+        Ok(())
+    })
+    .map_err(|err| format!("The pixels could not be rendered: {err}"))?;
+    Ok(out)
+}
+
 /// every layer's pixels combined, as colours to select or sample from
 pub fn colors(doc: &ImageDocument, rect: IRect) -> Result<ColorBuf, String> {
     let mut out = ColorBuf {

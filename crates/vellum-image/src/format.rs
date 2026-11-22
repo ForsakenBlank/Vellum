@@ -93,6 +93,37 @@ pub struct LayerState {
     /// where the layer has pixels, for the window's move handles and snapping
     #[serde(default)]
     pub bounds: IRect,
+    #[serde(default)]
+    pub adjustment: Option<crate::adjustments::Adjustment>,
+    #[serde(default)]
+    pub fill_layer: Option<crate::fills::FillLayer>,
+    #[serde(default)]
+    pub smart: Option<SmartState>,
+}
+
+/// a smart object without its pixels
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct SmartState {
+    pub source: RasterRef,
+    pub width: u32,
+    pub height: u32,
+    pub transform: [f32; 6],
+    #[serde(default)]
+    pub linked: Option<String>,
+    #[serde(default)]
+    pub filters: Vec<crate::smart::SmartFilter>,
+    #[serde(default = "yes")]
+    pub filters_visible: bool,
+    #[serde(default)]
+    pub filter_mask: Option<RasterRef>,
+    #[serde(default)]
+    pub next_filter: u32,
+}
+
+fn yes() -> bool {
+    true
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
@@ -156,6 +187,7 @@ pub fn describe(doc: &ImageDocument) -> (ImageState, Vec<(String, Raster)>) {
         }
     };
     fn layer(l: &Layer, add: &mut dyn FnMut(String, &Raster) -> RasterRef) -> LayerState {
+        let (mut adjustment, mut fill_layer, mut smart) = (None, None, None);
         let (group, expanded, pass_through, children, pixels) = match &l.content {
             Content::Pixels(r) => (
                 false,
@@ -164,6 +196,31 @@ pub fn describe(doc: &ImageDocument) -> (ImageState, Vec<(String, Raster)>) {
                 Vec::new(),
                 Some(add(format!("layer-{}.bin", l.id.0), r)),
             ),
+            Content::Adjustment(a) => {
+                adjustment = Some(a.clone());
+                (false, false, false, Vec::new(), None)
+            }
+            Content::Fill(f) => {
+                fill_layer = Some(f.clone());
+                (false, false, false, Vec::new(), None)
+            }
+            Content::Smart(so) => {
+                smart = Some(SmartState {
+                    source: add(format!("smart-{}.bin", l.id.0), &so.source),
+                    width: so.width,
+                    height: so.height,
+                    transform: so.transform,
+                    linked: so.linked.clone(),
+                    filters: so.filters.clone(),
+                    filters_visible: so.filters_visible,
+                    filter_mask: so
+                        .filter_mask
+                        .as_ref()
+                        .map(|m| add(format!("filter-mask-{}.bin", l.id.0), m)),
+                    next_filter: so.next_filter,
+                });
+                (false, false, false, Vec::new(), None)
+            }
             Content::Group {
                 children,
                 expanded,
@@ -198,6 +255,9 @@ pub fn describe(doc: &ImageDocument) -> (ImageState, Vec<(String, Raster)>) {
                 linked: m.linked,
             }),
             bounds: l.bounds(),
+            adjustment,
+            fill_layer,
+            smart,
         }
     }
     let layers = doc.layers.iter().map(|l| layer(l, &mut add)).collect();
@@ -278,6 +338,26 @@ pub fn assemble(
                 expanded: s.expanded,
                 pass_through: s.pass_through,
             }
+        } else if let Some(a) = s.adjustment {
+            Content::Adjustment(a)
+        } else if let Some(f) = s.fill_layer {
+            Content::Fill(f)
+        } else if let Some(so) = s.smart {
+            Content::Smart(Box::new(crate::smart::SmartObject {
+                source: load(&so.source, Channels::Rgba)?,
+                width: so.width,
+                height: so.height,
+                transform: so.transform,
+                linked: so.linked,
+                filters: so.filters,
+                filters_visible: so.filters_visible,
+                filter_mask: so
+                    .filter_mask
+                    .as_ref()
+                    .map(|m| load(m, Channels::Gray))
+                    .transpose()?,
+                next_filter: so.next_filter.max(1),
+            }))
         } else {
             Content::Pixels(match &s.pixels {
                 Some(r) => load(r, Channels::Rgba)?,

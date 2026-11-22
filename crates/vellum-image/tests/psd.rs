@@ -167,7 +167,7 @@ fn layers_groups_and_settings_survive() {
             let kids: Vec<&str> = children.iter().map(|c| c.name.as_str()).collect();
             assert_eq!(kids, ["Shadow", "Stripes"]);
         }
-        Content::Pixels(_) => panic!("Group 1 should be a group"),
+        _ => panic!("Group 1 should be a group"),
     }
     let shadow = find(&doc, "Shadow");
     assert_eq!(shadow.blend, BlendMode::Multiply);

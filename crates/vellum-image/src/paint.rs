@@ -150,15 +150,18 @@ pub fn part_raster<'a>(doc: &'a ImageDocument, part: &Part) -> Result<&'a Raster
                     layer.name
                 ));
             }
-            layer.raster().ok_or_else(|| {
-                "Groups have no pixels to paint. Pick a layer inside the group.".into()
-            })
+            layer.paintable()
         }
         Part::Mask(id) => doc
             .layer(*id)
             .and_then(|l| l.mask.as_ref())
             .map(|m| &m.raster)
             .ok_or_else(|| "That layer has no mask.".into()),
+        Part::FilterMask(id) => doc
+            .layer(*id)
+            .and_then(|l| l.smart())
+            .and_then(|s| s.filter_mask.as_ref())
+            .ok_or_else(|| "That layer has no filter mask.".into()),
         Part::Selection => Err("The selection is painted in quick mask mode.".into()),
     }
 }
@@ -173,6 +176,9 @@ pub fn active_part(doc: &ImageDocument) -> Result<Part, String> {
     let layer = doc.layer(id).ok_or("Pick a layer to paint on first.")?;
     Ok(match doc.target {
         EditTarget::Mask if layer.mask.is_some() => Part::Mask(id),
+        EditTarget::FilterMask if layer.smart().is_some_and(|s| s.filter_mask.is_some()) => {
+            Part::FilterMask(id)
+        }
         _ => Part::Pixels(id),
     })
 }
@@ -199,6 +205,11 @@ pub fn set_part(doc: &mut ImageDocument, part: &Part, raster: Raster) {
         Part::Mask(id) => {
             if let Some(m) = doc.layer_mut(*id).and_then(|l| l.mask.as_mut()) {
                 m.raster = raster;
+            }
+        }
+        Part::FilterMask(id) => {
+            if let Some(s) = doc.layer_mut(*id).and_then(|l| l.smart_mut()) {
+                s.filter_mask = Some(raster);
             }
         }
         Part::Selection => {
