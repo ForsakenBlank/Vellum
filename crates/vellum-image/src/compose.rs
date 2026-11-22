@@ -52,6 +52,8 @@ pub struct Preview {
     pub show_mask: Option<LayerId>,
     /// a free transform in progress
     pub transform: Option<TransformPreview>,
+    /// liquify or puppet warp in progress: a layer drawn through a mesh
+    pub mesh: Option<(LayerId, Arc<crate::warp::Mesh>)>,
 }
 
 /// what a free transform shows before it is committed
@@ -179,6 +181,13 @@ impl Builder<'_> {
                 self.g.add(n)
             }
             Content::Smart(s) => self.smart(layer.id, s),
+        };
+        let node = match &self.preview.mesh {
+            Some((id, mesh)) if *id == layer.id => {
+                let n = mesh.node().input(0, node);
+                self.g.add(n)
+            }
+            _ => node,
         };
         if let Some(t) = self.transforming(&Part::Pixels(layer.id)).cloned() {
             let sel = match (t.plan.lift, self.selection) {

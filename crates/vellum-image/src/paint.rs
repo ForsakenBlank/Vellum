@@ -31,6 +31,95 @@ pub enum BrushTool {
     /// hard edged, no anti aliasing
     Pencil,
     Eraser,
+    /// copies pixels from an offset
+    CloneStamp,
+    /// copies texture from an offset, then matches it to the surroundings
+    Healing,
+    /// heals with texture it finds nearby
+    SpotHealing,
+    /// lightens
+    Dodge,
+    /// darkens
+    Burn,
+    /// makes colours richer or duller
+    Sponge,
+    Blur,
+    Sharpen,
+    /// drags colour along the stroke like a finger in wet paint
+    Smudge,
+}
+
+impl BrushTool {
+    pub fn title(self) -> &'static str {
+        match self {
+            BrushTool::Brush => "Brush",
+            BrushTool::Pencil => "Pencil",
+            BrushTool::Eraser => "Eraser",
+            BrushTool::CloneStamp => "Clone stamp",
+            BrushTool::Healing => "Healing brush",
+            BrushTool::SpotHealing => "Spot healing",
+            BrushTool::Dodge => "Dodge",
+            BrushTool::Burn => "Burn",
+            BrushTool::Sponge => "Sponge",
+            BrushTool::Blur => "Blur",
+            BrushTool::Sharpen => "Sharpen",
+            BrushTool::Smudge => "Smudge",
+        }
+    }
+
+    /// tools that change pixels from what is already there rather than laying down colour
+    pub fn retouches(self) -> bool {
+        !matches!(
+            self,
+            BrushTool::Brush | BrushTool::Pencil | BrushTool::Eraser
+        )
+    }
+}
+
+/// which tones dodge and burn change most
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub enum ToneRange {
+    Shadows,
+    #[default]
+    Midtones,
+    Highlights,
+}
+
+/// settings for the retouching brushes
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(default, rename_all = "camelCase")]
+#[ts(export)]
+pub struct RetouchSettings {
+    /// where clone stamp and healing read from, relative to where they paint. the window
+    /// keeps it the same between strokes when aligned, and resets it otherwise.
+    pub offset: [f32; 2],
+    /// read from every layer instead of the one being changed
+    pub sample_all: bool,
+    pub range: ToneRange,
+    /// 0 to 1, how strongly dodge and burn work
+    pub exposure: f32,
+    /// sponge makes colours duller instead of richer
+    pub desaturate: bool,
+    /// 0 to 1, for blur, sharpen and smudge
+    pub strength: f32,
+    /// smudge starts with the foreground colour
+    pub finger_painting: bool,
+}
+
+impl Default for RetouchSettings {
+    fn default() -> Self {
+        Self {
+            offset: [0.0, 0.0],
+            sample_all: false,
+            range: ToneRange::Midtones,
+            exposure: 0.5,
+            desaturate: false,
+            strength: 0.5,
+            finger_painting: false,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
@@ -75,6 +164,8 @@ pub struct BrushSettings {
     pub background: [f32; 3],
     /// seed for scatter, so a replayed stroke looks the same
     pub seed: u32,
+    #[serde(default)]
+    pub retouch: RetouchSettings,
 }
 
 impl Default for BrushSettings {
@@ -102,6 +193,7 @@ impl Default for BrushSettings {
             color: [0.0; 3],
             background: [1.0; 3],
             seed: 1,
+            retouch: RetouchSettings::default(),
         }
     }
 }
@@ -404,6 +496,11 @@ pub struct Stroke {
     /// every point that went in, for the command that records the stroke
     points: Vec<StrokePoint>,
     changed: IRect,
+    /// what clone stamp and healing copy from
+    source: Option<Raster>,
+    /// colour smudge is carrying, by offset from the dab's centre
+    smear: std::collections::HashMap<(i32, i32), [f32; 4]>,
+    canvas: IRect,
 }
 
 impl Stroke {
@@ -422,6 +519,17 @@ impl Stroke {
             Part::Selection => None,
             _ => doc.selection.clone(),
         };
+        let source = match settings.tool {
+            BrushTool::CloneStamp | BrushTool::Healing
+                if settings.retouch.sample_all && matches!(part, Part::Pixels(_)) =>
+            {
+                Some(crate::flatten::merged(doc, doc.canvas(), doc.depth)?)
+            }
+            BrushTool::CloneStamp | BrushTool::Healing | BrushTool::SpotHealing => {
+                Some(base.clone())
+            }
+            _ => None,
+        };
         Ok(Self {
             smoother: Smoother::new(settings.smoothing, settings.size),
             rng: Rng(u64::from(settings.seed.max(1)) * 0x9E37_79B9_7F4A_7C15),
@@ -437,6 +545,9 @@ impl Stroke {
             carry: 0.0,
             points: Vec::new(),
             changed: IRect::EMPTY,
+            source,
+            smear: std::collections::HashMap::new(),
+            canvas: doc.canvas(),
         })
     }
 
@@ -478,7 +589,48 @@ impl Stroke {
             None => IRect::EMPTY,
         };
         self.composite(dirty);
+        if matches!(
+            self.settings.tool,
+            BrushTool::Healing | BrushTool::SpotHealing
+        ) {
+            self.heal();
+        }
         dirty
+    }
+
+    /// healing happens when the stroke ends, like photoshop: until then the brush shows
+    /// the copied texture (healing) or a veil over the spot (spot healing)
+    fn heal(&mut self) {
+        let area = self.changed;
+        if area.is_empty() {
+            return;
+        }
+        let mut cover = Raster::gray(Depth::F32, 0.0);
+        let (coverage, cap, sel) = (&self.coverage, &self.cap, &self.selection);
+        cover.update(area, |x, y, v| {
+            v[0] = coverage.get(x, y, 0)
+                * cap.get(x, y, 0)
+                * sel.as_ref().map_or(1.0, |s| s.get(x, y, 0));
+        });
+        let healed = match self.settings.tool {
+            BrushTool::SpotHealing => {
+                match crate::heal::best_offset(&self.base, &cover, area, self.canvas) {
+                    Some((dx, dy)) => {
+                        crate::heal::heal(&self.base, &self.base, dx, dy, &cover, area)
+                    }
+                    None => Err("There is not enough picture nearby to heal from.".into()),
+                }
+            }
+            _ => {
+                let [dx, dy] = self.settings.retouch.offset.map(|v| v.round() as i32);
+                let source = self.source.as_ref().unwrap_or(&self.base);
+                crate::heal::heal(&self.base, source, dx, dy, &cover, area)
+            }
+        };
+        match healed {
+            Ok(r) => self.result = r,
+            Err(err) => tracing::warn!(%err, "healing fell back to a plain copy"),
+        }
     }
 
     fn size_at(&self, pressure: f32) -> f32 {
@@ -604,6 +756,10 @@ impl Stroke {
             }
             a
         };
+        if s.tool == BrushTool::Smudge {
+            self.smudge_dab(rect, &tip, p);
+            return rect;
+        }
         self.coverage.update(rect, |x, y, v| {
             let a = tip(x, y) * flow;
             v[0] += a * (1.0 - v[0]);
@@ -616,13 +772,115 @@ impl Stroke {
         rect
     }
 
+    /// smudge: each dab lays down the colour it carries and picks up what it covers
+    fn smudge_dab(&mut self, rect: IRect, tip: &dyn Fn(i32, i32) -> f32, p: StrokePoint) {
+        let n = self.result.channels().n();
+        let strength = self.settings.retouch.strength.clamp(0.0, 1.0);
+        let (cx, cy) = (p.x.floor() as i32, p.y.floor() as i32);
+        let first = self.smear.is_empty();
+        let paint = self.painter.color;
+        let finger = self.settings.retouch.finger_painting && n == 4;
+        let mut values = self.result.read(rect);
+        for y in rect.y..rect.bottom() {
+            for x in rect.x..rect.right() {
+                let w = tip(x, y);
+                let i = ((y - rect.y) as u32 * rect.w + (x - rect.x) as u32) as usize * n;
+                let off = (x - cx, y - cy);
+                let mut cur = [0.0f32; 4];
+                cur[..n].copy_from_slice(&values[i..i + n]);
+                if w <= 0.0 {
+                    continue;
+                }
+                let sel = self.selection.as_ref().map_or(1.0, |s| s.get(x, y, 0));
+                let carried = match self.smear.get(&off) {
+                    Some(c) => *c,
+                    None if first && finger => [paint[0], paint[1], paint[2], 1.0],
+                    None => cur,
+                };
+                let k = w * strength * sel;
+                let mut next = cur;
+                for c in 0..n {
+                    next[c] = cur[c] + (carried[c] - cur[c]) * k;
+                }
+                values[i..i + n].copy_from_slice(&next[..n]);
+                let mut keep = carried;
+                for c in 0..n {
+                    keep[c] = carried[c] + (next[c] - carried[c]) * (1.0 - strength);
+                }
+                self.smear.insert(off, keep);
+            }
+        }
+        self.result.write(rect, &values);
+    }
+
+    /// a blurred copy of the base over `rect`, for the blur and sharpen brushes
+    fn blurred(&self, rect: IRect) -> Vec<[f32; 4]> {
+        let n = self.base.channels().n();
+        let r = (1.5 + self.settings.size * 0.04).round() as i32;
+        let wide = rect.expand(r);
+        let raw = self.base.read(wide);
+        let (w, h) = (wide.w as usize, wide.h as usize);
+        let mut buf: Vec<[f32; 4]> = raw
+            .chunks_exact(n)
+            .map(|c| {
+                let mut p = [0.0; 4];
+                p[..n].copy_from_slice(c);
+                p
+            })
+            .collect();
+        // three box passes each way come close to a gaussian
+        for _ in 0..3 {
+            for y in 0..h {
+                let row: Vec<[f32; 4]> = buf[y * w..(y + 1) * w].to_vec();
+                for x in 0..w {
+                    let (lo, hi) = (x.saturating_sub(r as usize), (x + r as usize).min(w - 1));
+                    let mut acc = [0.0; 4];
+                    for q in &row[lo..=hi] {
+                        for c in 0..4 {
+                            acc[c] += q[c];
+                        }
+                    }
+                    let k = (hi - lo + 1) as f32;
+                    buf[y * w + x] = acc.map(|v| v / k);
+                }
+            }
+            for x in 0..w {
+                let col: Vec<[f32; 4]> = (0..h).map(|y| buf[y * w + x]).collect();
+                for y in 0..h {
+                    let (lo, hi) = (y.saturating_sub(r as usize), (y + r as usize).min(h - 1));
+                    let mut acc = [0.0; 4];
+                    for q in &col[lo..=hi] {
+                        for c in 0..4 {
+                            acc[c] += q[c];
+                        }
+                    }
+                    let k = (hi - lo + 1) as f32;
+                    buf[y * w + x] = acc.map(|v| v / k);
+                }
+            }
+        }
+        let mut out = Vec::with_capacity(rect.area() as usize);
+        for y in rect.y..rect.bottom() {
+            for x in rect.x..rect.right() {
+                out.push(buf[(y - wide.y) as usize * w + (x - wide.x) as usize]);
+            }
+        }
+        out
+    }
+
     /// redraws the result over `dirty` from the untouched base
     fn composite(&mut self, dirty: IRect) {
         if dirty.is_empty() {
             return;
         }
         self.changed = self.changed.union(&dirty);
+        let tool = self.settings.tool;
+        if tool == BrushTool::Smudge {
+            return;
+        }
         let n = self.base.channels().n();
+        let blurred =
+            matches!(tool, BrushTool::Blur | BrushTool::Sharpen).then(|| self.blurred(dirty));
         let (base, coverage, cap, sel, painter) = (
             &self.base,
             &self.coverage,
@@ -630,6 +888,10 @@ impl Stroke {
             &self.selection,
             &self.painter,
         );
+        let source = self.source.as_ref();
+        let rt = &self.settings.retouch;
+        let [dx, dy] = rt.offset.map(|v| v.round() as i32);
+        let lock_alpha = painter.lock_alpha;
         self.result.update(dirty, |x, y, out| {
             let mut px = [0f32; 4];
             for (k, v) in px.iter_mut().enumerate().take(n) {
@@ -638,9 +900,95 @@ impl Stroke {
             let a = coverage.get(x, y, 0)
                 * cap.get(x, y, 0)
                 * sel.as_ref().map_or(1.0, |s| s.get(x, y, 0));
-            painter.apply(&px[..n], out, a, x, y);
+            if !tool.retouches() {
+                painter.apply(&px[..n], out, a, x, y);
+                return;
+            }
+            out[..n].copy_from_slice(&px[..n]);
+            if a <= 0.0 {
+                return;
+            }
+            let target = retouch_target(tool, rt, &px, n, |k| match tool {
+                BrushTool::CloneStamp | BrushTool::Healing => {
+                    source.map_or(px[k], |s| s.get(x + dx, y + dy, k))
+                }
+                _ => blurred.as_ref().map_or(px[k], |b| {
+                    b[((y - dirty.y) as u32 * dirty.w + (x - dirty.x) as u32) as usize][k]
+                }),
+            });
+            for k in 0..n {
+                if k == 3 && lock_alpha {
+                    continue;
+                }
+                out[k] = px[k] + (target[k] - px[k]) * a;
+            }
         });
     }
+}
+
+/// what a retouching brush turns one pixel into at full strength. `other(k)` is channel
+/// k of the copied (clone, healing) or blurred (blur, sharpen) pixel.
+fn retouch_target(
+    tool: BrushTool,
+    rt: &RetouchSettings,
+    px: &[f32; 4],
+    n: usize,
+    other: impl Fn(usize) -> f32,
+) -> [f32; 4] {
+    let mut t = *px;
+    let l = if n >= 3 {
+        luminance([px[0], px[1], px[2]])
+    } else {
+        px[0]
+    };
+    let weight = match rt.range {
+        ToneRange::Shadows => (1.0 - l).powi(2),
+        ToneRange::Midtones => 4.0 * l * (1.0 - l),
+        ToneRange::Highlights => l * l,
+    };
+    let e = rt.exposure.clamp(0.0, 1.0) * weight;
+    let channels = n.min(3);
+    match tool {
+        BrushTool::CloneStamp | BrushTool::Healing => {
+            for (k, v) in t.iter_mut().enumerate().take(n) {
+                *v = other(k);
+            }
+        }
+        BrushTool::SpotHealing => {
+            for v in t.iter_mut().take(channels) {
+                *v = *v * 0.6 + 0.2;
+            }
+        }
+        BrushTool::Dodge => {
+            for v in t.iter_mut().take(channels) {
+                *v += (1.0 - *v) * e;
+            }
+        }
+        BrushTool::Burn => {
+            for v in t.iter_mut().take(channels) {
+                *v *= 1.0 - e;
+            }
+        }
+        BrushTool::Sponge if n == 4 => {
+            let k = if rt.desaturate { -1.0 } else { 1.0 };
+            for v in t.iter_mut().take(3) {
+                *v = (l + (*v - l) * (1.0 + k)).clamp(0.0, 1.0);
+            }
+        }
+        BrushTool::Blur => {
+            for (k, v) in t.iter_mut().enumerate().take(n) {
+                *v = other(k);
+            }
+        }
+        BrushTool::Sharpen => {
+            let s = rt.strength.clamp(0.0, 1.0) * 2.0;
+            for (k, v) in t.iter_mut().enumerate().take(channels) {
+                *v = (*v + (*v - other(k)) * s).clamp(0.0, 1.0);
+            }
+        }
+        _ => {}
+    }
+    t
 }
 
 /// paint bucket settings

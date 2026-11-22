@@ -15,14 +15,17 @@ pub mod export;
 pub mod fills;
 pub mod flatten;
 pub mod format;
+pub mod heal;
 pub mod layer_ops;
 pub mod paint;
 pub mod psd;
 pub mod raster;
+pub mod retouch;
 pub mod selection;
 pub mod service;
 pub mod smart;
 pub mod transform;
+pub mod warp;
 
 pub use compose::{Part, Preview, build};
 pub use document::{Content, EditTarget, ImageDocument, Label, Layer, LayerId, LayerMask, Locks};

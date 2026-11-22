@@ -1347,12 +1347,7 @@ impl Edit for PaintStroke {
     const TITLE: &'static str = "Brush";
     const DESCRIPTION: &'static str = "Paint, draw or erase along a line.";
     fn name(&self) -> String {
-        match self.settings.tool {
-            paint::BrushTool::Brush => "Brush",
-            paint::BrushTool::Pencil => "Pencil",
-            paint::BrushTool::Eraser => "Eraser",
-        }
-        .to_owned()
+        self.settings.tool.title().to_owned()
     }
     fn run(&mut self, doc: &mut ImageDocument) -> Result<(), String> {
         if let Some(p) = self.painted.take() {
@@ -1565,6 +1560,11 @@ pub fn registry() -> CommandRegistry<ImageDocument> {
     add::<crate::layer_ops::SetSmartFilter>(&mut r, "Filter");
     add::<crate::layer_ops::ApplyFilter>(&mut r, "Filter");
     add::<crate::layer_ops::TargetFilterMask>(&mut r, "Filter");
+    add::<crate::retouch::Patch>(&mut r, "Retouch");
+    add::<crate::retouch::ContentAwareFill>(&mut r, "Retouch");
+    add::<crate::retouch::ContentAwareMove>(&mut r, "Retouch");
+    add::<crate::retouch::RedEye>(&mut r, "Retouch");
+    add::<crate::warp::MeshWarp>(&mut r, "Filter");
     if let Err(err) = r.register::<RenameDocument>(CommandInfo {
         kind: RenameDocument::KIND,
         title: "Rename document",
