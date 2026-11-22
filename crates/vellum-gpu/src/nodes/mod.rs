@@ -29,6 +29,7 @@ pub mod render;
 pub mod sharpen;
 pub mod simple;
 pub mod solid;
+pub mod style;
 pub mod stylize;
 pub mod tone;
 pub mod transform;
@@ -104,6 +105,10 @@ pub fn register_builtins(r: &mut NodeRegistry) {
     r.register(render::Clouds);
     r.register(render::LensFlare);
     r.register(render::Lighting);
+    r.register(style::MixNode);
+    r.register(style::Morph);
+    r.register(style::LayerEffect);
+    r.register(style::PatternNode);
 }
 
 /// applies a per pixel function to an input over `region`, rows in parallel. pixels where

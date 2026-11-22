@@ -718,3 +718,222 @@ fn every_registered_effect_has_a_case() {
         "effects without a golden case: {missing:?}"
     );
 }
+
+/// a soft edged disc and a square, the shape layer styles are drawn from
+fn shape() -> Arc<dyn ImageSource> {
+    Arc::new(ProceduralSource::new(W, H, |x, y| {
+        let disc = (22.0 - (x - 36.0).hypot(y - 36.0)).clamp(0.0, 1.0);
+        let square = if (60.0..84.0).contains(&x) && (20.0..52.0).contains(&y) {
+            1.0
+        } else {
+            0.0
+        };
+        let a = disc.max(square);
+        [0.9, 0.5, 0.2, a]
+    }))
+}
+
+/// graphs that wire the layer style pieces the way the image editor does
+fn style_scenes() -> Vec<(&'static str, Graph, NodeId)> {
+    let reg = NodeRegistry::with_builtins();
+    let node = |id: &str, params: &[(&str, ParamValue)]| {
+        let mut n = reg.create(id).expect(id);
+        for (k, v) in params {
+            n.params.insert((*k).to_owned(), v.clone());
+        }
+        n
+    };
+    let f = |v: f32| ParamValue::Float(v);
+    let c = |s: &str| ParamValue::Choice(s.into());
+    let mut out = Vec::new();
+    let mut effect = |name: &'static str, kind: &str, blur: f32, extra: &[(&str, ParamValue)]| {
+        let mut g = Graph::new();
+        let layer = g.add(Node::of(vellum_gpu::nodes::ImageNode).source(shape()));
+        let blurred = g.add(
+            node(
+                "effect.gaussian_blur",
+                &[("radius", f(blur)), ("edges", c("transparent"))],
+            )
+            .input(0, layer),
+        );
+        let mut params = vec![("kind", c(kind))];
+        params.extend(extra.iter().cloned());
+        let top = g.add(
+            node("style.effect", &params)
+                .input(0, blurred)
+                .input(1, layer),
+        );
+        out.push((name, g, top));
+    };
+    let red = ParamValue::Color([0.8, 0.1, 0.1, 1.0]);
+    effect(
+        "style_drop_shadow",
+        "shadow",
+        2.0,
+        &[
+            ("offset", ParamValue::Point([4.0, 5.0])),
+            ("spread", f(20.0)),
+        ],
+    );
+    effect(
+        "style_inner_shadow",
+        "inner_shadow",
+        2.0,
+        &[("offset", ParamValue::Point([3.0, 3.0]))],
+    );
+    effect(
+        "style_outer_glow",
+        "outer_glow",
+        3.0,
+        &[
+            ("color", ParamValue::Color([1.0, 0.9, 0.3, 1.0])),
+            ("spread", f(30.0)),
+        ],
+    );
+    effect(
+        "style_inner_glow_edge",
+        "inner_glow_edge",
+        3.0,
+        &[("color", red.clone())],
+    );
+    effect(
+        "style_inner_glow_center",
+        "inner_glow_center",
+        3.0,
+        &[("color", red.clone())],
+    );
+    effect(
+        "style_satin",
+        "satin",
+        3.0,
+        &[("offset", ParamValue::Point([4.0, 4.0]))],
+    );
+    effect(
+        "style_bevel_highlight",
+        "bevel_highlight",
+        2.5,
+        &[("color", ParamValue::Color([1.0, 1.0, 1.0, 1.0]))],
+    );
+    effect(
+        "style_bevel_shadow",
+        "bevel_shadow",
+        2.5,
+        &[("down", ParamValue::Bool(true))],
+    );
+
+    let mut g = Graph::new();
+    let layer = g.add(Node::of(vellum_gpu::nodes::ImageNode).source(shape()));
+    let grown = g.add(node("style.morph", &[("radius", f(3.0))]).input(0, layer));
+    let top = g.add(
+        node(
+            "style.effect",
+            &[("kind", c("stroke")), ("color", red.clone())],
+        )
+        .input(0, grown)
+        .input(1, layer)
+        .input(2, layer),
+    );
+    out.push(("style_stroke_outside", g, top));
+
+    let mut g = Graph::new();
+    let layer = g.add(Node::of(vellum_gpu::nodes::ImageNode).source(shape()));
+    let shrunk =
+        g.add(node("style.morph", &[("radius", f(4.0)), ("mode", c("shrink"))]).input(0, layer));
+    out.push(("style_morph_shrink", g, shrunk));
+
+    let mut g = Graph::new();
+    let pic = g.add(Node::of(vellum_gpu::nodes::ImageNode).source(photo()));
+    let inverted = g.add(node("effect.invert", &[]).input(0, pic));
+    let mask = g.add(Node::of(vellum_gpu::nodes::ImageNode).source(shape()));
+    let top = g.add(
+        node(
+            "mix",
+            &[
+                ("amount", f(80.0)),
+                ("mask_channel", c("alpha")),
+                ("masked", ParamValue::Bool(true)),
+            ],
+        )
+        .input(0, pic)
+        .input(1, inverted)
+        .input(2, mask),
+    );
+    out.push(("mix_through_mask", g, top));
+
+    let mut g = Graph::new();
+    let tile: Vec<[f32; 4]> = (0..16)
+        .map(|i| {
+            let (x, y) = (i % 4, i / 4);
+            if (x + y) % 2 == 0 {
+                [0.9, 0.2, 0.3, 1.0]
+            } else {
+                [0.2, 0.3, 0.9, 0.6]
+            }
+        })
+        .collect();
+    let top = g.add(
+        node(
+            "source.pattern",
+            &[
+                ("scale", f(200.0)),
+                ("offset", ParamValue::Point([3.0, 1.0])),
+            ],
+        )
+        .data(vellum_gpu::nodes::style::pattern_data(4, 4, &tile)),
+    );
+    out.push(("pattern", g, top));
+    out
+}
+
+#[test]
+fn style_pieces_match_their_goldens_and_agree_on_the_gpu() {
+    let update = std::env::var_os("VELLUM_UPDATE_GOLDEN").is_some();
+    let dir = golden_dir();
+    let cpu = Engine::cpu_only();
+    let gpu = gpu_engine();
+    for (name, g, top) in style_scenes() {
+        let req = RenderRequest::new(top, IRect::of_size(W, H))
+            .working(WorkingSpace::SRGB)
+            .precision(Precision::F32);
+        let out = cpu
+            .render_image(&g, &req.backend(BackendChoice::Cpu))
+            .expect(name);
+        assert!(out.data.iter().any(|p| p[3] > 0.01), "{name} drew nothing");
+        let stored = to_png16(&out);
+        let path = dir.join(format!("{name}.png"));
+        if update {
+            save(&path, stored, W, H);
+        } else {
+            let golden = image::open(&path).expect("golden").to_rgba16().into_raw();
+            let worst = golden
+                .iter()
+                .zip(&stored)
+                .map(|(a, b)| a.abs_diff(*b))
+                .max()
+                .unwrap_or(0);
+            assert!(worst <= 3, "{name} off by {worst}/65535");
+        }
+        if let Some(gpu) = &gpu {
+            for working in [WorkingSpace::SRGB, WorkingSpace::LINEAR_SRGB] {
+                for level in [0, 1] {
+                    let req = RenderRequest::new(top, region(-6, -4, W + 12, H + 8))
+                        .level(level)
+                        .working(working)
+                        .precision(Precision::F32);
+                    let a = cpu
+                        .render_image(&g, &req.backend(BackendChoice::Cpu))
+                        .expect(name);
+                    let b = gpu
+                        .render_image(&g, &req.backend(BackendChoice::Gpu))
+                        .expect(name);
+                    assert_close(
+                        &format!("{name} ({working:?}, level {level})"),
+                        &a,
+                        &b,
+                        2e-3,
+                    );
+                }
+            }
+        }
+    }
+}
