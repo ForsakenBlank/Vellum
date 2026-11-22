@@ -25,6 +25,7 @@ pub mod retouch;
 pub mod selection;
 pub mod service;
 pub mod smart;
+pub mod styles;
 pub mod text;
 pub mod transform;
 pub mod vector;

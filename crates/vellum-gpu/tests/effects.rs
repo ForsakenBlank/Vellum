@@ -711,7 +711,11 @@ fn every_registered_effect_has_a_case() {
         .infos()
         .iter()
         .map(|i| i.id)
-        .filter(|id| !covered.contains(id) && !phase4.contains(id) && !id.starts_with("style."))
+        .filter(|id| {
+            !covered.contains(id) && !phase4.contains(id) && !id.starts_with("style.")
+            // drawn by the style scenes below, which have their own golden images
+            && !["mix", "source.pattern"].contains(id)
+        })
         .collect();
     assert!(
         missing.is_empty(),
@@ -773,6 +777,15 @@ fn style_scenes() -> Vec<(&'static str, Graph, NodeId)> {
         &[
             ("offset", ParamValue::Point([4.0, 5.0])),
             ("spread", f(20.0)),
+        ],
+    );
+    effect(
+        "style_drop_shadow_knockout",
+        "shadow",
+        2.0,
+        &[
+            ("offset", ParamValue::Point([4.0, 5.0])),
+            ("knockout", ParamValue::Bool(true)),
         ],
     );
     effect(

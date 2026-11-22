@@ -105,6 +105,8 @@ pub struct LayerState {
     pub shape: Option<crate::vector::ShapeLayer>,
     #[serde(default)]
     pub vector_mask: Option<crate::vector::VectorMask>,
+    #[serde(default)]
+    pub style: Option<crate::styles::LayerStyle>,
 }
 
 /// a smart object without its pixels
@@ -280,6 +282,7 @@ pub fn describe(doc: &ImageDocument) -> (ImageState, Vec<(String, Raster)>) {
             text,
             shape,
             vector_mask: l.vector_mask.as_ref().map(|v| v.mask.clone()),
+            style: l.style.clone(),
         }
     }
     let layers = doc.layers.iter().map(|l| layer(l, &mut add)).collect();
@@ -428,6 +431,7 @@ pub fn assemble(
             vector_mask: s
                 .vector_mask
                 .map(|m| crate::document::LayerVectorMask::new(m, canvas)),
+            style: s.style,
         })
     }
     let mut doc = ImageDocument::empty(state.title, state.width, state.height, state.depth);

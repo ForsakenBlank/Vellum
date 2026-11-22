@@ -440,6 +440,25 @@ impl Builder<'_> {
                 Some(raw),
             );
         }
+        if let Some(style) = base.style.as_ref().filter(|s| s.shows()) {
+            let built = crate::styles::build(
+                &mut self.g,
+                style,
+                result,
+                base_fill,
+                base.opacity,
+                backdrop,
+                self.doc.canvas(),
+            );
+            return Some(self.blend(
+                built.backdrop,
+                built.body,
+                base.blend,
+                base.opacity,
+                1.0,
+                None,
+            ));
+        }
         Some(self.blend(backdrop, result, base.blend, base.opacity, base_fill, None))
     }
 }

@@ -146,6 +146,7 @@ pub struct Layer {
     /// what the layer was before it became pixels, eg "text" for imported type
     pub origin: Option<String>,
     pub vector_mask: Option<LayerVectorMask>,
+    pub style: Option<crate::styles::LayerStyle>,
 }
 
 impl Layer {
@@ -164,6 +165,7 @@ impl Layer {
             content: Content::Pixels(raster),
             origin: None,
             vector_mask: None,
+            style: None,
         }
     }
 

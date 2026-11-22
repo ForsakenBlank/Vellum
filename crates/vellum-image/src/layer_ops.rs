@@ -302,6 +302,9 @@ fn render_alone(doc: &ImageDocument, layer: &Layer) -> Result<Raster, String> {
         blend: BlendMode::Normal,
         clipped: false,
         mask: None,
+        // the style and vector mask stay on the layer, so they are not drawn into it
+        vector_mask: None,
+        style: None,
         ..layer.clone()
     }];
     let rect = match &layer.content {
@@ -761,6 +764,56 @@ impl Edit for TargetFilterMask {
     }
 }
 
+/// sets, pastes or clears layer styles. one layer while editing, several when pasting.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct SetStyle {
+    /// none means the active layer
+    pub ids: Vec<LayerId>,
+    /// none clears the style
+    pub style: Option<crate::styles::LayerStyle>,
+    /// pasting names the step differently in the history
+    pub paste: bool,
+}
+
+impl Edit for SetStyle {
+    const KIND: &'static str = "image.style.set";
+    const TITLE: &'static str = "Layer style";
+    const DESCRIPTION: &'static str = "Change, paste or clear a layer's style.";
+    fn name(&self) -> String {
+        match (&self.style, self.paste) {
+            (None, _) => "Clear layer style".into(),
+            (_, true) => "Paste layer style".into(),
+            _ => Self::TITLE.into(),
+        }
+    }
+    fn run(&mut self, doc: &mut ImageDocument) -> Result<(), String> {
+        let ids = if self.ids.is_empty() {
+            vec![doc.active.ok_or("Pick a layer first.")?]
+        } else {
+            self.ids.clone()
+        };
+        for id in ids {
+            let layer = doc.layer_mut(id).ok_or("That layer is gone.")?;
+            if matches!(layer.content, Content::Adjustment(_)) && self.style.is_some() {
+                return Err("Adjustment layers cannot have a style.".into());
+            }
+            layer.style = self
+                .style
+                .clone()
+                .filter(|s| *s != crate::styles::LayerStyle::default());
+        }
+        Ok(())
+    }
+    fn continues(&self, next: &Self) -> bool {
+        !self.paste
+            && !next.paste
+            && self.ids == next.ids
+            && self.style.is_some()
+            && next.style.is_some()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -927,6 +980,72 @@ mod tests {
             serde_json::json!({}),
         );
         assert!(doc.layers[0].raster().is_some());
+    }
+
+    #[test]
+    fn styles_draw_outside_the_layer_and_paste_onto_others() {
+        let mut doc = ImageDocument::new("t", 64, 64, Depth::U8, Some([1.0, 1.0, 1.0, 1.0]));
+        let mut h = History::new(HistoryLimits::default());
+        let id = doc.new_id();
+        let mut r = Raster::rgba(Depth::U8);
+        r.update(IRect::new(16, 16, 20, 20), |_, _, p| {
+            p.copy_from_slice(&[1.0, 0.0, 0.0, 1.0])
+        });
+        doc.layers.push(Layer::pixels(id, "red", r));
+        doc.active = Some(id);
+        let before = pixel(&doc, 38, 38);
+        let style = crate::styles::LayerStyle {
+            drop_shadow: Some(crate::styles::Shadow {
+                angle: 135.0,
+                distance: 6.0,
+                size: 2.0,
+                ..crate::styles::default_shadow()
+            }),
+            stroke: Some(crate::styles::default_stroke()),
+            ..Default::default()
+        };
+        run(
+            &mut h,
+            &mut doc,
+            "image.style.set",
+            serde_json::json!({ "style": style }),
+        );
+        let after = pixel(&doc, 38, 38);
+        assert!(
+            after[0] < before[0] - 0.2,
+            "the shadow darkens below right: {after:?}"
+        );
+        assert!(
+            pixel(&doc, 14, 25)[0] < 0.1,
+            "the stroke is black just outside"
+        );
+        assert!(
+            pixel(&doc, 25, 25)[1] < 0.1,
+            "the layer is still red inside"
+        );
+        // fill at zero hides the pixels but keeps the style
+        run(
+            &mut h,
+            &mut doc,
+            "image.layer.props",
+            serde_json::json!({ "id": id, "fill": 0.0 }),
+        );
+        assert!(pixel(&doc, 25, 25)[1] > 0.9 && pixel(&doc, 14, 25)[0] < 0.1);
+        let base = doc.layers[0].id;
+        run(
+            &mut h,
+            &mut doc,
+            "image.style.set",
+            serde_json::json!({ "ids": [base], "style": style, "paste": true }),
+        );
+        assert!(doc.layers[0].style.is_some());
+        run(
+            &mut h,
+            &mut doc,
+            "image.style.set",
+            serde_json::json!({ "ids": [id] }),
+        );
+        assert!(doc.layer(id).expect("l").style.is_none());
     }
 
     #[test]

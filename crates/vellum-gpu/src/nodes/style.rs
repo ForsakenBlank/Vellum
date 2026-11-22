@@ -336,6 +336,7 @@ static EFFECT: NodeInfo = NodeInfo {
         ParamSpec::degrees("altitude", "Light altitude", 0.0, 90.0, 30.0),
         ParamSpec::percent("depth", "Depth", 1.0, 1000.0, 100.0),
         ParamSpec::boolean("down", "Press in", false),
+        ParamSpec::boolean("knockout", "Layer knocks out shadow", false),
     ],
 };
 
@@ -352,13 +353,18 @@ fn kernel(p: vec2<i32>) -> vec4<f32> {
     let k = u32(param(0u).w);
     let col = param(0u).xyz;
     let b = param(1u);
-    let c = param(2u);
+    let c0 = param(2u);
+    let knock = param(3u).x > 0.5;
+    let c = vec4<f32>(c0.xyz, select(c0.w, -1.0, knock && u32(param(0u).w) == 0u));
     let pos = vec2<f32>(p) + vec2<f32>(0.5);
     let off = b.xy;
     let layer = load1(p).a;
     var a = 0.0;
     switch k {
-        case 0u: { a = spread(a0(pos - off)); }
+        case 0u: {
+            a = spread(a0(pos - off));
+            if (c.w < 0.0) { a = a * (1.0 - layer); }
+        }
         case 1u: { a = spread(1.0 - a0(pos - off)) * layer; }
         case 2u: { a = spread(a0(pos)); }
         case 3u: { a = spread(1.0 - a0(pos)) * layer; }
@@ -386,7 +392,7 @@ fn kernel(p: vec2<i32>) -> vec4<f32> {
 
 struct EffectSetup {
     kind: u32,
-    params: [[f32; 4]; 3],
+    params: [[f32; 4]; 4],
     offset: [f32; 2],
 }
 
@@ -414,6 +420,7 @@ fn effect_setup(cx: &NodeCx) -> EffectSetup {
                 f32::from(u8::from(p.bool("invert"))),
             ],
             [cs * acs * flip, -sn * acs * flip, depth, asn],
+            [f32::from(u8::from(p.bool("knockout"))), 0.0, 0.0, 0.0],
         ],
     }
 }
@@ -426,13 +433,14 @@ fn effect_pixel(
     x: i32,
     y: i32,
 ) -> [f32; 4] {
-    let [col, b, c] = e.params;
+    let [col, b, c, k] = e.params;
     let spread = |v: f32| (v / (1.0 - b[2]).max(0.01)).clamp(0.0, 1.0);
     let a0 = |q: [f32; 2]| shape.map_or(0.0, |i| sample(i, q, false)[3]);
     let pos = [x as f32 + 0.5, y as f32 + 0.5];
     let off = [b[0], b[1]];
     let layer_a = layer.map_or(0.0, |i| i.get(x, y)[3]);
     let a = match e.kind {
+        0 if k[0] > 0.5 => spread(a0([pos[0] - off[0], pos[1] - off[1]])) * (1.0 - layer_a),
         0 => spread(a0([pos[0] - off[0], pos[1] - off[1]])),
         1 => spread(1.0 - a0([pos[0] - off[0], pos[1] - off[1]])) * layer_a,
         2 => spread(a0(pos)),

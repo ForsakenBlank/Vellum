@@ -5,6 +5,7 @@ import type { FillLayer } from "./FillLayer";
 import type { IRect } from "./IRect";
 import type { Label } from "./Label";
 import type { LayerId } from "./LayerId";
+import type { LayerStyle } from "./LayerStyle";
 import type { Locks } from "./Locks";
 import type { MaskState } from "./MaskState";
 import type { RasterRef } from "./RasterRef";
@@ -21,4 +22,4 @@ children: Array<LayerState>, pixels: RasterRef | null, mask: MaskState | null,
 /**
  * where the layer has pixels, for the window's move handles and snapping
  */
-bounds: IRect, adjustment: Adjustment | null, fillLayer: FillLayer | null, smart: SmartState | null, text: TextLayer | null, shape: ShapeLayer | null, vectorMask: VectorMask | null, };
+bounds: IRect, adjustment: Adjustment | null, fillLayer: FillLayer | null, smart: SmartState | null, text: TextLayer | null, shape: ShapeLayer | null, vectorMask: VectorMask | null, style: LayerStyle | null, };
