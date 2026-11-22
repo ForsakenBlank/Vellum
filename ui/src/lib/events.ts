@@ -5,6 +5,7 @@ import type { AppSettings } from "../bindings/AppSettings";
 import type { AutosaveStatus } from "../bindings/AutosaveStatus";
 import type { DocumentsChanged } from "../bindings/DocumentsChanged";
 import type { HistoryChanged } from "../bindings/HistoryChanged";
+import type { ImageChanged } from "../bindings/ImageChanged";
 import type { JobEvent } from "../bindings/JobEvent";
 import type { Keymap } from "../bindings/Keymap";
 import type { MediaAsset } from "../bindings/MediaAsset";
@@ -29,6 +30,7 @@ export interface RustEvents {
   "autosave:changed": AutosaveStatus;
   "media:asset": MediaAsset;
   "media:capabilities": MediaCapabilities;
+  "image:changed": ImageChanged;
 }
 
 /** events the ui sends to rust. rust only accepts the ones it registered. */

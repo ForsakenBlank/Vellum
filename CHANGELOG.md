@@ -4,6 +4,29 @@ All notable changes to Vellum are listed here. Dates are in YYYY-MM-DD.
 
 ## Unreleased
 
+### Phase 5, first half: image editor core (2026-11-22)
+
+Added
+
+- The image editor. Pictures open in it with their layers ready to edit, and File, New image makes a blank one at 8, 16 or 32 bits per channel with a white, black, coloured or see through background.
+- Layers and groups with every Photoshop blend mode, opacity and fill, layer masks, clipping masks, locks (see through pixels, painting, position, everything), colour labels and a search box that finds layers by name, colour or kind. Drag layers to reorder them or drop them into groups. Merge down, merge visible, flatten, duplicate, new layer via copy and via cut.
+- Selections: rectangle and ellipse marquees, the lasso, polygon lasso and magnetic lasso, the magic wand (tolerance, contiguous, sample all layers), the quick selection brush and colour range. Shift adds, Alt takes away, both keep the overlap. Feather, expand, contract, border, smooth, invert, select all, deselect and reselect. Save selections and load them back. Quick mask shows the selection in red and lets brushes paint it. Marching ants stay crisp at any zoom.
+- Painting: a brush and pencil with size, hardness, opacity, flow, spacing, smoothing, scatter and texture, pen pressure for size, opacity and flow, and pen tilt. An eraser, a paint bucket, gradients (linear, radial, angle, reflected and diamond) and an eyedropper that can average up to 101 by 101 pixels. [ and ] change the brush size, Shift with them the hardness. Shift click draws a straight line from the last stroke.
+- Every change undoes and redoes, including each brush stroke as one step, and shows in the History panel with its snapshots.
+- Save as a `.vellum` file, which keeps every layer, mask, saved selection and the colour profile. It is a zip of the project folder, so it is easy to look inside. Autosave and crash recovery keep image documents too, rewriting only the layers that changed.
+- Photoshop's shortcuts work in the image editor out of the box: V, M, L, W, I, B, E, G, H, Z, Q, D, X, Ctrl+T, Ctrl+J, Ctrl+G, Ctrl+E, Ctrl+D, Ctrl+Shift+I and more.
+
+Changed
+
+- A workspace's own shortcut now takes over a global one inside that workspace without counting as a conflict, so Ctrl+E merges layers in the image editor and still exports to a size everywhere else.
+- `.vellum` projects open in the image editor.
+- The command palette lists every command when nothing is typed.
+
+Notes
+
+- Crop, free transform, canvas size, image size, layered PSD import, export to PNG, JPEG, WebP and AVIF, rulers, guides and the grid come in the second half of phase 5. Until then their shortcuts say so, and PSD files open flattened.
+- Pictures open at 8 bits per channel for now.
+
 ### Phase 4: render engine (2026-11-21)
 
 Added

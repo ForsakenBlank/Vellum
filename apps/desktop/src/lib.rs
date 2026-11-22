@@ -3,6 +3,7 @@
 //! so it can also run from the cli and in tests without a window.
 
 mod bridge;
+mod image;
 mod ipc;
 mod render;
 mod state;
@@ -91,6 +92,20 @@ pub fn run() {
             render::view_frame,
             render::close_view,
             render::render_status,
+            image::image_new,
+            image::image_command,
+            image::image_stroke_begin,
+            image::image_stroke,
+            image::image_stroke_end,
+            image::image_stroke_cancel,
+            image::image_preview,
+            image::image_outline,
+            image::image_magnetic_begin,
+            image::image_magnetic,
+            image::image_magnetic_end,
+            image::image_pick_color,
+            image::image_thumbnails,
+            image::image_save_as,
             tools::run_quick_tool,
             tools::size_plan,
             tools::anim_estimate,

@@ -5,13 +5,14 @@
 //! keep them in step with the settings. the desktop shell creates one and forwards ipc calls
 //! to it; tests and the future cli can do exactly the same without a window.
 
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::mpsc::{self, RecvTimeoutError, Sender};
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
-use parking_lot::Mutex;
+use parking_lot::{Mutex, RwLock};
 use serde::Serialize;
 use ts_rs::TS;
 
@@ -19,7 +20,7 @@ use crate::actions::{self, AppContext};
 use crate::command::{CommandError, CommandInfo, CommandRecord, CommandRegistry};
 use crate::documents::{DocumentInfo, DocumentManager, DocumentMeta, PlaceholderDocument};
 use crate::events::{Event, EventBus};
-use crate::files::{FileKind, display_name};
+use crate::files::{FileKind, Workspace, display_name};
 use crate::history::HistoryLimits;
 use crate::jobs::{JobLimits, JobQueue};
 use crate::notifications::{NewNotification, NotificationCenter, NotificationLevel};
@@ -82,6 +83,29 @@ pub struct OpenFilesResult {
     pub skipped: Vec<SkippedFile>,
 }
 
+/// opens a file in a workspace whose documents are more than placeholders. it returns as
+/// soon as the document exists, even if the file goes on loading in the background.
+pub type Opener = Arc<dyn Fn(&Path, FileKind, &str) -> Result<DocumentInfo, String> + Send + Sync>;
+
+/// what asking a document type to save did
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SaveOutcome {
+    /// saving started (usually as a job) and marks the document saved when it is done
+    Started,
+    /// the document has no file it can save to, so the ui should ask where
+    NeedsPath,
+}
+
+/// saves an open document of one type, by id
+pub type Saver = Arc<dyn Fn(&str) -> Result<SaveOutcome, String> + Send + Sync>;
+
+/// how workspaces with real documents take over opening and saving from the placeholders
+#[derive(Default)]
+struct Hooks {
+    openers: RwLock<HashMap<Workspace, Opener>>,
+    savers: RwLock<HashMap<&'static str, Saver>>,
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum StartError {
     #[error(transparent)]
@@ -103,6 +127,7 @@ pub struct AppServices {
     pub paths: AppPaths,
     autosave: Option<Autosaver>,
     autosave_thread: Arc<Mutex<Option<AutosaveThread>>>,
+    hooks: Arc<Hooks>,
 }
 
 /// how to stop the autosave thread, and its handle to wait for it
@@ -206,6 +231,7 @@ impl AppServices {
             paths,
             autosave,
             autosave_thread: Arc::new(Mutex::new(None)),
+            hooks: Arc::default(),
         };
         services.follow_settings();
         services.start_autosave();
@@ -221,6 +247,20 @@ impl AppServices {
         {
             tracing::error!(%err, "the last autosave failed");
         }
+    }
+
+    /// files of this workspace open through `opener` instead of as placeholders
+    pub fn set_opener(&self, workspace: Workspace, opener: Opener) {
+        self.hooks.openers.write().insert(workspace, opener);
+    }
+
+    /// `file.save` on documents of this type calls `saver`
+    pub fn set_saver(&self, doc_type: &'static str, saver: Saver) {
+        self.hooks.savers.write().insert(doc_type, saver);
+    }
+
+    pub fn saver(&self, doc_type: &str) -> Option<Saver> {
+        self.hooks.savers.read().get(doc_type).cloned()
     }
 
     pub fn command_infos(&self) -> Vec<CommandInfo> {
@@ -294,14 +334,23 @@ impl AppServices {
                 result.opened.push(existing.clone());
                 continue;
             }
-            let mut meta = DocumentMeta::for_file(path.clone(), kind);
-            meta.window = window.to_owned();
-            let doc = PlaceholderDocument::titled(display_name(path));
-            match self.documents.open(doc, meta) {
+            let opener = self.hooks.openers.read().get(&kind.workspace()).cloned();
+            let opened = match opener {
+                Some(open) => open(path, kind, window),
+                None => {
+                    let mut meta = DocumentMeta::for_file(path.clone(), kind);
+                    meta.window = window.to_owned();
+                    let doc = PlaceholderDocument::titled(display_name(path));
+                    self.documents
+                        .open(doc, meta)
+                        .map_err(|err| err.to_string())
+                }
+            };
+            match opened {
                 Ok(info) => result.opened.push(info),
-                Err(err) => result.skipped.push(SkippedFile {
+                Err(reason) => result.skipped.push(SkippedFile {
                     path: shown,
-                    reason: err.to_string(),
+                    reason,
                 }),
             }
         }

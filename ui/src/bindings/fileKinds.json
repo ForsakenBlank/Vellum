@@ -13,6 +13,7 @@
       "tif",
       "tiff",
       "psd",
+      "psb",
       "tga",
       "exr",
       "hdr",
@@ -117,6 +118,6 @@
     ],
     "kind": "project",
     "label": "project",
-    "workspace": "video"
+    "workspace": "image"
   }
 ]

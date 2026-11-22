@@ -11,7 +11,8 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { ViewInfo } from "../../bindings/ViewInfo";
-import { ipc } from "../../lib/ipc";
+import { onRustEvent } from "../../lib/events";
+import { inDesktopApp, ipc } from "../../lib/ipc";
 import { isMac } from "../../lib/keys";
 import {
   type Camera,
@@ -31,6 +32,7 @@ import { TileCache } from "../../lib/viewport/tileCache";
 import { useSettings } from "../../state/settings";
 import { IconButton } from "../Button";
 import { Tooltip } from "../Tooltip";
+import { type ViewportApi, type ViewportContext, type ViewportTool, makeContext } from "./tool";
 
 /** textures the window may keep, about 1000 tiles */
 const TILE_BUDGET = 256 * 1024 * 1024;
@@ -44,6 +46,12 @@ interface Props {
   /** the document id, which names the viewport in rust */
   document: string;
   title: string;
+  /** what pointer presses do besides panning, with an overlay drawn over the picture */
+  tool?: ViewportTool | undefined;
+  /** called once the view can take zoom commands */
+  onReady?: ((api: ViewportApi) => void) | undefined;
+  /** called when the zoom changes, eg so marching ants can ask for a matching outline */
+  onZoom?: ((zoom: number) => void) | undefined;
 }
 
 interface Hud {
@@ -78,9 +86,17 @@ const mod = isMac ? "Cmd" : "Ctrl";
  * for rust: the window places the tiles it holds at the display's refresh rate and asks
  * for missing ones in the background, one request at a time.
  */
-export function GpuViewport({ document: docId, title }: Props) {
+export function GpuViewport({ document: docId, title, tool, onReady, onZoom }: Props) {
   const box = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
+  const overlay = useRef<HTMLCanvasElement>(null);
+  const toolRef = useRef<ViewportTool | undefined>(tool);
+  const onZoomRef = useRef(onZoom);
+  useEffect(() => {
+    onZoomRef.current = onZoom;
+  }, [onZoom]);
+  const overlayDirty = useRef(true);
+  const [reopen, setReopen] = useState(0);
   const [info, setInfo] = useState<ViewInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [hud, setHud] = useState<Hud>({ zoom: 1, rotation: 0, flipped: false });
@@ -109,7 +125,41 @@ export function GpuViewport({ document: docId, title }: Props) {
   const changed = useCallback(() => {
     loop.current.dirty = true;
     loop.current.wanted = true;
+    overlayDirty.current = true;
   }, []);
+
+  // made once the component is mounted, since it reads the refs above when called
+  const context = useRef<ViewportContext | null>(null);
+  useEffect(() => {
+    context.current = makeContext(cam, size, canvas, overlayDirty);
+  }, []);
+
+  useEffect(() => {
+    toolRef.current = tool;
+    overlayDirty.current = true;
+  }, [tool]);
+
+  // the picture changed in rust: ask for new tiles, or start over if the canvas resized
+  useEffect(() => {
+    if (!inDesktopApp) return;
+    let stale = false;
+    const unlisten = onRustEvent("image:changed", (event) => {
+      if (stale || event.document !== docId) return;
+      const d = doc.current;
+      if (event.width > 0 && d && (d.width !== event.width || d.height !== event.height)) {
+        setReopen((n) => n + 1);
+        return;
+      }
+      if (event.width === 0) loop.current.reset = true;
+      changed();
+    });
+    return () => {
+      stale = true;
+      void unlisten.then((f) => {
+        f();
+      });
+    };
+  }, [docId, changed]);
 
   const setCamera = useCallback(
     (next: Camera) => {
@@ -126,9 +176,11 @@ export function GpuViewport({ document: docId, title }: Props) {
       .openView(docId)
       .then((opened) => {
         if (stale) return;
+        const resized = doc.current !== null;
         doc.current = opened;
         setInfo(opened);
-        cam.current = fit(opened, size.current);
+        if (!resized) cam.current = fit(opened, size.current);
+        cache.current?.clear();
         loop.current.reset = true;
         changed();
       })
@@ -140,7 +192,7 @@ export function GpuViewport({ document: docId, title }: Props) {
     return () => {
       stale = true;
     };
-  }, [docId, changed]);
+  }, [docId, changed, reopen]);
 
   useEffect(() => {
     gridOn.current = grid;
@@ -192,6 +244,10 @@ export function GpuViewport({ document: docId, title }: Props) {
       const first = size.current.width <= 1;
       el.width = width;
       el.height = height;
+      if (overlay.current) {
+        overlay.current.width = width;
+        overlay.current.height = height;
+      }
       size.current = { width, height };
       if (first && doc.current) cam.current = fit(doc.current, size.current);
       changed();
@@ -244,9 +300,30 @@ export function GpuViewport({ document: docId, title }: Props) {
     };
 
     let raf = 0;
-    const tick = () => {
+    let animating = false;
+    let drewOverlay = false;
+    let lastZoom = 0;
+    const tick = (time: number) => {
       raf = requestAnimationFrame(tick);
       const s = loop.current;
+      if (cam.current.zoom !== lastZoom) {
+        lastZoom = cam.current.zoom;
+        onZoomRef.current?.(lastZoom);
+      }
+      const over = overlay.current;
+      const t = toolRef.current;
+      const cx = context.current;
+      // a view without a tool draws nothing over the picture, so it skips the overlay
+      if (over && cx && (overlayDirty.current || animating) && (t?.draw || drewOverlay)) {
+        overlayDirty.current = false;
+        const g = over.getContext("2d");
+        if (g) {
+          g.setTransform(1, 0, 0, 1, 0, 0);
+          g.clearRect(0, 0, over.width, over.height);
+          animating = t?.draw?.(g, cx, time) ?? false;
+          drewOverlay = Boolean(t?.draw);
+        }
+      }
       const r = renderer.current;
       const tiles = cache.current;
       const picture = doc.current;
@@ -320,6 +397,30 @@ export function GpuViewport({ document: docId, title }: Props) {
     rotateBy(-cam.current.rotation);
   };
 
+  const ready = useRef(onReady);
+  useEffect(() => {
+    ready.current?.({
+      fit: () => {
+        if (doc.current) setCamera(fit(doc.current, size.current));
+      },
+      actualPixels: () => {
+        setCamera(
+          zoomTo(cam.current, size.current, size.current.width / 2, size.current.height / 2, 1),
+        );
+      },
+      zoomStep: (direction) => {
+        const [x, y] = [size.current.width / 2, size.current.height / 2];
+        setCamera(zoomTo(cam.current, size.current, x, y, stepZoom(cam.current.zoom, direction)));
+      },
+      zoomAround: (x, y, factor) => {
+        const cx = context.current;
+        if (!cx) return;
+        const [sx, sy] = cx.toView(x, y);
+        setCamera(zoomAt(cam.current, size.current, sx, sy, factor));
+      },
+    });
+  }, [setCamera]);
+
   // pointer and keyboard
   const drag = useRef<{ x: number; y: number; mode: "pan" | "rotate" } | null>(null);
   const held = useRef(new Set<string>());
@@ -357,6 +458,12 @@ export function GpuViewport({ document: docId, title }: Props) {
 
   const onKeyDown = (event: React.KeyboardEvent) => {
     held.current.add(event.code);
+    const cx = context.current;
+    if (cx && toolRef.current?.key?.(event.nativeEvent, cx)) {
+      event.preventDefault();
+      overlayDirty.current = true;
+      return;
+    }
     const ctrl = isMac ? event.metaKey : event.ctrlKey;
     let handled = true;
     if (ctrl && event.code === "Digit0") fitView();
@@ -373,19 +480,39 @@ export function GpuViewport({ document: docId, title }: Props) {
     held.current.delete(event.code);
   };
 
+  const toolDown = useRef(false);
+
   const onPointerDown = (event: React.PointerEvent<HTMLCanvasElement>) => {
-    if (event.button !== 0 && event.button !== 1) return;
+    if (event.button !== 0 && event.button !== 1 && event.button !== 2) return;
     event.currentTarget.focus();
     try {
       event.currentTarget.setPointerCapture(event.pointerId);
     } catch {
       // the pointer is already gone (or was never a real one); the drag still works
     }
-    const mode = held.current.has("KeyR") || event.altKey ? "rotate" : "pan";
+    const t = toolRef.current;
+    const cx = context.current;
+    const panning = event.button === 1 || held.current.has("Space") || held.current.has("KeyR");
+    if (!panning && t?.down && cx) {
+      if (t.down(event.nativeEvent, cx)) {
+        toolDown.current = true;
+        overlayDirty.current = true;
+        return;
+      }
+      if (t.cursor !== "grab") return;
+    }
+    if (event.button === 2) return;
+    const mode = held.current.has("KeyR") || (event.altKey && !t) ? "rotate" : "pan";
     drag.current = { x: event.clientX, y: event.clientY, mode };
   };
 
   const onPointerMove = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    const t = toolRef.current;
+    const cx = context.current;
+    if (!drag.current && t?.move && cx) {
+      t.move(event.nativeEvent, cx);
+      overlayDirty.current = true;
+    }
     const d = drag.current;
     if (!d) return;
     const dpr = window.devicePixelRatio || 1;
@@ -405,7 +532,23 @@ export function GpuViewport({ document: docId, title }: Props) {
     d.y = event.clientY;
   };
 
-  const onPointerUp = () => {
+  const onPointerUp = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    const cx = context.current;
+    if (toolDown.current && cx) {
+      toolDown.current = false;
+      toolRef.current?.up?.(event.nativeEvent, cx);
+      overlayDirty.current = true;
+    }
+    drag.current = null;
+  };
+
+  const onPointerCancel = () => {
+    const cx = context.current;
+    if (toolDown.current && cx) {
+      toolDown.current = false;
+      toolRef.current?.cancel?.(cx);
+      overlayDirty.current = true;
+    }
     drag.current = null;
   };
 
@@ -420,7 +563,11 @@ export function GpuViewport({ document: docId, title }: Props) {
           role="img"
           aria-label={`${title} at ${zoomLabel(hud.zoom)}`}
           data-testid="gpu-viewport"
-          className="absolute inset-0 size-full cursor-grab touch-none outline-none focus-visible:shadow-(--ring) active:cursor-grabbing"
+          className={`absolute inset-0 size-full touch-none outline-none focus-visible:shadow-(--ring) ${tool ? "" : "cursor-grab active:cursor-grabbing"}`}
+          style={tool ? { cursor: tool.cursor } : undefined}
+          onContextMenu={(event) => {
+            if (tool) event.preventDefault();
+          }}
           onKeyDown={onKeyDown}
           onKeyUp={onKeyUp}
           onBlur={() => {
@@ -429,11 +576,22 @@ export function GpuViewport({ document: docId, title }: Props) {
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
-          onPointerCancel={onPointerUp}
-          onDoubleClick={() => {
+          onPointerCancel={onPointerCancel}
+          onPointerLeave={() => {
+            overlayDirty.current = true;
+          }}
+          onDoubleClick={(event) => {
+            const cx = context.current;
+            if (cx && toolRef.current?.doubleClick?.(event.nativeEvent, cx)) return;
+            if (tool) return;
             if (Math.abs(cam.current.zoom - 1) < 1e-6) fitView();
             else actualPixels();
           }}
+        />
+        <canvas
+          ref={overlay}
+          aria-hidden
+          className="pointer-events-none absolute inset-0 size-full"
         />
         {error && (
           <div className="absolute inset-0 flex items-center justify-center p-6">

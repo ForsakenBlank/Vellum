@@ -4,6 +4,7 @@ import type { AnimEstimate } from "../bindings/AnimEstimate";
 import type { AnimOptions } from "../bindings/AnimOptions";
 import type { AppInfo } from "../bindings/AppInfo";
 import type { AppSettings } from "../bindings/AppSettings";
+import type { BrushSettings } from "../bindings/BrushSettings";
 import type { AutosaveStatus } from "../bindings/AutosaveStatus";
 import type { CacheStats } from "../bindings/CacheStats";
 import type { CommandInfo } from "../bindings/CommandInfo";
@@ -22,6 +23,9 @@ import type { Keymap } from "../bindings/Keymap";
 import type { MediaAsset } from "../bindings/MediaAsset";
 import type { MediaCapabilities } from "../bindings/MediaCapabilities";
 import type { MediaInfo } from "../bindings/MediaInfo";
+import type { NewImage } from "../bindings/NewImage";
+import type { PreviewRequest } from "../bindings/PreviewRequest";
+import type { StrokePoint } from "../bindings/StrokePoint";
 import type { NodeId } from "../bindings/NodeId";
 import type { NotificationsChanged } from "../bindings/NotificationsChanged";
 import type { OpenFilesResult } from "../bindings/OpenFilesResult";
@@ -132,4 +136,30 @@ export const ipc = {
     invoke<ArrayBuffer>("view_frame", { document, view, evicted, reset }),
   closeView: (document: string) => invoke<null>("close_view", { document }),
   renderStatus: () => invoke<EngineStatus>("render_status"),
+
+  // the image editor, apps/desktop/src/image.rs
+  imageNew: (spec: NewImage, window: string) => invoke<DocumentInfo>("image_new", { spec, window }),
+  imageCommand: (document: string, kind: string, params: unknown = {}) =>
+    invoke<null>("image_command", { document, record: { kind, params } }),
+  imageStrokeBegin: (document: string, settings: BrushSettings) =>
+    invoke<null>("image_stroke_begin", { document, settings }),
+  imageStroke: (document: string, points: StrokePoint[]) =>
+    invoke<null>("image_stroke", { document, points }),
+  imageStrokeEnd: (document: string) => invoke<null>("image_stroke_end", { document }),
+  imageStrokeCancel: (document: string) => invoke<null>("image_stroke_cancel", { document }),
+  imagePreview: (document: string, request: PreviewRequest) =>
+    invoke<null>("image_preview", { document, request }),
+  imageOutline: (document: string, level: number) =>
+    invoke<[number, number][][]>("image_outline", { document, level }),
+  imageMagneticBegin: (document: string, sampleAll: boolean, contrast: number) =>
+    invoke<null>("image_magnetic_begin", { document, sampleAll, contrast }),
+  imageMagnetic: (document: string, from: [number, number], to: [number, number], width: number) =>
+    invoke<[number, number][]>("image_magnetic", { document, from, to, width }),
+  imageMagneticEnd: (document: string) => invoke<null>("image_magnetic_end", { document }),
+  imagePickColor: (document: string, x: number, y: number, size: number, all: boolean) =>
+    invoke<[number, number, number, number]>("image_pick_color", { document, x, y, size, all }),
+  imageThumbnails: (document: string, layers: [number, boolean][], size: number) =>
+    invoke<ArrayBuffer>("image_thumbnails", { document, layers, size }),
+  imageSaveAs: (document: string, path: string) =>
+    invoke<JobId>("image_save_as", { document, path }),
 };

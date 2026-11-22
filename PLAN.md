@@ -620,13 +620,20 @@ think carefully about threading, gpu memory, and how video playback will feed fr
 **Goal:** a Photopea-grade canvas: documents, layers, masks, selections, transforms, brushes.
 
 **Done when:**
-- [ ] Raster documents with layers, groups, masks, clipping masks, blend modes, opacity/fill
-- [ ] Selection tools: marquee, lasso, polygon, magnetic lasso, magic wand, quick selection, colour range
+- [x] Raster documents with layers, groups, masks, clipping masks, blend modes, opacity/fill
+- [x] Selection tools: marquee, lasso, polygon, magnetic lasso, magic wand, quick selection, colour range (transform selection is with the transforms below)
 - [ ] Free transform, warp, perspective, rotate, flip, canvas/image size, crop with straighten
-- [ ] Brush engine with pressure/tilt, smoothing, eraser, gradient, bucket, eyedropper
-- [ ] Undo/redo for everything, history panel with snapshots
-- [ ] PSD import with layers; native `.vellum` save; PNG/JPG/WebP export
+- [x] Brush engine with pressure/tilt, smoothing, eraser, gradient, bucket, eyedropper
+- [x] Undo/redo for everything, history panel with snapshots
+- [ ] PSD import with layers; native `.vellum` save; PNG/JPG/WebP export (native `.vellum` save is done)
 - [ ] Rulers, guides, smart guides, grid
+
+**How it was built, where it differs from the prompt below** (details and reasons in `ARCHITECTURE.md` section 25):
+- Phase 5 was split in two to keep each session a sensible size. The first half (above) is the document model, compositing through the phase 4 engine, every selection tool and modifier, the brush engine and painting tools, undo for everything, the native file and the workspace UI. The second half is transforms, crop, canvas and image size, transform selection, layered PSD import, export with export to X MB, rulers, guides, smart guides, the grid and the navigator. Their shortcuts and menu entries already exist and say so when used.
+- The `.vellum` file is a zip holding the project folder (manifest, one file per raster, profile, thumbnail) rather than a bare folder, so it can be picked in an open dialog and attached to an email; an unzipped one opens too.
+- Undo keeps the document before and after each command, which costs a few pointer copies because tiles are shared and copied only when written.
+- A workspace's own shortcut now takes over a global one inside that workspace (Ctrl+E merges down in the image editor, exports to a size elsewhere). The window already behaved this way; the conflict checker now agrees.
+- Brush latency on a 4K canvas, without a graphics card: about 15 ms median from pointer samples to finished display tiles fitted to the screen, 24 ms at 100%.
 
 **Model:** Fable 5.2 · **Effort:** xhigh
 

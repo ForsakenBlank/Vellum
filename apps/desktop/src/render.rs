@@ -28,6 +28,8 @@ const FRAME_BUDGET: Duration = Duration::from_millis(12);
 #[derive(Clone, Default)]
 pub struct Renderer {
     hub: Arc<OnceLock<ViewHub>>,
+    /// called after the display profile changes, so image views rebuild with it
+    on_display: Arc<OnceLock<Box<dyn Fn() + Send + Sync>>>,
 }
 
 impl Renderer {
@@ -37,6 +39,7 @@ impl Renderer {
         let settings = services.settings.get().render;
         let changes = services.bus.subscribe::<SettingsChanged<AppSettings>>();
         let hub = renderer.hub.clone();
+        let on_display = renderer.on_display.clone();
         let spawned = std::thread::Builder::new()
             .name("vellum-render".into())
             .spawn(move || {
@@ -55,6 +58,11 @@ impl Renderer {
                     let next = change.settings.render.clone();
                     if next != last {
                         apply(hub, &last, &next);
+                        if last.display_profile != next.display_profile
+                            && let Some(f) = on_display.get()
+                        {
+                            f();
+                        }
                         last = next;
                     }
                 }
@@ -68,6 +76,16 @@ impl Renderer {
     /// waits for the engine to finish starting. only call off the main thread.
     fn hub(&self) -> &ViewHub {
         self.hub.wait()
+    }
+
+    /// the slot the hub lands in once the engine has started, for the image editor
+    pub fn hub_slot(&self) -> Arc<OnceLock<ViewHub>> {
+        self.hub.clone()
+    }
+
+    /// runs `f` whenever the display profile changes
+    pub fn on_display_change(&self, f: impl Fn() + Send + Sync + 'static) {
+        let _ = self.on_display.set(Box::new(f));
     }
 
     pub fn close(&self, document: &str) {
@@ -85,23 +103,24 @@ fn apply(hub: &ViewHub, old: &RenderSettings, new: &RenderSettings) {
         u64::from(new.cpu_cache_mb) << 20,
     );
     if old.display_profile != new.display_profile {
-        hub.set_display(display_transform(new));
+        hub.set_display(display_transform(new, WORKING));
     }
 }
 
-/// what the image workspace renders in for now. phase 5 picks the working space per
-/// document (srgb storage for 8 and 16 bit documents, like photoshop).
+/// what pictures opened only to view render in. image documents pick their own working
+/// space (srgb storage for 8 and 16 bit documents, like photoshop, linear for 32 bit).
 const WORKING: WorkingSpace = WorkingSpace::SRGB;
 
-fn display_transform(settings: &RenderSettings) -> ColorTransform {
-    let fallback = ColorTransform::between(WORKING.space(), ColorSpace::SRGB);
+/// from a working space to the display, using the profile picked in settings
+pub fn display_transform(settings: &RenderSettings, working: WorkingSpace) -> ColorTransform {
+    let fallback = ColorTransform::between(working.space(), ColorSpace::SRGB);
     let Some(path) = &settings.display_profile else {
         return fallback;
     };
     let profile = std::fs::read(path)
         .map_err(|e| e.to_string())
         .and_then(|bytes| IccProfile::from_bytes(&bytes).map_err(|e| e.to_string()))
-        .and_then(|p| p.from_working(WORKING).map_err(|e| e.to_string()));
+        .and_then(|p| p.from_working(working).map_err(|e| e.to_string()));
     profile.unwrap_or_else(|err| {
         tracing::warn!(%err, path, "the display profile could not be used, showing srgb");
         fallback
@@ -121,6 +140,10 @@ async fn off_main<T: Send + 'static>(
 #[tauri::command]
 pub async fn open_view(state: State<'_, AppState>, document: String) -> IpcResult<ViewInfo> {
     let info = state.services.documents.info(&document)?;
+    if info.doc_type == "image" {
+        let images = state.images.clone();
+        return off_main(move || images.open_view(&document).map_err(IpcError::Invalid)).await;
+    }
     let path = info
         .path
         .ok_or_else(|| IpcError::Invalid("This document has no picture to show yet.".into()))?;
@@ -143,7 +166,7 @@ pub async fn open_view(state: State<'_, AppState>, document: String) -> IpcResul
         let (w, h) = image.dimensions();
         let view = ViewSettings {
             working: WORKING,
-            display: display_transform(&settings),
+            display: display_transform(&settings, WORKING),
             ..Default::default()
         };
         Ok(hub.open_rgba8(&document, w, h, image.into_raw(), icc.as_deref(), view))

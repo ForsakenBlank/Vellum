@@ -15,6 +15,7 @@ import { useUi } from "../state/ui";
 import { pickAndOpen } from "../shell/actions";
 import { quickTool } from "./quickTools";
 import { isRunnable } from "../lib/tools";
+import { ImageWorkspace } from "./image/ImageWorkspace";
 import { ToolView } from "./tools/ToolView";
 import { workspaceInfo } from "./workspaces";
 
@@ -26,6 +27,7 @@ export function WorkspaceView() {
   if (doc && doc.docType === "quick_tool" && isRunnable(doc.tool)) {
     return <ToolView key={doc.id} doc={doc} />;
   }
+  if (doc && doc.docType === "image") return <ImageWorkspace key={doc.id} doc={doc} />;
   if (doc) return <DocumentView key={doc.id} doc={doc} />;
   // the tab was just opened and the list has not caught up yet
   if (activeId) return <Loading />;
@@ -50,20 +52,34 @@ function EmptyWorkspace({ workspace }: { workspace: Workspace }) {
         icon={info.icon}
         title={`${info.label} workspace`}
         actions={
-          <Button
-            variant="primary"
-            tooltip="Pick files to open"
-            command="file.open"
-            icon={<FolderOpen className="size-4" />}
-            disabled={!inDesktopApp}
-            onClick={() => void pickAndOpen()}
-          >
-            Open files
-          </Button>
+          <>
+            {workspace === "image" && (
+              <Button
+                tooltip="Start a blank picture"
+                command="file.new"
+                disabled={!inDesktopApp}
+                onClick={() => void runCommand("file.new")}
+              >
+                New image
+              </Button>
+            )}
+            <Button
+              variant="primary"
+              tooltip="Pick files to open"
+              command="file.open"
+              icon={<FolderOpen className="size-4" />}
+              disabled={!inDesktopApp}
+              onClick={() => void pickAndOpen()}
+            >
+              Open files
+            </Button>
+          </>
         }
       >
-        {info.blurb} Drop a file anywhere to open it here. The editor itself arrives in phase{" "}
-        {info.phase}.
+        {info.blurb} Drop a file anywhere to open it here.
+        {info.id === "image"
+          ? " Or start a new picture."
+          : ` The editor itself arrives in phase ${String(info.phase)}.`}
       </EmptyState>
     </div>
   );

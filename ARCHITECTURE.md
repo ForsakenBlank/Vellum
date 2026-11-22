@@ -28,7 +28,10 @@ Every section ends with the alternatives that were considered and why they lost,
                               cpu, colour management, display tiles (section 24).
                               depends on no other vellum crate
          ▲
- crates/vellum-image, -timeline, -audio, -ai,
+ crates/vellum-image/         ImageService: image documents, layers, selections,
+                              painting, the .vellum format (section 25)
+         ▲
+ crates/vellum-timeline, -audio, -ai,
         -capture, -vector, -automation   (stubs until their phase)
 ```
 
@@ -253,9 +256,9 @@ Directory: `ui/` (Vite, React 19, TypeScript strict with `noUncheckedIndexedAcce
 
 ## 11. Known limits and notes for later phases
 
-- **Placeholder documents.** Every workspace opens a `PlaceholderDocument` with a title and notes, so undo, redo, autosave and recovery can be tried for real. Save only marks it saved because there is no file format to write. Phase 2 and the workspace phases add real document types with `DocumentManager::register_type`.
-- **Document state is JSON.** `DocumentModel::to_state` returns JSON, which is fine for placeholders. Big documents (a 50 megapixel image) should write binary sidecar files next to the manifest in their own phase, and autosave should then only write documents whose revision changed.
-- **One lock for all documents.** `DocumentManager` holds one mutex. Edits are instant today; once a command can take long (a filter on a huge image), documents need their own locks or the work belongs in a job.
+- **Placeholder documents.** Workspaces without an editor yet open a `PlaceholderDocument` with a title and notes, so undo, redo, autosave and recovery can be tried for real. Save only marks it saved because there is no file format to write. Real document types register with `DocumentManager::register_type`, and take over opening their files with `AppServices::set_opener` and saving with `set_saver` (phase 5 did this for images, section 25).
+- **Document state.** `DocumentModel::to_state` returns JSON. Big documents also return `state_files`: binary files autosave writes next to the JSON, after the documents lock is released and only when a file's stamp changed (phase 5, section 25).
+- **One lock for all documents.** `DocumentManager` holds one mutex. Most image commands take milliseconds, but merging layers, feathering or a "sample all layers" wand on a big picture can take a few hundred, and every other document waits meanwhile. Documents should get their own locks before filters arrive in phase 6, or the slow ones should become jobs.
 - **Autosave runs on its own thread, not as a job.** It writes a few small files and must not fill the jobs panel every minute. When document states get big it should become a hidden IO job so it shares the IO limit.
 - **Torn off windows keep no layout.** They show tabs and the document, no rail or docks. Window titles are set when the window opens and do not follow a rename yet.
 - **Drag and drop between windows** is done by dragging a tab out of a window (new window) or from the tab menu (move to the main window). Dragging a tab straight into another existing window needs native drag support and is left for later.
@@ -307,6 +310,7 @@ Every running Vellum owns a session folder under `recovery/` in the app data fol
 
 - **An OS file lock tells a live session from a dead one.** Each session holds an exclusive `File::lock` (stable since Rust 1.89) on its `lock` file. On start-up any folder whose lock can be taken belongs to a session that is gone. Two Vellum windows running at once never offer each other's work, which a pid file cannot promise across platforms. Folders are claimed with `create_dir`, which fails if the folder exists, so two sessions started in the same millisecond never share one, and a session never waits for its own lock (`try_lock`). Phase 3 found the old naming could deadlock under load.
 - **Autosave writes atomically** (temp file, flush, rename, the same helper as settings) every N seconds from settings, and only if the document revision changed. State files of closed documents are removed.
+- **Binary state files** (phase 5) go in a `doc-3.files/` folder beside the document's JSON. Each has a stamp that changes when its contents do; autosave remembers what it wrote and skips unchanged files, so painting one layer of a twenty layer picture rewrites one file. The files are written from cheap snapshots (shared tiles) after the documents lock is released, each to a temporary name first. Restoring passes the folder back to the document type's loader.
 - **Nothing is deleted until the user decides.** Old sessions found at start-up are held, locked, until the prompt is answered. Restore opens every document (unsaved ones marked unsaved) and only then deletes the folder; a document that cannot be loaded (an unknown type from a newer Vellum) keeps its folder. Discard deletes them.
 - **Crash or quit.** A clean exit writes a last autosave with `cleanExit: true` and deletes the folder only if nothing is unsaved. So the next launch can say either "Vellum did not close properly" or "Vellum was closed with unsaved changes". Like VS Code's hot exit, quitting with unsaved work never loses it, but here the user is asked rather than surprised.
 - Torn off windows do not come back; their documents return in the main window.
@@ -341,14 +345,14 @@ File: `crates/vellum-core/src/shortcuts.rs`.
 - **Physical keys.** The UI builds chords from `KeyboardEvent.code`, named after the US layout, so `Ctrl+Z` stays in the same place on an AZERTY keyboard, as in Photoshop and Resolve.
 - **Presets are changes on top of Vellum's own map.** Photoshop (Ctrl+K opens settings, Tab hides panels, export on Ctrl+Alt+Shift+W), Premiere (export on Ctrl+M, workspaces on Alt+Shift+number), Resolve (pages on Shift+2 to Shift+8, export on Shift+8) and Audacity (redo on Ctrl+Y, preferences on Ctrl+P). A chord a preset hands to one command is taken from whatever had it, and a test checks no preset has conflicts.
 - **The user's overrides sit on top of the preset** in `AppSettings.shortcuts`, so switching preset keeps personal changes. An empty list unbinds a command.
-- **Contexts.** A command whose kind starts with a workspace name (`image.brush`) only fires in that workspace; everything else is global. Two commands clash if they share a chord and either is global or both are in the same workspace. Rust computes the conflict list for the editor's warning; the editor checks a new chord instantly with the same rule in TypeScript before saving.
+- **Contexts.** A command whose kind starts with a workspace name (`image.brush`) only fires in that workspace; everything else is global. Two commands clash if they share a chord in the same context. A workspace's own command may take a global command's chord: inside that workspace it wins, which the window always did and phase 5 made the rule, so the image editor can follow Photoshop (Ctrl+E merges down there and exports to a size everywhere else). Presets only take a chord away from commands in the same context. Rust computes the conflict list for the editor's warning; the editor checks a new chord instantly with the same rule in TypeScript before saving.
 - **Typing wins.** In a text field, plain keys and editing chords (Ctrl+Z, Ctrl+A, Ctrl+C) stay with the field; app shortcuts like Ctrl+K and Ctrl+S still fire.
 
 ## 17. File routing
 
 File: `crates/vellum-core/src/files.rs`.
 
-`FILE_KINDS` maps extensions to a `FileKind` (image, camera raw, GIF, video, audio, vector, PDF, project) and each kind to the workspace that opens it. A Rust test writes the same table to `ui/src/bindings/fileKinds.json`, so the drop overlay in the window and `open_files` (and later the CLI) always agree. GIFs open in the video workspace because the GIF tools work on frames over time; PDFs open with vector tools; projects open in video until phase 2 stores their own workspace.
+`FILE_KINDS` maps extensions to a `FileKind` (image, camera raw, GIF, video, audio, vector, PDF, project) and each kind to the workspace that opens it. A Rust test writes the same table to `ui/src/bindings/fileKinds.json`, so the drop overlay in the window and `open_files` (and later the CLI) always agree. GIFs open in the video workspace because the GIF tools work on frames over time; PDFs open with vector tools; `.vellum` projects open in the image editor, the only kind of project so far; timeline projects (phase 8) will read the kind from the project's manifest.
 
 The quick tools (`ui/src/workspaces/quickTools.ts`) list the kinds they accept, and `planDrop` in `ui/src/lib/routing.ts` turns files plus a target (the window, or one tool card) into what will happen: open in a workspace, open a tool, or a refusal with a reason. The overlay shows that plan while dragging; dropping performs the same plan.
 
@@ -784,3 +788,131 @@ The display side, measured in Chromium against the e2e backend: 56 to 57 frames 
 - In Photoshop, Fill acts differently from Opacity for eight modes (Color Burn, Linear Burn, Color Dodge, Linear Dodge, Vivid Light, Linear Light, Hard Mix, Difference). Here fill multiplies with opacity for every mode, which matches Photoshop everywhere except those eight at less than full fill. Phase 5 should check those against Photoshop's own output.
 - vellum-media still decodes pictures to 8 bit rgba, so 16 bit and float files show at 8 bits for now. The engine already takes 16 bit and float sources; phase 5's layers will use them.
 - Until phase 5 the image workspace only views pictures. A view stays open in Rust while its document is open, so coming back to a tab is instant.
+
+## 25. Image editor core
+
+Crate: `crates/vellum-image`, window: `ui/src/workspaces/image/`. Phase 5, first half: documents, layers, compositing, selections, painting, undo and the native file. Transforms, crop, canvas and image size, PSD import, export, and rulers, guides and the grid are the second half.
+
+```
+ ImageService (service.rs) ── opener, saver, live strokes and previews, viewport updates
+      │
+ ImageDocument (document.rs) ── layers bottom to top, masks, the selection, saved selections
+      │  every change is a Cmd<Edit> (commands.rs), undone by keeping the state before and after
+      ├── raster.rs ─── sparse 256 pixel tiles, copy on write, revisions, mip levels
+      ├── selection.rs ─ coverage, combine, distance field, wand, colour range, quick, magnetic
+      ├── paint.rs ──── brush engine, bucket, gradients, eyedropper
+      ├── compose.rs ── the document as a vellum-gpu graph, plus what a tool previews
+      ├── flatten.rs ── renders layers back to pixels on the cpu (merging, sampling, thumbnails)
+      └── format.rs ─── manifest json, raster files, autosave state files, .vellum zip
+```
+
+### Rasters
+
+Every layer, layer mask, the selection and saved selections are a `Raster`: a map of 256 pixel tiles in document coordinates. Tiles never written do not exist and read as the raster's fill value (transparent for colour, the mask's default for masks, nothing for selections), so an empty layer costs nothing, a select all on a 30000 pixel canvas is a handful of tiles sharing one buffer, and a layer can reach past the canvas without losing pixels.
+
+- **Copy on write.** Tile data sits behind an `Arc` and `Arc::make_mut` copies a tile only when it is written while a snapshot still holds it. Cloning a whole raster is a few pointer copies. Everything below leans on this.
+- **Revisions.** Each write gives the tile a new revision from one global counter, and a revision is never reused for other pixels. A raster's render key hashes the revisions of the tiles under a region, the same idea as phase 4's `TiledImage`. Undo puts old tiles back with their old revisions, which is safe because those revisions still mean those pixels, so an undo hits the engine's caches and redraws instantly.
+- **Depth.** Colour is straight alpha at 8, 16 or 32 bits per channel, the document's depth. Masks use the document's depth too. Selections are 8 bit, as in Photoshop's 8 bit mode.
+- **Mips** are built per tile on demand from the level below (alpha weighted for colour) and cached by the revisions they were built from, shared between snapshots of the same raster.
+- **Pixels live in document coordinates.** Moving a layer moves its pixels (`OffsetLayers`): whole-tile moves just rename tiles, other moves rewrite the layer once when the drag ends. While dragging, the graph shows the layer shifted instead. Permanent offsets were the alternative; they would have to be remembered by every tool, selection and mask forever, for a saving of one copy per move.
+
+### Documents and compositing
+
+`ImageDocument` holds the canvas size, depth, colour profile, layers (bottom to top, the order they composite), the active layer and whether tools change its pixels or its mask, the selection and the previous one (for reselect), saved selections and quick mask. Layers have a name, visibility, opacity, fill, blend mode, locks (transparent pixels, pixels, position, all), a colour label, a clipping flag, an optional mask (enabled, linked) and either pixels or children. Groups pass through by default, as in Photoshop.
+
+`compose::build` turns that into a phase 4 graph:
+
+- a layer is its pixels, masked by its mask (`MaskNode`, with the mask's fill as the value outside it), blended down with mode, opacity and fill (`BlendNode`);
+- a clipping group is a base and the clipped layers right above it. Each clipped layer blends onto the base limited by the base's alpha (the blend node's mask input, alpha channel), and the whole group then blends down with the base's mode and opacity. The base's fill only fades the base's own pixels, so a base at fill 0 still clips. A hidden or empty base hides its clipped layers;
+- a group with any mode other than pass through composites its children on their own first. A pass through group blends its children straight onto the backdrop; its opacity and mask then fade between the backdrop and that result. This is exact over opaque backdrops and an approximation over see through ones;
+- quick mask adds a red overlay at half opacity over unselected areas.
+
+**Blending happens on the document's own values.** Sources pass their values through untouched and one `LutNode` at the end converts from the document's profile to the working space, only when the profile is not plain sRGB. That is what Photoshop does (blend modes behave the same in an Adobe RGB document as in an sRGB one) and it means a render without that last node (`build_raw`) gives back exact document values, which merging and "sample all layers" use. 8 and 16 bit documents render in the sRGB working space with clamping, 32 bit documents in linear light without it, again like Photoshop; 16 and 32 bit documents render at f32 precision.
+
+### Commands and undo
+
+Every change is a `Cmd<E>` over an `Edit` (about thirty: layers, masks, selections, painting, quick mask, saved selections). An edit's parameters are the user's intent, so macros replay them on other files; `run` does the work. The wrapper keeps the document as it was before and after the first run. Because rasters share tiles, both copies cost a few pointer copies, and undo and redo are exact for every command without each one writing its own undo code. The history's memory budget counts only tile data a step did not share with the step before.
+
+- Failed edits put the document back, so the history's error contract holds.
+- Slider drags (opacity, fill) merge into one step: the first step's "before" with the last one's "after".
+- Picking the active layer is not a history step, like in Photoshop (`undoable() == false`).
+- Restoring a kept state leaves the title alone: renaming is the shared `document.rename` command, and an older state must not undo a rename.
+- Commands are refused while the picture is still loading.
+
+The alternative was classic command undo (each command storing exactly what it replaced). With copy on write tiles the snapshot is just as small, and it cannot get a command's undo subtly wrong.
+
+### Live tools
+
+What a tool shows while in use is not in the document. `ImageService` keeps a `Preview` per document (a stroke's pixels standing in for its layer, layers shifted during a move drag, a mask shown on its own) and rebuilds the graph with it. Only finished work reaches the history.
+
+A brush stroke is the main case. `begin` snapshots the part being painted (layer pixels, the mask, or the selection in quick mask), `stroke` paints more dabs into the stroke's own raster and shows it, and `end` executes one `PaintStroke` command carrying the points and settings (for macros) and the painted pixels. If the part still has the pixels the stroke started from, the painted result is used as is; otherwise (or when a macro replays it) the stroke is painted again from its points, which gives the same result.
+
+### Selections
+
+A selection is a grey raster: 1 selected, 0 not. Shapes (rectangles and ellipses with exact anti aliased coverage, lasso polygons filled by the non zero rule with four sub rows and exact horizontal coverage per pixel) are coverage functions written straight into tiles. Combining uses screen for add, multiply by the inverse for subtract and multiply for intersect, which are union, difference and intersection on hard edges and behave sensibly on soft ones.
+
+- **Expand, contract, border and smooth** go through one signed distance field (Felzenszwalb and Huttenlocher's linear time distance transform, with partly selected pixels placing the edge inside them). Growing by r is then a threshold at r, so corners grow round like Photoshop's and anti aliased edges stay smooth. Smooth blurs, then pulls the edge back to about one pixel of anti aliasing.
+- **Feather** is a gaussian with a standard deviation of half the radius.
+- **Magic wand:** largest channel difference on premultiplied colour (so all see through pixels count as one colour), tolerance 0 to 255, scanline flood fill when contiguous, one pixel of softening for anti alias.
+- **Colour range:** fully selected within half the fuzziness, fading to nothing at the fuzziness.
+- **Quick selection:** the pixels under the brush seed a region and give its colour spread; the region grows into neighbours close to that colour and close to the pixel they come from, stopping at strong edges and a few brush widths from the stroke. It is a heuristic, not Photoshop's graph cut, and Phase 7's smart select is the better tool for hard cases.
+- **Magnetic lasso:** sobel edges once per drag, then Dijkstra from the last anchor to the strongest edge within the width of the pointer, in a window around both, with steps that are cheap along strong edges. The window drops anchors as the path grows.
+- Neighbourhood operations work on a dense buffer over the area they touch and refuse areas over 400 megapixels with a message, rather than running out of memory.
+
+**Marching ants** are the selection's 50 percent outline traced along pixel edges (corners only), from the mip level that suits the zoom, so the number of points follows screen pixels. The window draws them on its overlay canvas with the viewport's camera, so they are crisp lines at any zoom and never lag the picture.
+
+### The brush engine
+
+Photoshop's model: dabs every `spacing` of the size along the path, each adding `flow` to a coverage mask for the stroke (going over a spot builds up), with `opacity` capping what the stroke can reach. The stroke is composited onto the pixels it started from, never onto itself, so the cap holds however often the brush passes. Hardness is a smooth falloff from the hard core to the edge with a pixel of anti aliasing; the pencil is a hard circle with none. Pressure can drive size (down to a minimum), opacity and flow; tilt flattens and turns the tip. Smoothing is a pulled string: the brush hangs behind the pointer and moves only when the string is tight, then catches up when the pen lifts. Scatter throws dabs across and along the line with a seeded generator, so a replayed stroke looks the same. Texture multiplies dabs by a tileable grain in document space. Painting respects the selection, locked see through pixels (paint keeps the original alpha, the eraser paints the background colour) and paints masks and the quick mask as grey.
+
+The paint bucket uses the wand's area. Gradients come in all five kinds (linear, radial, angle, reflected, diamond) with any stops, reverse, dither for 8 bit documents, opacity and blend mode, inside the selection. The eyedropper averages premultiplied colour over 1 to 101 pixels, from the layer or from every layer.
+
+### Files
+
+**Autosave and recovery** use the new state files (section 14): one binary file per raster, rewritten only when its stamp (raster identity plus tile revisions) changes, and a JSON manifest that is also what the window reads to draw the layers panel. A raster file is a small header and each tile deflated after PNG's sub filter, compressed in parallel.
+
+**The native `.vellum` file** is a zip with the same layout: `manifest.json`, `pixels/*.bin`, the colour profile and a thumbnail. Entries are stored, not compressed again. `PLAN.md` describes projects as folders; a single file is what people expect from Save (it can be picked in an open dialog, which on Windows and Linux cannot pick a folder as a file, and attached to an email), and unzipping one gives exactly the folder, which Vellum also opens. Saving writes to a temporary name and renames, so a failed save never damages the old file. Saving is a job.
+
+**Opening** goes through `AppServices::set_opener`: the tab appears at once with the document marked as loading, and a background job decodes the file and swaps the finished document in with `DocumentManager::replace`, which starts its history afresh. Pictures open as one "Background" layer at 8 bits (vellum-media decodes to 8 bit for now); PSD files open flattened until the second half adds layered PSD import. `file.save` goes through `set_saver`: a `.vellum` document saves to its file, anything else asks where to save (`file.save_as`).
+
+### The window
+
+`GpuViewport` gained an optional tool layer: a tool gets pointer events (the space bar and middle button always pan) and draws on an overlay canvas with the same camera, so outlines, brush cursors and drag previews sit exactly on the picture. It also listens for `image:changed`, which the service sends after every change, to ask for new tiles or start over when the canvas size changed. Brush input uses coalesced pointer events with pen pressure and tilt, sent in batches with one request in flight.
+
+`ui/src/workspaces/image/` holds the workspace: the toolbox, the options bar, the layers panel (visibility, thumbnails, masks, clipping, labels, locks, blend mode, opacity, fill, search, drag to reorder or into groups), colour, saved selections and dialogs. Tool options are per window and kept in local storage, like the palette's recent commands. Every `image.*` app command is a ui action handled by the workspace, so shortcuts, menus, the palette and macros all reach them. The defaults follow Photoshop (V, M, L, W, I, B, E, G, H, Z, Q, D, X, [ and ], Ctrl+J, Ctrl+G, Ctrl+E, Ctrl+D, Ctrl+Shift+I and so on).
+
+### Brush latency
+
+`cargo run --release -p vellum-image --example bench_brush`: a 3840x2160 document with three layers under the one painted, a 60 pixel brush dragged across it in 240 batches of four pointer samples, the view 1920x1080 and still. Times are from samples arriving to every changed display tile being rendered, in the same 4 core container as phase 2 and 4, without a graphics card:
+
+| backend | zoom | paint | tiles | total, median | total, p95 |
+|---|---|---|---|---|---|
+| cpu | fit (about 50%) | 1.0 ms | 14.5 ms | 15.5 ms | 30.2 ms |
+| cpu | 100% | 0.9 ms | 23.3 ms | 24.1 ms | 50.7 ms |
+| gpu (lavapipe, software) | fit | 1.0 ms | 23.8 ms | 24.8 ms | 58.8 ms |
+| gpu (lavapipe, software) | 100% | 1.0 ms | 36.8 ms | 37.8 ms | 78.0 ms |
+
+Painting itself is about a millisecond; the rest is redrawing display tiles. One painted raster tile invalidates up to nine display tiles, because display tiles carry a one pixel gutter that overlaps their neighbours. Revisions per 64 pixel block instead of per tile would cut that by about three; it is the first thing to try if strokes feel slow on real machines. The gpu rows need a run on a real graphics card.
+
+### Testing
+
+- Unit tests in every module: raster reads, writes, sharing, mips and bounds; selection areas against geometry (rectangles exact, ellipses within 0.2 percent, a triangle's area, a square grown by r gains four sides and four quarter circles), combine modes, wand, colour range, outlines, the live wire; the brush (opacity caps, flow builds up, pressure widens, the eraser and the selection); gradients and the eyedropper; every command undone and redone back to the same pixels; slider merging, failed commands, locks, grouping and moving; raster files at every depth, `.vellum` round trips and restoring from state files; the service opening a PNG in the background, a live stroke becoming one undo step, and save as.
+- Golden images (`tests/golden/image/`, `crates/vellum-image/tests/golden.rs`): seven compositing scenes (blend modes with opacity and fill, a layer mask, a clipping group with base fill, pass through and isolated groups, hidden and empty clipping bases, a 32 bit linear document) as 16 bit pngs, checked on the gpu too when one is present, and fifteen selection results (anti aliased and hard rectangles, an ellipse, a star filled by the non zero rule, add, subtract and intersect, feather, expand, contract, border, smooth, invert, contiguous and global wand, colour range, quick selection) as 8 bit masks. `VELLUM_UPDATE_GOLDEN=1` rewrites them; look at them before committing.
+- Core: state files written once and restored. Vitest: marquee boxes, modifier rules, brush steps, colour conversion, layer rows and search, the thumbnail format.
+
+### Alternatives considered
+
+- *Image documents as JSON with base64 pixels*, as the placeholder design allowed. Hundreds of megabytes of text per autosave.
+- *Mutating the document during a stroke* and recording the stroke afterwards. A stroke cut short by an undo would leave the history and the pixels disagreeing; keeping the stroke as a preview avoids that by construction.
+- *A dense mask per selection.* Simple, but a select all on a big canvas would cost gigabytes. Neighbourhood operations still use dense buffers, sized to the area they touch.
+- *Marching ants rendered by rust into tiles.* They would lag the picture while panning and blur when zoomed. Vector outlines in the overlay stay crisp.
+- *The `psd` crate* for layered PSD import (second half): it has no layer masks, fill opacity or 16 and 32 bit layers, so the second half writes its own reader.
+
+### Known limits
+
+- The second half of phase 5 is still to come: free transform, warp, perspective, flips and rotations, canvas size, image size, crop and perspective crop, transform selection, layered PSD import, PNG, JPEG, WebP and AVIF export with export to X MB, rulers, guides, smart guides, the grid and the navigator. Their shortcuts and menu entries exist and say so when used.
+- Pictures open at 8 bits per channel; 16 and 32 bit documents can be made new.
+- Long commands hold the one documents lock (section 11).
+- A save marks the step current when it finishes as saved, even if the user painted while it ran.
+- Pass through groups with opacity or a mask are exact over opaque backdrops only.
+- The real app was not run with these changes in this session; the service, commands and window code are tested separately (Rust integration tests, vitest, the existing Playwright suite).

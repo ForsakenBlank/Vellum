@@ -13,7 +13,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::app::{AppServices, CommandOutcome};
+use crate::app::{AppServices, CommandOutcome, SaveOutcome};
 use crate::command::{
     Command, CommandError, CommandInfo, CommandRecord, CommandRegistry, params_of,
 };
@@ -157,16 +157,27 @@ app_commands! {
     SaveDocument = "file.save", "File", "Save",
         "Save the current document.",
         |ctx| {
-            match active_document(ctx) {
-                Some(id) => ctx
+            let Some(id) = active_document(ctx) else {
+                ctx.note("Open a document to save it");
+                return Ok(());
+            };
+            let saver = ctx
+                .services
+                .documents
+                .doc_type(&id)
+                .ok()
+                .and_then(|t| ctx.services.saver(t));
+            match saver {
+                Some(save) => match save(&id).map_err(CommandError::failed)? {
+                    SaveOutcome::Started => Ok(()),
+                    SaveOutcome::NeedsPath => ui(ctx, "file.save_as"),
+                },
+                // placeholders have no file format, saving only marks them saved
+                None => ctx
                     .services
                     .documents
                     .mark_saved(&id)
                     .map_err(CommandError::failed),
-                None => {
-                    ctx.note("Open a document to save it");
-                    Ok(())
-                }
             }
         }
     CloseTab = "file.close", "File", "Close tab",
@@ -297,6 +308,234 @@ app_commands! {
         "Record your screen, a window or an area.",
         |ctx| { ui(ctx, "tool.screen_record") }
 
+    NewImage = "file.new", "File", "New image",
+        "Make a new blank picture.",
+        |ctx| { ui(ctx, "file.new") }
+    SaveAs = "file.save_as", "File", "Save as",
+        "Save the current document under a new name.",
+        |ctx| { ui(ctx, "file.save_as") }
+    ImageExport = "image.export", "Image", "Export as",
+        "Save a copy as PNG, JPEG, WebP or AVIF, optionally under a size limit.",
+        |ctx| { ui(ctx, "image.export") }
+    ToolMove = "image.tool.move", "Image tools", "Move tool",
+        "Move layers and selections.",
+        |ctx| { ui(ctx, "image.tool.move") }
+    ToolMarquee = "image.tool.marquee", "Image tools", "Marquee tool",
+        "Select a rectangle or an ellipse.",
+        |ctx| { ui(ctx, "image.tool.marquee") }
+    ToolMarqueeCycle = "image.tool.marquee_cycle", "Image tools", "Next marquee tool",
+        "Switch between the rectangle and ellipse marquee.",
+        |ctx| { ui(ctx, "image.tool.marquee_cycle") }
+    ToolLasso = "image.tool.lasso", "Image tools", "Lasso tool",
+        "Select by drawing around something.",
+        |ctx| { ui(ctx, "image.tool.lasso") }
+    ToolLassoCycle = "image.tool.lasso_cycle", "Image tools", "Next lasso tool",
+        "Switch between the lasso, polygon lasso and magnetic lasso.",
+        |ctx| { ui(ctx, "image.tool.lasso_cycle") }
+    ToolWand = "image.tool.wand", "Image tools", "Magic wand tool",
+        "Select areas of similar colour with a click.",
+        |ctx| { ui(ctx, "image.tool.wand") }
+    ToolWandCycle = "image.tool.wand_cycle", "Image tools", "Next wand tool",
+        "Switch between the magic wand and the quick selection brush.",
+        |ctx| { ui(ctx, "image.tool.wand_cycle") }
+    ToolCrop = "image.tool.crop", "Image tools", "Crop tool",
+        "Cut the picture down, straighten it or fix its perspective.",
+        |ctx| { ui(ctx, "image.tool.crop") }
+    ToolCropCycle = "image.tool.crop_cycle", "Image tools", "Next crop tool",
+        "Switch between crop and perspective crop.",
+        |ctx| { ui(ctx, "image.tool.crop_cycle") }
+    ToolEyedropper = "image.tool.eyedropper", "Image tools", "Eyedropper tool",
+        "Pick a colour from the picture.",
+        |ctx| { ui(ctx, "image.tool.eyedropper") }
+    ToolBrush = "image.tool.brush", "Image tools", "Brush tool",
+        "Paint with a soft or hard brush.",
+        |ctx| { ui(ctx, "image.tool.brush") }
+    ToolBrushCycle = "image.tool.brush_cycle", "Image tools", "Next brush tool",
+        "Switch between the brush and the pencil.",
+        |ctx| { ui(ctx, "image.tool.brush_cycle") }
+    ToolEraser = "image.tool.eraser", "Image tools", "Eraser tool",
+        "Rub out pixels.",
+        |ctx| { ui(ctx, "image.tool.eraser") }
+    ToolGradient = "image.tool.gradient", "Image tools", "Gradient tool",
+        "Fill with a gradient.",
+        |ctx| { ui(ctx, "image.tool.gradient") }
+    ToolGradientCycle = "image.tool.gradient_cycle", "Image tools", "Next fill tool",
+        "Switch between the gradient and the paint bucket.",
+        |ctx| { ui(ctx, "image.tool.gradient_cycle") }
+    ToolHand = "image.tool.hand", "Image tools", "Hand tool",
+        "Drag to move around the picture.",
+        |ctx| { ui(ctx, "image.tool.hand") }
+    ToolZoom = "image.tool.zoom", "Image tools", "Zoom tool",
+        "Click to zoom in, Alt click to zoom out.",
+        |ctx| { ui(ctx, "image.tool.zoom") }
+    FreeTransform = "image.transform", "Image", "Free transform",
+        "Scale, rotate, skew, distort or warp the layer or selection.",
+        |ctx| { ui(ctx, "image.transform") }
+    SelectAll = "image.select.all", "Select", "Select all",
+        "Select the whole canvas.",
+        |ctx| { ui(ctx, "image.select.all") }
+    Deselect = "image.select.deselect", "Select", "Deselect",
+        "Remove the selection.",
+        |ctx| { ui(ctx, "image.select.deselect") }
+    Reselect = "image.select.reselect", "Select", "Reselect",
+        "Bring back the last selection.",
+        |ctx| { ui(ctx, "image.select.reselect") }
+    InvertSelection = "image.select.invert", "Select", "Invert selection",
+        "Select everything that was not selected.",
+        |ctx| { ui(ctx, "image.select.invert") }
+    FeatherSelection = "image.select.feather", "Select", "Feather selection",
+        "Soften the edge of the selection.",
+        |ctx| { ui(ctx, "image.select.feather") }
+    GrowSelection = "image.select.expand", "Select", "Expand selection",
+        "Make the selection bigger by some pixels.",
+        |ctx| { ui(ctx, "image.select.expand") }
+    ShrinkSelection = "image.select.contract", "Select", "Contract selection",
+        "Make the selection smaller by some pixels.",
+        |ctx| { ui(ctx, "image.select.contract") }
+    BorderSelection = "image.select.border", "Select", "Border selection",
+        "Select a band along the edge of the selection.",
+        |ctx| { ui(ctx, "image.select.border") }
+    SmoothSelection = "image.select.smooth", "Select", "Smooth selection",
+        "Round off jagged corners of the selection.",
+        |ctx| { ui(ctx, "image.select.smooth") }
+    ColorRange = "image.select.color_range", "Select", "Colour range",
+        "Select every pixel close to a colour.",
+        |ctx| { ui(ctx, "image.select.color_range") }
+    TransformSelection = "image.select.transform", "Select", "Transform selection",
+        "Scale, rotate or distort the selection outline itself.",
+        |ctx| { ui(ctx, "image.select.transform") }
+    SaveSelection = "image.select.save", "Select", "Save selection",
+        "Keep the selection as a channel to load later.",
+        |ctx| { ui(ctx, "image.select.save") }
+    LoadSelection = "image.select.load", "Select", "Load selection",
+        "Bring back a saved selection.",
+        |ctx| { ui(ctx, "image.select.load") }
+    QuickMask = "image.quick_mask", "Select", "Quick mask",
+        "Paint the selection with brushes, shown as a red overlay.",
+        |ctx| { ui(ctx, "image.quick_mask") }
+    DefaultColors = "image.colors.default", "Image", "Default colours",
+        "Set the colours back to black and white.",
+        |ctx| { ui(ctx, "image.colors.default") }
+    SwapColors = "image.colors.swap", "Image", "Swap colours",
+        "Swap the foreground and background colours.",
+        |ctx| { ui(ctx, "image.colors.swap") }
+    BrushSmaller = "image.brush.smaller", "Image", "Smaller brush",
+        "Make the brush smaller.",
+        |ctx| { ui(ctx, "image.brush.smaller") }
+    BrushBigger = "image.brush.bigger", "Image", "Bigger brush",
+        "Make the brush bigger.",
+        |ctx| { ui(ctx, "image.brush.bigger") }
+    BrushSofter = "image.brush.softer", "Image", "Softer brush",
+        "Make the brush edge softer.",
+        |ctx| { ui(ctx, "image.brush.softer") }
+    BrushHarder = "image.brush.harder", "Image", "Harder brush",
+        "Make the brush edge harder.",
+        |ctx| { ui(ctx, "image.brush.harder") }
+    ClearPixels = "image.edit.clear", "Image", "Delete selected pixels",
+        "Clear the selected pixels of the current layer.",
+        |ctx| { ui(ctx, "image.edit.clear") }
+    FillForeground = "image.edit.fill_foreground", "Image", "Fill with foreground",
+        "Fill the selection with the foreground colour.",
+        |ctx| { ui(ctx, "image.edit.fill_foreground") }
+    FillBackground = "image.edit.fill_background", "Image", "Fill with background",
+        "Fill the selection with the background colour.",
+        |ctx| { ui(ctx, "image.edit.fill_background") }
+    NewLayer = "image.layer.new", "Layers", "New layer",
+        "Add an empty layer above the current one.",
+        |ctx| { ui(ctx, "image.layer.new") }
+    LayerViaCopy = "image.layer.via_copy", "Layers", "New layer via copy",
+        "Copy the selected pixels to a new layer.",
+        |ctx| { ui(ctx, "image.layer.via_copy") }
+    LayerViaCut = "image.layer.via_cut", "Layers", "New layer via cut",
+        "Move the selected pixels to a new layer.",
+        |ctx| { ui(ctx, "image.layer.via_cut") }
+    DuplicateLayer = "image.layer.duplicate", "Layers", "Duplicate layer",
+        "Copy the current layer.",
+        |ctx| { ui(ctx, "image.layer.duplicate") }
+    DeleteLayer = "image.layer.delete", "Layers", "Delete layer",
+        "Remove the current layer.",
+        |ctx| { ui(ctx, "image.layer.delete") }
+    GroupLayers = "image.layer.group", "Layers", "Group layers",
+        "Put the current layer in a new group.",
+        |ctx| { ui(ctx, "image.layer.group") }
+    UngroupLayers = "image.layer.ungroup", "Layers", "Ungroup layers",
+        "Take the layers out of the current group.",
+        |ctx| { ui(ctx, "image.layer.ungroup") }
+    ClippingMask = "image.layer.clip", "Layers", "Clipping mask",
+        "Show the layer only where the layer below has pixels.",
+        |ctx| { ui(ctx, "image.layer.clip") }
+    MergeDown = "image.layer.merge_down", "Layers", "Merge down",
+        "Merge the current layer into the one below.",
+        |ctx| { ui(ctx, "image.layer.merge_down") }
+    MergeVisible = "image.layer.merge_visible", "Layers", "Merge visible",
+        "Merge every visible layer into one.",
+        |ctx| { ui(ctx, "image.layer.merge_visible") }
+    FlattenImage = "image.layer.flatten", "Layers", "Flatten image",
+        "Merge every layer into one.",
+        |ctx| { ui(ctx, "image.layer.flatten") }
+    AddLayerMask = "image.layer.add_mask", "Layers", "Add layer mask",
+        "Add a mask to the current layer, from the selection if there is one.",
+        |ctx| { ui(ctx, "image.layer.add_mask") }
+    ToggleRulers = "image.view.rulers", "View", "Rulers",
+        "Show or hide the rulers.",
+        |ctx| { ui(ctx, "image.view.rulers") }
+    ToggleGrid = "image.view.grid", "View", "Grid",
+        "Show or hide the grid.",
+        |ctx| { ui(ctx, "image.view.grid") }
+    ToggleGuides = "image.view.guides", "View", "Guides",
+        "Show or hide guides.",
+        |ctx| { ui(ctx, "image.view.guides") }
+    ToggleSnap = "image.view.snap", "View", "Snap",
+        "Turn snapping to guides, edges and the grid on or off.",
+        |ctx| { ui(ctx, "image.view.snap") }
+    LockGuides = "image.view.lock_guides", "View", "Lock guides",
+        "Stop guides from being moved by accident.",
+        |ctx| { ui(ctx, "image.view.lock_guides") }
+    ClearGuides = "image.view.clear_guides", "View", "Clear guides",
+        "Remove every guide.",
+        |ctx| { ui(ctx, "image.view.clear_guides") }
+    ViewFit = "image.view.fit", "View", "Fit on screen",
+        "Show the whole picture.",
+        |ctx| { ui(ctx, "image.view.fit") }
+    ViewActualPixels = "image.view.actual_pixels", "View", "Actual pixels",
+        "Show the picture at 100%.",
+        |ctx| { ui(ctx, "image.view.actual_pixels") }
+    ViewZoomIn = "image.view.zoom_in", "View", "Zoom in on the picture",
+        "Zoom in on the picture.",
+        |ctx| { ui(ctx, "image.view.zoom_in") }
+    ViewZoomOut = "image.view.zoom_out", "View", "Zoom out of the picture",
+        "Zoom out of the picture.",
+        |ctx| { ui(ctx, "image.view.zoom_out") }
+    CanvasSize = "image.canvas_size", "Image", "Canvas size",
+        "Add or cut away space around the picture.",
+        |ctx| { ui(ctx, "image.canvas_size") }
+    ImageSize = "image.image_size", "Image", "Image size",
+        "Resize the whole picture.",
+        |ctx| { ui(ctx, "image.image_size") }
+    CropToSelection = "image.crop_to_selection", "Image", "Crop to selection",
+        "Cut the canvas down to the selection.",
+        |ctx| { ui(ctx, "image.crop_to_selection") }
+    RotateCanvasRight = "image.rotate_right", "Image", "Rotate 90° clockwise",
+        "Turn the whole picture a quarter turn clockwise.",
+        |ctx| { ui(ctx, "image.rotate_right") }
+    RotateCanvasLeft = "image.rotate_left", "Image", "Rotate 90° counter clockwise",
+        "Turn the whole picture a quarter turn counter clockwise.",
+        |ctx| { ui(ctx, "image.rotate_left") }
+    RotateCanvas180 = "image.rotate_180", "Image", "Rotate 180°",
+        "Turn the whole picture upside down.",
+        |ctx| { ui(ctx, "image.rotate_180") }
+    FlipCanvasH = "image.flip_canvas_h", "Image", "Flip canvas horizontally",
+        "Mirror the whole picture left to right.",
+        |ctx| { ui(ctx, "image.flip_canvas_h") }
+    FlipCanvasV = "image.flip_canvas_v", "Image", "Flip canvas vertically",
+        "Mirror the whole picture top to bottom.",
+        |ctx| { ui(ctx, "image.flip_canvas_v") }
+    FlipLayerH = "image.flip_layer_h", "Image", "Flip layer horizontally",
+        "Mirror the current layer left to right.",
+        |ctx| { ui(ctx, "image.flip_layer_h") }
+    FlipLayerV = "image.flip_layer_v", "Image", "Flip layer vertically",
+        "Mirror the current layer top to bottom.",
+        |ctx| { ui(ctx, "image.flip_layer_v") }
     ClearFinishedJobs = "jobs.clear_finished", "Jobs", "Clear finished jobs",
         "Remove done, failed and cancelled jobs from the list.",
         |ctx| {
