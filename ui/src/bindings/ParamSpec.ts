@@ -5,4 +5,8 @@ export type ParamSpec = { id: string, label: string, kind: ParamKind,
 /**
  * whether a later phase may keyframe it
  */
-animatable: boolean, };
+animatable: boolean, 
+/**
+ * worked out by vellum rather than set by hand, so panels leave it out
+ */
+hidden: boolean, };

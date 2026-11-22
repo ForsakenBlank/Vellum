@@ -77,6 +77,10 @@ pub enum ParamKind {
     Gradient {
         default: &'static [GradientStop],
     },
+    /// a tone curve: points from 0 to 1 on both axes, sorted by x
+    Curve {
+        default: &'static [[f32; 2]],
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, TS)]
@@ -88,6 +92,8 @@ pub struct ParamSpec {
     pub kind: ParamKind,
     /// whether a later phase may keyframe it
     pub animatable: bool,
+    /// worked out by vellum rather than set by hand, so panels leave it out
+    pub hidden: bool,
 }
 
 impl ParamSpec {
@@ -109,6 +115,7 @@ impl ParamSpec {
                 unit: Unit::None,
             },
             animatable: true,
+            hidden: false,
         }
     }
 
@@ -124,6 +131,7 @@ impl ParamSpec {
                 unit: Unit::Pixels,
             },
             animatable: true,
+            hidden: false,
         }
     }
 
@@ -145,6 +153,7 @@ impl ParamSpec {
                 unit: Unit::Percent,
             },
             animatable: true,
+            hidden: false,
         }
     }
 
@@ -166,6 +175,7 @@ impl ParamSpec {
                 unit: Unit::Degrees,
             },
             animatable: true,
+            hidden: false,
         }
     }
 
@@ -181,6 +191,7 @@ impl ParamSpec {
             label,
             kind: ParamKind::Int { min, max, default },
             animatable: false,
+            hidden: false,
         }
     }
 
@@ -190,6 +201,7 @@ impl ParamSpec {
             label,
             kind: ParamKind::Bool { default },
             animatable: false,
+            hidden: false,
         }
     }
 
@@ -204,6 +216,7 @@ impl ParamSpec {
             label,
             kind: ParamKind::Choice { options, default },
             animatable: false,
+            hidden: false,
         }
     }
 
@@ -213,6 +226,7 @@ impl ParamSpec {
             label,
             kind: ParamKind::Color { default },
             animatable: true,
+            hidden: false,
         }
     }
 
@@ -222,6 +236,7 @@ impl ParamSpec {
             label,
             kind: ParamKind::Point { default },
             animatable: true,
+            hidden: false,
         }
     }
 
@@ -233,6 +248,7 @@ impl ParamSpec {
                 default: [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
             },
             animatable: true,
+            hidden: false,
         }
     }
 
@@ -246,7 +262,29 @@ impl ParamSpec {
             label,
             kind: ParamKind::Gradient { default },
             animatable: true,
+            hidden: false,
         }
+    }
+
+    /// the identity curve, a straight line from black to white
+    pub const IDENTITY_CURVE: &'static [[f32; 2]] = &[[0.0, 0.0], [1.0, 1.0]];
+
+    pub const fn curve(id: &'static str, label: &'static str) -> Self {
+        Self {
+            id,
+            label,
+            kind: ParamKind::Curve {
+                default: Self::IDENTITY_CURVE,
+            },
+            animatable: true,
+            hidden: false,
+        }
+    }
+
+    /// the same parameter, left out of panels
+    pub const fn hide(mut self) -> Self {
+        self.hidden = true;
+        self
     }
 
     pub fn default_value(&self) -> ParamValue {
@@ -259,6 +297,7 @@ impl ParamSpec {
             ParamKind::Point { default } => ParamValue::Point(default),
             ParamKind::Matrix { default } => ParamValue::Matrix(default),
             ParamKind::Gradient { default } => ParamValue::Gradient(default.to_vec()),
+            ParamKind::Curve { default } => ParamValue::Curve(default.to_vec()),
         }
     }
 
@@ -299,6 +338,18 @@ impl ParamSpec {
                 stops.sort_by(|a, b| a.offset.total_cmp(&b.offset));
                 ParamValue::Gradient(stops)
             }
+            (ParamKind::Curve { .. }, ParamValue::Curve(mut pts)) => {
+                pts.retain(|p| p.iter().all(|v| v.is_finite()));
+                for p in &mut pts {
+                    *p = [p[0].clamp(0.0, 1.0), p[1].clamp(0.0, 1.0)];
+                }
+                pts.sort_by(|a, b| a[0].total_cmp(&b[0]));
+                pts.dedup_by(|a, b| (a[0] - b[0]).abs() < 1e-4);
+                if pts.len() < 2 {
+                    return self.default_value();
+                }
+                ParamValue::Curve(pts)
+            }
             _ => self.default_value(),
         }
     }
@@ -316,6 +367,7 @@ pub enum ParamValue {
     Point([f32; 2]),
     Matrix([f32; 9]),
     Gradient(Vec<GradientStop>),
+    Curve(Vec<[f32; 2]>),
 }
 
 impl ParamValue {
@@ -333,6 +385,7 @@ impl ParamValue {
             ParamValue::Color(c) => c.iter().for_each(|v| put(*v)),
             ParamValue::Point(p) => p.iter().for_each(|v| put(*v)),
             ParamValue::Matrix(m) => m.iter().for_each(|v| put(*v)),
+            ParamValue::Curve(pts) => pts.iter().flatten().for_each(|v| put(*v)),
             ParamValue::Gradient(stops) => {
                 for s in stops {
                     put(s.offset);
@@ -465,6 +518,13 @@ impl<'a> Params<'a> {
         match self.get(id) {
             ParamValue::Point(p) => p,
             _ => [0.0; 2],
+        }
+    }
+
+    pub fn curve(&self, id: &str) -> Vec<[f32; 2]> {
+        match self.get(id) {
+            ParamValue::Curve(p) => p,
+            _ => ParamSpec::IDENTITY_CURVE.to_vec(),
         }
     }
 

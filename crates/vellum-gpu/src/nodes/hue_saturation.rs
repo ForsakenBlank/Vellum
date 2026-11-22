@@ -8,6 +8,8 @@ use crate::image::CpuImage;
 use crate::params::ParamSpec;
 use crate::rect::IRect;
 
+use super::colorfn::{hsl_to_rgb, rgb_to_hsl};
+
 pub struct HueSaturation;
 
 static INFO: NodeInfo = NodeInfo {
@@ -28,42 +30,6 @@ static INFO: NodeInfo = NodeInfo {
 const KERNEL: Kernel = Kernel {
     name: "hue_saturation",
     body: r#"
-fn rgb_to_hsl(c: vec3<f32>) -> vec3<f32> {
-    let mx = max(max(c.r, c.g), c.b);
-    let mn = min(min(c.r, c.g), c.b);
-    let l = (mx + mn) * 0.5;
-    let d = mx - mn;
-    if (d <= 1e-7) { return vec3<f32>(0.0, 0.0, l); }
-    var s: f32;
-    if (l < 0.5) { s = d / (mx + mn); } else { s = d / max(2.0 - mx - mn, 1e-7); }
-    var h: f32;
-    if (mx == c.r) {
-        h = (c.g - c.b) / d;
-        if (h < 0.0) { h = h + 6.0; }
-    } else if (mx == c.g) {
-        h = (c.b - c.r) / d + 2.0;
-    } else {
-        h = (c.r - c.g) / d + 4.0;
-    }
-    return vec3<f32>(h / 6.0, s, l);
-}
-
-fn hue_part(p: f32, q: f32, t_in: f32) -> f32 {
-    var t = t_in - floor(t_in);
-    if (t < 1.0 / 6.0) { return p + (q - p) * 6.0 * t; }
-    if (t < 0.5) { return q; }
-    if (t < 2.0 / 3.0) { return p + (q - p) * (2.0 / 3.0 - t) * 6.0; }
-    return p;
-}
-
-fn hsl_to_rgb(c: vec3<f32>) -> vec3<f32> {
-    if (c.y <= 0.0) { return vec3<f32>(c.z); }
-    var q: f32;
-    if (c.z < 0.5) { q = c.z * (1.0 + c.y); } else { q = c.z + c.y - c.z * c.y; }
-    let p = 2.0 * c.z - q;
-    return vec3<f32>(hue_part(p, q, c.x + 1.0 / 3.0), hue_part(p, q, c.x), hue_part(p, q, c.x - 1.0 / 3.0));
-}
-
 fn kernel(p: vec2<i32>) -> vec4<f32> {
     let c = unpremultiply(load0(p));
     if (c.a <= 0.0) { return vec4<f32>(0.0); }
@@ -81,60 +47,6 @@ fn kernel(p: vec2<i32>) -> vec4<f32> {
 }
 "#,
 };
-
-fn rgb_to_hsl(c: [f32; 3]) -> [f32; 3] {
-    let mx = c[0].max(c[1]).max(c[2]);
-    let mn = c[0].min(c[1]).min(c[2]);
-    let l = (mx + mn) * 0.5;
-    let d = mx - mn;
-    if d <= 1e-7 {
-        return [0.0, 0.0, l];
-    }
-    let s = if l < 0.5 {
-        d / (mx + mn)
-    } else {
-        d / (2.0 - mx - mn).max(1e-7)
-    };
-    let h = if mx == c[0] {
-        let h = (c[1] - c[2]) / d;
-        if h < 0.0 { h + 6.0 } else { h }
-    } else if mx == c[1] {
-        (c[2] - c[0]) / d + 2.0
-    } else {
-        (c[0] - c[1]) / d + 4.0
-    };
-    [h / 6.0, s, l]
-}
-
-fn hue_part(p: f32, q: f32, t: f32) -> f32 {
-    let t = t - t.floor();
-    if t < 1.0 / 6.0 {
-        p + (q - p) * 6.0 * t
-    } else if t < 0.5 {
-        q
-    } else if t < 2.0 / 3.0 {
-        p + (q - p) * (2.0 / 3.0 - t) * 6.0
-    } else {
-        p
-    }
-}
-
-fn hsl_to_rgb(c: [f32; 3]) -> [f32; 3] {
-    if c[1] <= 0.0 {
-        return [c[2]; 3];
-    }
-    let q = if c[2] < 0.5 {
-        c[2] * (1.0 + c[1])
-    } else {
-        c[2] + c[1] - c[2] * c[1]
-    };
-    let p = 2.0 * c[2] - q;
-    [
-        hue_part(p, q, c[0] + 1.0 / 3.0),
-        hue_part(p, q, c[0]),
-        hue_part(p, q, c[0] - 1.0 / 3.0),
-    ]
-}
 
 fn setup(cx: &NodeCx) -> [f32; 4] {
     let p = cx.params;

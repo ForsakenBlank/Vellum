@@ -351,6 +351,123 @@ fn composite(mode: u32, backdrop: vec4<f32>, layer: vec4<f32>, alpha: f32, clamp
     return vec4<f32>(sa * mixed + (1.0 - sa) * backdrop.rgb, sa + ba * (1.0 - sa));
 }
 
+
+// colours are kept in [0, 1] in gamma encoded working spaces (linear is encoding 0)
+fn clamps() -> bool {
+    return F.encoding != 0u;
+}
+
+fn clamp01(c: vec3<f32>) -> vec3<f32> {
+    return clamp(c, vec3<f32>(0.0), vec3<f32>(1.0));
+}
+
+// photoshop's luminosity weights, the same as the blend modes use
+fn luma(c: vec3<f32>) -> f32 {
+    return 0.3 * c.r + 0.59 * c.g + 0.11 * c.b;
+}
+
+fn rgb_to_hsl(c: vec3<f32>) -> vec3<f32> {
+    let mx = max(max(c.r, c.g), c.b);
+    let mn = min(min(c.r, c.g), c.b);
+    let l = (mx + mn) * 0.5;
+    let d = mx - mn;
+    if (d <= 1e-7) { return vec3<f32>(0.0, 0.0, l); }
+    var s: f32;
+    if (l < 0.5) { s = d / (mx + mn); } else { s = d / max(2.0 - mx - mn, 1e-7); }
+    var h: f32;
+    if (mx == c.r) {
+        h = (c.g - c.b) / d;
+        if (h < 0.0) { h = h + 6.0; }
+    } else if (mx == c.g) {
+        h = (c.b - c.r) / d + 2.0;
+    } else {
+        h = (c.r - c.g) / d + 4.0;
+    }
+    return vec3<f32>(h / 6.0, s, l);
+}
+
+fn hue_part(p: f32, q: f32, t_in: f32) -> f32 {
+    var t = t_in - floor(t_in);
+    if (t < 1.0 / 6.0) { return p + (q - p) * 6.0 * t; }
+    if (t < 0.5) { return q; }
+    if (t < 2.0 / 3.0) { return p + (q - p) * (2.0 / 3.0 - t) * 6.0; }
+    return p;
+}
+
+fn hsl_to_rgb(c: vec3<f32>) -> vec3<f32> {
+    if (c.y <= 0.0) { return vec3<f32>(c.z); }
+    var q: f32;
+    if (c.z < 0.5) { q = c.z * (1.0 + c.y); } else { q = c.z + c.y - c.z * c.y; }
+    let p = 2.0 * c.z - q;
+    return vec3<f32>(hue_part(p, q, c.x + 1.0 / 3.0), hue_part(p, q, c.x), hue_part(p, q, c.x - 1.0 / 3.0));
+}
+
+
+// bilinear sample of input 0 at a position in level pixels, pixel centres at +0.5.
+// `edge` repeats the nearest edge pixel instead of reading transparent.
+fn sample0(pos: vec2<f32>, edge: bool) -> vec4<f32> {
+    let f = pos - vec2<f32>(0.5);
+    let i = vec2<i32>(floor(f));
+    let t = f - floor(f);
+    var a: vec4<f32>; var b: vec4<f32>; var c: vec4<f32>; var d: vec4<f32>;
+    if (edge) {
+        a = load0_clamped(i);
+        b = load0_clamped(i + vec2<i32>(1, 0));
+        c = load0_clamped(i + vec2<i32>(0, 1));
+        d = load0_clamped(i + vec2<i32>(1, 1));
+    } else {
+        a = load0(i);
+        b = load0(i + vec2<i32>(1, 0));
+        c = load0(i + vec2<i32>(0, 1));
+        d = load0(i + vec2<i32>(1, 1));
+    }
+    return mix(mix(a, b, t.x), mix(c, d, t.x), t.y);
+}
+
+// smooth value noise in [0, 1] on a grid of `cell` units, the same as `colorfn::value_noise`
+fn value_noise(x: f32, y: f32, seed: u32) -> f32 {
+    let ix = i32(floor(x));
+    let iy = i32(floor(y));
+    let tx = x - floor(x);
+    let ty = y - floor(y);
+    let sx = tx * tx * (3.0 - 2.0 * tx);
+    let sy = ty * ty * (3.0 - 2.0 * ty);
+    let s = i32(seed * 7919u);
+    let a = pixel_noise(ix + s, iy);
+    let b = pixel_noise(ix + 1 + s, iy);
+    let c = pixel_noise(ix + s, iy + 1);
+    let d = pixel_noise(ix + 1 + s, iy + 1);
+    return mix(mix(a, b, sx), mix(c, d, sx), sy);
+}
+
+// a few octaves of value noise, the same as `colorfn::fbm`
+fn fbm(x: f32, y: f32, octaves: u32, seed: u32) -> f32 {
+    var sum = 0.0;
+    var amp = 0.5;
+    var norm = 0.0;
+    var fx = x;
+    var fy = y;
+    for (var i = 0u; i < octaves; i = i + 1u) {
+        sum = sum + amp * value_noise(fx, fy, seed + i);
+        norm = norm + amp;
+        amp = amp * 0.5;
+        fx = fx * 2.0;
+        fy = fy * 2.0;
+    }
+    return sum / max(norm, 1e-6);
+}
+
+// samples a table of `n` entries per channel from the data buffer, linear between entries
+fn table_at(base: u32, n: u32, v: f32) -> f32 {
+    let x = clamp(v, 0.0, 1.0) * f32(n - 1u);
+    let i = min(u32(floor(x)), n - 2u);
+    let t = x - f32(i);
+    var r = mix(data[base + i], data[base + i + 1u], t);
+    if (v > 1.0) { r = r + (v - 1.0); }
+    if (v < 0.0) { r = r + v; }
+    return r;
+}
+
 @compute @workgroup_size(8, 8)
 fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     if (gid.x >= u32(F.out_rect.z) || gid.y >= u32(F.out_rect.w)) { return; }

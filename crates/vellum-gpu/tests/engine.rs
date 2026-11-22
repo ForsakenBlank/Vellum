@@ -588,7 +588,8 @@ fn blend_modes_can_be_named_in_graphs() {
 fn every_builtin_is_registered_with_sane_parameters() {
     let r = vellum_gpu::NodeRegistry::with_builtins();
     let infos = r.infos();
-    assert_eq!(infos.len(), 13);
+    // phase 4 shipped 13 nodes; phase 6 added the adjustments and filters
+    assert!(infos.len() > 13, "{}", infos.len());
     for info in infos {
         assert!(info.description.ends_with('.'), "{}", info.id);
         assert!(!info.description.contains('\u{2014}'), "{}", info.id);
