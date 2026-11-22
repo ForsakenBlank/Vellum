@@ -89,22 +89,29 @@ pub struct FontLibrary {
     folder: Option<PathBuf>,
 }
 
+/// where downloaded fonts live, set at start-up
+static FOLDER: OnceLock<PathBuf> = OnceLock::new();
+
+/// the library, built on first use: scanning the system's fonts takes a moment, so it
+/// never happens while the app starts
 fn library() -> &'static RwLock<FontLibrary> {
     static LIB: OnceLock<RwLock<FontLibrary>> = OnceLock::new();
     LIB.get_or_init(|| {
         let mut db = fontdb::Database::new();
         db.load_system_fonts();
-        RwLock::new(FontLibrary { db, folder: None })
+        let folder = FOLDER.get().cloned();
+        if let Some(dir) = &folder
+            && std::fs::create_dir_all(dir).is_ok()
+        {
+            db.load_fonts_dir(dir);
+        }
+        RwLock::new(FontLibrary { db, folder })
     })
 }
 
-/// where downloaded fonts live; they are loaded straight away
+/// where downloaded fonts are kept. call once at start-up; it does not scan anything.
 pub fn set_font_folder(folder: &Path) {
-    let mut lib = library().write();
-    if std::fs::create_dir_all(folder).is_ok() {
-        lib.db.load_fonts_dir(folder);
-    }
-    lib.folder = Some(folder.to_owned());
+    let _ = FOLDER.set(folder.to_owned());
 }
 
 fn style_name(weight: u16, italic: bool) -> String {

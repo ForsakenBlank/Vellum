@@ -54,6 +54,20 @@ pub struct Preview {
     pub transform: Option<TransformPreview>,
     /// liquify or puppet warp in progress: a layer drawn through a mesh
     pub mesh: Option<(LayerId, Arc<crate::warp::Mesh>)>,
+    /// a filter dialog open on a layer: the filter drawn on top of it until it is applied
+    pub filter: Option<FilterPreview>,
+}
+
+/// a filter shown on a layer before it is applied
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, ts_rs::TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct FilterPreview {
+    pub layer: LayerId,
+    /// the render node
+    pub kind: String,
+    #[serde(default)]
+    pub params: std::collections::BTreeMap<String, vellum_gpu::ParamValue>,
 }
 
 /// what a free transform shows before it is committed
@@ -220,6 +234,27 @@ impl Builder<'_> {
             Some((id, mesh)) if *id == layer.id => {
                 let n = mesh.node().input(0, node);
                 self.g.add(n)
+            }
+            _ => node,
+        };
+        let node = match &self.preview.filter {
+            Some(f) if f.layer == layer.id => {
+                let area = layer.bounds();
+                let anchor = if area.is_empty() {
+                    self.doc.canvas()
+                } else {
+                    area
+                };
+                match crate::smart::filter_node(
+                    &f.kind,
+                    &f.params,
+                    anchor,
+                    self.doc.canvas(),
+                    registry(),
+                ) {
+                    Some(n) => self.g.add(n.input(0, node)),
+                    None => node,
+                }
             }
             _ => node,
         };

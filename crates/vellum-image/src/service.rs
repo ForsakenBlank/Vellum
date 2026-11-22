@@ -78,6 +78,8 @@ pub struct PreviewRequest {
     pub show_mask: Option<LayerId>,
     /// a free transform in progress
     pub transform: Option<TransformRequest>,
+    /// a filter dialog's live preview
+    pub filter: Option<compose::FilterPreview>,
 }
 
 /// a free transform the window is showing or committing
@@ -99,6 +101,8 @@ struct Live {
     stroke: Option<LiveStroke>,
     preview: Preview,
     edges: Option<Arc<EdgeMap>>,
+    /// liquify or puppet warp in progress, on this layer
+    warp: Option<(LayerId, crate::warp::Mesh)>,
     /// the canvas size the viewport was opened with
     size: Option<(u32, u32)>,
 }
@@ -148,6 +152,7 @@ impl ImageService {
         );
         let saver = service.clone();
         app.set_saver(ImageDocument::TYPE_NAME, Arc::new(move |id| saver.save(id)));
+        crate::fonts::set_font_folder(&app.paths.data_dir.join("fonts"));
         service.follow();
         service
     }
@@ -623,6 +628,7 @@ impl ImageService {
             l.preview.offset = request.offset;
             l.preview.show_mask = request.show_mask;
             l.preview.transform = transform;
+            l.preview.filter = request.filter;
         }
         self.refresh(id);
     }
@@ -759,6 +765,9 @@ impl ImageService {
         Ok(out)
     }
 }
+
+mod tools;
+pub use tools::{FontPreview, NodeCatalogue};
 
 impl ImageDocument {
     /// the document type's name, as [`vellum_core::documents::DocumentModel::TYPE`]
@@ -943,5 +952,112 @@ mod tests {
         assert!(!info.dirty);
         let back = format::open(&project).unwrap();
         assert!((back.layers[0].raster().unwrap().get(5, 5, 1) - 200.0 / 255.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn phase_six_calls_work_through_the_service() {
+        let (dir, app, service) = start();
+        let info = service
+            .new_document(
+                &NewImage {
+                    title: Some("six".into()),
+                    width: 96,
+                    height: 64,
+                    depth: Depth::U8,
+                    background: Some([0.4, 0.6, 0.9, 1.0]),
+                },
+                "main",
+            )
+            .unwrap();
+        let id = info.id.clone();
+        service.open_view(&id).unwrap();
+
+        let cat = service.catalogue();
+        assert!(cat.nodes.iter().any(|n| n.id == "effect.camera_raw"));
+        assert!(cat.filters.len() > 25 && !cat.presets.is_empty() && !cat.styles.is_empty());
+
+        let thumbs = service
+            .filter_thumbnails(
+                &id,
+                &[tools::ThumbnailRequest {
+                    entry: "stylize.emboss".into(),
+                    params: Default::default(),
+                }],
+                48,
+            )
+            .unwrap();
+        let w = u32::from_le_bytes(thumbs[0..4].try_into().unwrap());
+        let h = u32::from_le_bytes(thumbs[4..8].try_into().unwrap());
+        assert_eq!(thumbs.len(), 8 + (w * h * 4) as usize);
+
+        // a filter shown live, then dropped, changes nothing in the document
+        let layer = service.read(&id, |d| d.layers[0].id).unwrap();
+        service.set_preview(
+            &id,
+            PreviewRequest {
+                filter: Some(compose::FilterPreview {
+                    layer,
+                    kind: "effect.invert".into(),
+                    params: Default::default(),
+                }),
+                ..Default::default()
+            },
+        );
+        service.set_preview(&id, PreviewRequest::default());
+
+        // liquify is one undo step
+        service.warp_begin(&id, None).unwrap();
+        service
+            .liquify(
+                &id,
+                crate::warp::LiquifyBrush {
+                    size: 40.0,
+                    pressure: 1.0,
+                    ..Default::default()
+                },
+                &[[30.0, 30.0], [50.0, 30.0], [70.0, 30.0]],
+            )
+            .unwrap();
+        service.warp_end(&id, true, "Liquify").unwrap();
+        let steps = app
+            .documents
+            .history(&id)
+            .map(|h| h.entries.len())
+            .unwrap_or(0);
+        assert!(steps >= 2, "the warp is in the history");
+        service.warp_begin(&id, None).unwrap();
+        service
+            .puppet(
+                &id,
+                &[
+                    crate::warp::Pin {
+                        from: [10.0, 10.0],
+                        to: [10.0, 10.0],
+                    },
+                    crate::warp::Pin {
+                        from: [80.0, 50.0],
+                        to: [85.0, 40.0],
+                    },
+                ],
+            )
+            .unwrap();
+        service.warp_end(&id, false, "Puppet warp").unwrap();
+
+        let web = service
+            .web_preview(
+                &id,
+                &crate::outputs::WebOptions::default(),
+                vellum_gpu::IRect::EMPTY,
+            )
+            .unwrap();
+        assert!(web.bytes > 0 && web.optimized.len() == web.original.len());
+
+        let psd = dir.path().join("six.psd");
+        let job = service.save_psd(&id, &psd).unwrap();
+        assert_eq!(
+            wait(&app, job).state,
+            vellum_core::jobs::JobState::Completed
+        );
+        assert!(crate::psd::open(&psd).is_ok());
     }
 }

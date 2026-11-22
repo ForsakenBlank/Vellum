@@ -14,7 +14,7 @@ use crate::document::ImageDocument;
 use crate::raster::{Depth, Raster};
 use crate::selection::ColorBuf;
 
-pub(crate) fn engine() -> &'static Engine {
+pub fn engine() -> &'static Engine {
     static ENGINE: OnceLock<Engine> = OnceLock::new();
     ENGINE.get_or_init(|| {
         Engine::new(EngineOptions {
