@@ -8,10 +8,17 @@ use tauri::State;
 use vellum_core::command::CommandRecord;
 use vellum_core::documents::DocumentInfo;
 use vellum_core::jobs::JobId;
+use vellum_gpu::IRect;
+use vellum_image::document::LayerId;
 use vellum_image::export::ExportOptions;
+use vellum_image::fonts::{FontFamily, GoogleFont};
+use vellum_image::outputs::{LayerExport, WebOptions, WebPreview};
 use vellum_image::paint::{BrushSettings, StrokePoint};
+use vellum_image::service::tools::ThumbnailRequest;
+use vellum_image::service::{FontPreview, NodeCatalogue};
 use vellum_image::service::{ImageService, NewImage, PreviewRequest, TransformRequest};
 use vellum_image::transform::TransformTarget;
+use vellum_image::warp::{LiquifyBrush, Pin};
 
 use crate::ipc::{IpcError, IpcResult};
 use crate::state::AppState;
@@ -219,4 +226,174 @@ pub fn image_export(
         .images
         .export(&document, &path, options)
         .map_err(IpcError::Invalid)
+}
+
+// ---- phase 6: adjustments, filters, retouching, type, styles and exports ----
+
+/// every render node, adjustment, preset, filter, style, pattern and custom shape
+#[tauri::command]
+pub fn image_catalogue(state: State<'_, AppState>) -> NodeCatalogue {
+    state.images.catalogue()
+}
+
+/// filter gallery thumbnails as one binary blob: width, height, rgba8 for each
+#[tauri::command]
+pub async fn image_filter_thumbnails(
+    state: State<'_, AppState>,
+    document: String,
+    filters: Vec<ThumbnailRequest>,
+    size: u32,
+) -> IpcResult<tauri::ipc::Response> {
+    let bytes = off_main(&state, move |images| {
+        images.filter_thumbnails(&document, &filters, size)
+    })
+    .await?;
+    Ok(tauri::ipc::Response::new(bytes))
+}
+
+#[tauri::command]
+pub async fn image_warp_begin(
+    state: State<'_, AppState>,
+    document: String,
+    layer: Option<LayerId>,
+) -> IpcResult<LayerId> {
+    off_main(&state, move |images| images.warp_begin(&document, layer)).await
+}
+
+#[tauri::command]
+pub async fn image_liquify(
+    state: State<'_, AppState>,
+    document: String,
+    brush: LiquifyBrush,
+    points: Vec<[f32; 2]>,
+) -> IpcResult<()> {
+    off_main(&state, move |images| {
+        images.liquify(&document, brush, &points)
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn image_puppet(
+    state: State<'_, AppState>,
+    document: String,
+    pins: Vec<Pin>,
+) -> IpcResult<()> {
+    off_main(&state, move |images| images.puppet(&document, &pins)).await
+}
+
+#[tauri::command]
+pub async fn image_warp_end(
+    state: State<'_, AppState>,
+    document: String,
+    keep: bool,
+    title: String,
+) -> IpcResult<()> {
+    off_main(&state, move |images| {
+        images.warp_end(&document, keep, &title)
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn image_fonts(state: State<'_, AppState>) -> IpcResult<Vec<FontFamily>> {
+    off_main(&state, move |images| Ok(images.fonts())).await
+}
+
+#[tauri::command]
+pub async fn image_font_previews(
+    state: State<'_, AppState>,
+    families: Vec<String>,
+    text: String,
+    size: f32,
+) -> IpcResult<Vec<FontPreview>> {
+    off_main(&state, move |images| {
+        Ok(images.font_previews(&families, &text, size))
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn image_google_fonts(state: State<'_, AppState>) -> IpcResult<Vec<GoogleFont>> {
+    off_main(&state, move |images| images.google_fonts()).await
+}
+
+#[tauri::command]
+pub fn image_download_font(state: State<'_, AppState>, font: GoogleFont) -> IpcResult<JobId> {
+    state.images.download_font(font).map_err(IpcError::Invalid)
+}
+
+#[tauri::command]
+pub async fn image_missing_fonts(
+    state: State<'_, AppState>,
+    document: String,
+) -> IpcResult<Vec<String>> {
+    off_main(&state, move |images| images.missing_fonts(&document)).await
+}
+
+/// places a picture file as a smart object, embedded or linked
+#[tauri::command]
+pub fn image_place(
+    state: State<'_, AppState>,
+    document: String,
+    path: PathBuf,
+    linked: bool,
+) -> IpcResult<JobId> {
+    state
+        .images
+        .place(&document, &path, linked)
+        .map_err(IpcError::Invalid)
+}
+
+/// saves a psd, or a psb when the path ends in .psb
+#[tauri::command]
+pub fn image_save_psd(
+    state: State<'_, AppState>,
+    document: String,
+    path: PathBuf,
+) -> IpcResult<JobId> {
+    state
+        .images
+        .save_psd(&document, &path)
+        .map_err(IpcError::Invalid)
+}
+
+#[tauri::command]
+pub fn image_export_layers(
+    state: State<'_, AppState>,
+    document: String,
+    folder: PathBuf,
+    options: LayerExport,
+) -> IpcResult<JobId> {
+    state
+        .images
+        .export_layers(&document, &folder, options)
+        .map_err(IpcError::Invalid)
+}
+
+#[tauri::command]
+pub fn image_export_artboards(
+    state: State<'_, AppState>,
+    document: String,
+    folder: PathBuf,
+    options: ExportOptions,
+) -> IpcResult<JobId> {
+    state
+        .images
+        .export_artboards(&document, &folder, options)
+        .map_err(IpcError::Invalid)
+}
+
+/// save for web: the encoded result and the original over the part on view
+#[tauri::command]
+pub async fn image_web_preview(
+    state: State<'_, AppState>,
+    document: String,
+    options: WebOptions,
+    view: IRect,
+) -> IpcResult<WebPreview> {
+    off_main(&state, move |images| {
+        images.web_preview(&document, &options, view)
+    })
+    .await
 }

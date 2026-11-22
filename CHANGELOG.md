@@ -4,6 +4,25 @@ All notable changes to Vellum are listed here. Dates are in YYYY-MM-DD.
 
 ## Unreleased
 
+### Phase 6, first part: the engine and document side of the image editor tools (2026-11-22)
+
+Added (in the engine and documents; the panels, dialogs and tools in the window still need building, see PLAN.md phase 6)
+
+- Every adjustment from the plan as a render node with a GPU kernel and a matching CPU path: brightness/contrast, levels, curves, exposure, vibrance, hue/saturation, colour balance, black and white, photo filter, channel mixer, colour lookup (.cube files and built in looks), invert, posterize, threshold, gradient map, selective colour, shadows/highlights, HDR toning, match colour and replace colour, plus a Camera Raw node (white balance, tone, texture, clarity, dehaze, HSL, colour grading, sharpening and noise reduction, lens corrections, vignette, grain).
+- Adjustment layers with presets, and auto tone, auto contrast, auto colour, equalize and one click enhance worked out from the picture.
+- The filter gallery's filters: motion, radial, lens, tilt-shift, iris, field, path, spin and surface blur, smart sharpen, high pass, reduce noise, add noise, film grain, wave, ripple, twirl, polar coordinates, displace, chromatic aberration, glitch, emboss, find edges, glowing edges, oil paint, mosaic, colour halftone, clouds, lens flare and lighting effects. Golden images for every adjustment and filter in tests/golden/effects.
+- Fill layers (colour, gradient, pattern) and smart objects, embedded or linked, with smart filters that stay editable, can be hidden, faded, reordered and masked.
+- Retouching: clone stamp (aligned, sample all layers), healing brush, spot healing, patch, content-aware fill and move, red eye, dodge, burn, sponge, blur, sharpen and smudge. Liquify (forward warp, pucker, bloat, reconstruct, smooth, twirl) and puppet warp, both previewed on the GPU.
+- Text layers: point, paragraph and on a path, warp styles, OpenType features, variable font axes, system fonts and Google Fonts downloads, and missing fonts reported and replaceable.
+- Shape layers (rectangle with live corners, ellipse, polygon and star, line with arrowheads, custom shapes, free paths) with live path operations, vector masks and saved paths. Text, shapes and smart objects stay editable through moves, free transform and canvas changes.
+- Layer styles: drop shadow, inner shadow, outer and inner glow, bevel and emboss, satin, colour, gradient and pattern overlays and stroke, with presets and paste onto several layers.
+- Saving Photoshop files (PSD and PSB, 8, 16 and 32 bit) with layers intact, checked with psd-tools and ImageMagick. Invert, posterize, threshold and levels go out (and come back in) as real adjustment layers.
+- Artboards, export layers to files, export artboards, and save for web previews with the real encoded size.
+
+Fixed
+
+- Free transform on a text or shape layer did nothing, and smart objects could not be transformed.
+
 ### Phase 5, second half: transforms, crop, Photoshop files, export and view aids (2026-11-22)
 
 Added

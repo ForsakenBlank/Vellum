@@ -766,7 +766,7 @@ impl ImageService {
     }
 }
 
-mod tools;
+pub mod tools;
 pub use tools::{FontPreview, NodeCatalogue};
 
 impl ImageDocument {

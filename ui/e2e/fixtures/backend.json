@@ -74,6 +74,30 @@
     },
     {
       "category": "Image",
+      "description": "Add an adjustment layer: curves, levels, hue and saturation and more.",
+      "kind": "image.adjustments",
+      "title": "Adjustments"
+    },
+    {
+      "category": "Image",
+      "description": "Fix the tones and take out a colour cast, as a Curves layer.",
+      "kind": "image.auto_color",
+      "title": "Auto colour"
+    },
+    {
+      "category": "Image",
+      "description": "Stretch the tones without changing the colours, as a Curves layer.",
+      "kind": "image.auto_contrast",
+      "title": "Auto contrast"
+    },
+    {
+      "category": "Image",
+      "description": "Stretch each channel to use the full range, as a Curves layer.",
+      "kind": "image.auto_tone",
+      "title": "Auto tone"
+    },
+    {
+      "category": "Image",
       "description": "Make the brush bigger.",
       "kind": "image.brush.bigger",
       "title": "Bigger brush"
@@ -97,6 +121,12 @@
       "title": "Softer brush"
     },
     {
+      "category": "Filter",
+      "description": "Develop the photo: white balance, tone, colour, detail, optics and effects.",
+      "kind": "image.camera_raw",
+      "title": "Camera Raw"
+    },
+    {
       "category": "Image",
       "description": "Add or cut away space around the picture.",
       "kind": "image.canvas_size",
@@ -113,6 +143,12 @@
       "description": "Swap the foreground and background colours.",
       "kind": "image.colors.swap",
       "title": "Swap colours"
+    },
+    {
+      "category": "Edit",
+      "description": "Fill the selection with what is around it.",
+      "kind": "image.content_aware_fill",
+      "title": "Content-aware fill"
     },
     {
       "category": "Image",
@@ -140,9 +176,39 @@
     },
     {
       "category": "Image",
+      "description": "One click to make a photo look better, as a Camera Raw layer you can tweak.",
+      "kind": "image.enhance",
+      "title": "Enhance"
+    },
+    {
+      "category": "Image",
+      "description": "Spread the tones out evenly, as a Curves layer.",
+      "kind": "image.equalize",
+      "title": "Equalize"
+    },
+    {
+      "category": "Image",
       "description": "Save a copy as PNG, JPEG, WebP or AVIF, optionally under a size limit.",
       "kind": "image.export",
       "title": "Export as"
+    },
+    {
+      "category": "File",
+      "description": "Save each artboard as its own picture.",
+      "kind": "image.export_artboards",
+      "title": "Export artboards"
+    },
+    {
+      "category": "File",
+      "description": "Save each layer as its own picture.",
+      "kind": "image.export_layers",
+      "title": "Export layers to files"
+    },
+    {
+      "category": "Filter",
+      "description": "Browse every filter with a live preview of each.",
+      "kind": "image.filter_gallery",
+      "title": "Filter gallery"
     },
     {
       "category": "Image",
@@ -167,6 +233,12 @@
       "description": "Mirror the current layer top to bottom.",
       "kind": "image.flip_layer_v",
       "title": "Flip layer vertically"
+    },
+    {
+      "category": "Type",
+      "description": "Browse installed fonts and download Google Fonts.",
+      "kind": "image.font_browser",
+      "title": "Fonts"
     },
     {
       "category": "Image",
@@ -230,6 +302,12 @@
     },
     {
       "category": "Layers",
+      "description": "Turn a text, shape, fill or smart object layer into plain pixels.",
+      "kind": "image.layer.rasterize",
+      "title": "Rasterize layer"
+    },
+    {
+      "category": "Layers",
       "description": "Take the layers out of the current group.",
       "kind": "image.layer.ungroup",
       "title": "Ungroup layers"
@@ -245,6 +323,36 @@
       "description": "Move the selected pixels to a new layer.",
       "kind": "image.layer.via_cut",
       "title": "New layer via cut"
+    },
+    {
+      "category": "Layers",
+      "description": "Shadows, glows, bevels, overlays and strokes.",
+      "kind": "image.layer_style",
+      "title": "Layer style"
+    },
+    {
+      "category": "Filter",
+      "description": "Push, pull, pucker and bloat pixels with a brush.",
+      "kind": "image.liquify",
+      "title": "Liquify"
+    },
+    {
+      "category": "File",
+      "description": "Add a picture as a smart object kept inside this document.",
+      "kind": "image.place_embedded",
+      "title": "Place embedded"
+    },
+    {
+      "category": "File",
+      "description": "Add a picture as a smart object that follows its file.",
+      "kind": "image.place_linked",
+      "title": "Place linked"
+    },
+    {
+      "category": "Image",
+      "description": "Pin the layer and drag the pins to bend it.",
+      "kind": "image.puppet_warp",
+      "title": "Puppet warp"
     },
     {
       "category": "Select",
@@ -269,6 +377,18 @@
       "description": "Turn the whole picture a quarter turn clockwise.",
       "kind": "image.rotate_right",
       "title": "Rotate 90° clockwise"
+    },
+    {
+      "category": "File",
+      "description": "Compare quality and file size side by side before saving.",
+      "kind": "image.save_for_web",
+      "title": "Save for web"
+    },
+    {
+      "category": "File",
+      "description": "Save a PSD or PSB with the layers.",
+      "kind": "image.save_psd",
+      "title": "Save as Photoshop file"
     },
     {
       "category": "Select",
@@ -349,6 +469,42 @@
       "title": "Transform selection"
     },
     {
+      "category": "Layers",
+      "description": "Keep the layer's pixels safe through transforms and filters.",
+      "kind": "image.smart.convert",
+      "title": "Convert to smart object"
+    },
+    {
+      "category": "Layers",
+      "description": "Remove the current layer's style.",
+      "kind": "image.style.clear",
+      "title": "Clear layer style"
+    },
+    {
+      "category": "Layers",
+      "description": "Copy the current layer's style.",
+      "kind": "image.style.copy",
+      "title": "Copy layer style"
+    },
+    {
+      "category": "Layers",
+      "description": "Give the current layer the copied style.",
+      "kind": "image.style.paste",
+      "title": "Paste layer style"
+    },
+    {
+      "category": "Image tools",
+      "description": "Drag to make an artboard.",
+      "kind": "image.tool.artboard",
+      "title": "Artboard tool"
+    },
+    {
+      "category": "Image tools",
+      "description": "Soften, crisp up or smear what you paint over.",
+      "kind": "image.tool.blur",
+      "title": "Blur, sharpen and smudge"
+    },
+    {
       "category": "Image tools",
       "description": "Paint with a soft or hard brush.",
       "kind": "image.tool.brush",
@@ -362,6 +518,12 @@
     },
     {
       "category": "Image tools",
+      "description": "Paint with pixels copied from elsewhere. Alt click sets where they come from.",
+      "kind": "image.tool.clone",
+      "title": "Clone stamp tool"
+    },
+    {
+      "category": "Image tools",
       "description": "Cut the picture down, straighten it or fix its perspective.",
       "kind": "image.tool.crop",
       "title": "Crop tool"
@@ -371,6 +533,18 @@
       "description": "Switch between crop and perspective crop.",
       "kind": "image.tool.crop_cycle",
       "title": "Next crop tool"
+    },
+    {
+      "category": "Image tools",
+      "description": "Lighten, darken or change the colour of what you paint over.",
+      "kind": "image.tool.dodge",
+      "title": "Dodge, burn and sponge"
+    },
+    {
+      "category": "Image tools",
+      "description": "Switch between dodge, burn and sponge.",
+      "kind": "image.tool.dodge_cycle",
+      "title": "Next toning tool"
     },
     {
       "category": "Image tools",
@@ -404,6 +578,18 @@
     },
     {
       "category": "Image tools",
+      "description": "Spot healing, healing brush, patch, content-aware move and red eye.",
+      "kind": "image.tool.heal",
+      "title": "Healing tools"
+    },
+    {
+      "category": "Image tools",
+      "description": "Switch between spot healing, healing brush, patch, content-aware move and red eye.",
+      "kind": "image.tool.heal_cycle",
+      "title": "Next healing tool"
+    },
+    {
+      "category": "Image tools",
       "description": "Select by drawing around something.",
       "kind": "image.tool.lasso",
       "title": "Lasso tool"
@@ -431,6 +617,42 @@
       "description": "Move layers and selections.",
       "kind": "image.tool.move",
       "title": "Move tool"
+    },
+    {
+      "category": "Image tools",
+      "description": "Move a shape or path layer.",
+      "kind": "image.tool.path_select",
+      "title": "Path selection tool"
+    },
+    {
+      "category": "Image tools",
+      "description": "Draw a path point by point. Drag to pull out curve handles.",
+      "kind": "image.tool.pen",
+      "title": "Pen tool"
+    },
+    {
+      "category": "Image tools",
+      "description": "Switch between the pen and the curvature pen.",
+      "kind": "image.tool.pen_cycle",
+      "title": "Next pen tool"
+    },
+    {
+      "category": "Image tools",
+      "description": "Draw rectangles with live corners, ellipses, polygons, stars, lines and custom shapes.",
+      "kind": "image.tool.shape",
+      "title": "Shape tool"
+    },
+    {
+      "category": "Image tools",
+      "description": "Switch between the rectangle, ellipse, polygon, line and custom shape.",
+      "kind": "image.tool.shape_cycle",
+      "title": "Next shape tool"
+    },
+    {
+      "category": "Image tools",
+      "description": "Click to type a line, or drag a box for a paragraph.",
+      "kind": "image.tool.text",
+      "title": "Type tool"
     },
     {
       "category": "Image tools",
@@ -778,6 +1000,15 @@
         "file.save_as": [
           "Ctrl+Shift+S"
         ],
+        "image.auto_color": [
+          "Ctrl+Shift+B"
+        ],
+        "image.auto_contrast": [
+          "Ctrl+Alt+Shift+L"
+        ],
+        "image.auto_tone": [
+          "Ctrl+Shift+L"
+        ],
         "image.brush.bigger": [
           "]"
         ],
@@ -790,6 +1021,9 @@
         "image.brush.softer": [
           "Shift+["
         ],
+        "image.camera_raw": [
+          "Ctrl+Shift+A"
+        ],
         "image.canvas_size": [
           "Ctrl+Alt+C"
         ],
@@ -798,6 +1032,9 @@
         ],
         "image.colors.swap": [
           "X"
+        ],
+        "image.content_aware_fill": [
+          "Shift+F5"
         ],
         "image.edit.clear": [
           "Delete",
@@ -839,8 +1076,14 @@
         "image.layer.via_cut": [
           "Ctrl+Shift+J"
         ],
+        "image.liquify": [
+          "Ctrl+Shift+X"
+        ],
         "image.quick_mask": [
           "Q"
+        ],
+        "image.save_for_web": [
+          "Ctrl+Alt+Shift+S"
         ],
         "image.select.all": [
           "Ctrl+A"
@@ -863,11 +1106,20 @@
         "image.tool.brush_cycle": [
           "Shift+B"
         ],
+        "image.tool.clone": [
+          "S"
+        ],
         "image.tool.crop": [
           "C"
         ],
         "image.tool.crop_cycle": [
           "Shift+C"
+        ],
+        "image.tool.dodge": [
+          "O"
+        ],
+        "image.tool.dodge_cycle": [
+          "Shift+O"
         ],
         "image.tool.eraser": [
           "E"
@@ -884,6 +1136,12 @@
         "image.tool.hand": [
           "H"
         ],
+        "image.tool.heal": [
+          "J"
+        ],
+        "image.tool.heal_cycle": [
+          "Shift+J"
+        ],
         "image.tool.lasso": [
           "L"
         ],
@@ -898,6 +1156,24 @@
         ],
         "image.tool.move": [
           "V"
+        ],
+        "image.tool.path_select": [
+          "A"
+        ],
+        "image.tool.pen": [
+          "P"
+        ],
+        "image.tool.pen_cycle": [
+          "Shift+P"
+        ],
+        "image.tool.shape": [
+          "U"
+        ],
+        "image.tool.shape_cycle": [
+          "Shift+U"
+        ],
+        "image.tool.text": [
+          "T"
         ],
         "image.tool.wand": [
           "W"
@@ -1025,6 +1301,15 @@
         "file.save_as": [
           "Ctrl+Shift+S"
         ],
+        "image.auto_color": [
+          "Ctrl+Shift+B"
+        ],
+        "image.auto_contrast": [
+          "Ctrl+Alt+Shift+L"
+        ],
+        "image.auto_tone": [
+          "Ctrl+Shift+L"
+        ],
         "image.brush.bigger": [
           "]"
         ],
@@ -1037,6 +1322,9 @@
         "image.brush.softer": [
           "Shift+["
         ],
+        "image.camera_raw": [
+          "Ctrl+Shift+A"
+        ],
         "image.canvas_size": [
           "Ctrl+Alt+C"
         ],
@@ -1045,6 +1333,9 @@
         ],
         "image.colors.swap": [
           "X"
+        ],
+        "image.content_aware_fill": [
+          "Shift+F5"
         ],
         "image.edit.clear": [
           "Delete",
@@ -1086,8 +1377,14 @@
         "image.layer.via_cut": [
           "Ctrl+Shift+J"
         ],
+        "image.liquify": [
+          "Ctrl+Shift+X"
+        ],
         "image.quick_mask": [
           "Q"
+        ],
+        "image.save_for_web": [
+          "Ctrl+Alt+Shift+S"
         ],
         "image.select.all": [
           "Ctrl+A"
@@ -1110,11 +1407,20 @@
         "image.tool.brush_cycle": [
           "Shift+B"
         ],
+        "image.tool.clone": [
+          "S"
+        ],
         "image.tool.crop": [
           "C"
         ],
         "image.tool.crop_cycle": [
           "Shift+C"
+        ],
+        "image.tool.dodge": [
+          "O"
+        ],
+        "image.tool.dodge_cycle": [
+          "Shift+O"
         ],
         "image.tool.eraser": [
           "E"
@@ -1131,6 +1437,12 @@
         "image.tool.hand": [
           "H"
         ],
+        "image.tool.heal": [
+          "J"
+        ],
+        "image.tool.heal_cycle": [
+          "Shift+J"
+        ],
         "image.tool.lasso": [
           "L"
         ],
@@ -1145,6 +1457,24 @@
         ],
         "image.tool.move": [
           "V"
+        ],
+        "image.tool.path_select": [
+          "A"
+        ],
+        "image.tool.pen": [
+          "P"
+        ],
+        "image.tool.pen_cycle": [
+          "Shift+P"
+        ],
+        "image.tool.shape": [
+          "U"
+        ],
+        "image.tool.shape_cycle": [
+          "Shift+U"
+        ],
+        "image.tool.text": [
+          "T"
         ],
         "image.tool.wand": [
           "W"
@@ -1272,6 +1602,15 @@
         "file.save_as": [
           "Ctrl+Shift+S"
         ],
+        "image.auto_color": [
+          "Ctrl+Shift+B"
+        ],
+        "image.auto_contrast": [
+          "Ctrl+Alt+Shift+L"
+        ],
+        "image.auto_tone": [
+          "Ctrl+Shift+L"
+        ],
         "image.brush.bigger": [
           "]"
         ],
@@ -1284,6 +1623,9 @@
         "image.brush.softer": [
           "Shift+["
         ],
+        "image.camera_raw": [
+          "Ctrl+Shift+A"
+        ],
         "image.canvas_size": [
           "Ctrl+Alt+C"
         ],
@@ -1292,6 +1634,9 @@
         ],
         "image.colors.swap": [
           "X"
+        ],
+        "image.content_aware_fill": [
+          "Shift+F5"
         ],
         "image.edit.clear": [
           "Delete",
@@ -1333,8 +1678,14 @@
         "image.layer.via_cut": [
           "Ctrl+Shift+J"
         ],
+        "image.liquify": [
+          "Ctrl+Shift+X"
+        ],
         "image.quick_mask": [
           "Q"
+        ],
+        "image.save_for_web": [
+          "Ctrl+Alt+Shift+S"
         ],
         "image.select.all": [
           "Ctrl+A"
@@ -1357,11 +1708,20 @@
         "image.tool.brush_cycle": [
           "Shift+B"
         ],
+        "image.tool.clone": [
+          "S"
+        ],
         "image.tool.crop": [
           "C"
         ],
         "image.tool.crop_cycle": [
           "Shift+C"
+        ],
+        "image.tool.dodge": [
+          "O"
+        ],
+        "image.tool.dodge_cycle": [
+          "Shift+O"
         ],
         "image.tool.eraser": [
           "E"
@@ -1378,6 +1738,12 @@
         "image.tool.hand": [
           "H"
         ],
+        "image.tool.heal": [
+          "J"
+        ],
+        "image.tool.heal_cycle": [
+          "Shift+J"
+        ],
         "image.tool.lasso": [
           "L"
         ],
@@ -1392,6 +1758,24 @@
         ],
         "image.tool.move": [
           "V"
+        ],
+        "image.tool.path_select": [
+          "A"
+        ],
+        "image.tool.pen": [
+          "P"
+        ],
+        "image.tool.pen_cycle": [
+          "Shift+P"
+        ],
+        "image.tool.shape": [
+          "U"
+        ],
+        "image.tool.shape_cycle": [
+          "Shift+U"
+        ],
+        "image.tool.text": [
+          "T"
         ],
         "image.tool.wand": [
           "W"
@@ -1519,6 +1903,15 @@
         "file.save_as": [
           "Ctrl+Shift+S"
         ],
+        "image.auto_color": [
+          "Ctrl+Shift+B"
+        ],
+        "image.auto_contrast": [
+          "Ctrl+Alt+Shift+L"
+        ],
+        "image.auto_tone": [
+          "Ctrl+Shift+L"
+        ],
         "image.brush.bigger": [
           "]"
         ],
@@ -1531,6 +1924,9 @@
         "image.brush.softer": [
           "Shift+["
         ],
+        "image.camera_raw": [
+          "Ctrl+Shift+A"
+        ],
         "image.canvas_size": [
           "Ctrl+Alt+C"
         ],
@@ -1539,6 +1935,9 @@
         ],
         "image.colors.swap": [
           "X"
+        ],
+        "image.content_aware_fill": [
+          "Shift+F5"
         ],
         "image.edit.clear": [
           "Delete",
@@ -1580,8 +1979,14 @@
         "image.layer.via_cut": [
           "Ctrl+Shift+J"
         ],
+        "image.liquify": [
+          "Ctrl+Shift+X"
+        ],
         "image.quick_mask": [
           "Q"
+        ],
+        "image.save_for_web": [
+          "Ctrl+Alt+Shift+S"
         ],
         "image.select.all": [
           "Ctrl+A"
@@ -1604,11 +2009,20 @@
         "image.tool.brush_cycle": [
           "Shift+B"
         ],
+        "image.tool.clone": [
+          "S"
+        ],
         "image.tool.crop": [
           "C"
         ],
         "image.tool.crop_cycle": [
           "Shift+C"
+        ],
+        "image.tool.dodge": [
+          "O"
+        ],
+        "image.tool.dodge_cycle": [
+          "Shift+O"
         ],
         "image.tool.eraser": [
           "E"
@@ -1625,6 +2039,12 @@
         "image.tool.hand": [
           "H"
         ],
+        "image.tool.heal": [
+          "J"
+        ],
+        "image.tool.heal_cycle": [
+          "Shift+J"
+        ],
         "image.tool.lasso": [
           "L"
         ],
@@ -1639,6 +2059,24 @@
         ],
         "image.tool.move": [
           "V"
+        ],
+        "image.tool.path_select": [
+          "A"
+        ],
+        "image.tool.pen": [
+          "P"
+        ],
+        "image.tool.pen_cycle": [
+          "Shift+P"
+        ],
+        "image.tool.shape": [
+          "U"
+        ],
+        "image.tool.shape_cycle": [
+          "Shift+U"
+        ],
+        "image.tool.text": [
+          "T"
         ],
         "image.tool.wand": [
           "W"
@@ -1767,6 +2205,15 @@
         "file.save_as": [
           "Ctrl+Shift+S"
         ],
+        "image.auto_color": [
+          "Ctrl+Shift+B"
+        ],
+        "image.auto_contrast": [
+          "Ctrl+Alt+Shift+L"
+        ],
+        "image.auto_tone": [
+          "Ctrl+Shift+L"
+        ],
         "image.brush.bigger": [
           "]"
         ],
@@ -1779,6 +2226,9 @@
         "image.brush.softer": [
           "Shift+["
         ],
+        "image.camera_raw": [
+          "Ctrl+Shift+A"
+        ],
         "image.canvas_size": [
           "Ctrl+Alt+C"
         ],
@@ -1787,6 +2237,9 @@
         ],
         "image.colors.swap": [
           "X"
+        ],
+        "image.content_aware_fill": [
+          "Shift+F5"
         ],
         "image.edit.clear": [
           "Delete",
@@ -1828,8 +2281,14 @@
         "image.layer.via_cut": [
           "Ctrl+Shift+J"
         ],
+        "image.liquify": [
+          "Ctrl+Shift+X"
+        ],
         "image.quick_mask": [
           "Q"
+        ],
+        "image.save_for_web": [
+          "Ctrl+Alt+Shift+S"
         ],
         "image.select.all": [
           "Ctrl+A"
@@ -1852,11 +2311,20 @@
         "image.tool.brush_cycle": [
           "Shift+B"
         ],
+        "image.tool.clone": [
+          "S"
+        ],
         "image.tool.crop": [
           "C"
         ],
         "image.tool.crop_cycle": [
           "Shift+C"
+        ],
+        "image.tool.dodge": [
+          "O"
+        ],
+        "image.tool.dodge_cycle": [
+          "Shift+O"
         ],
         "image.tool.eraser": [
           "E"
@@ -1873,6 +2341,12 @@
         "image.tool.hand": [
           "H"
         ],
+        "image.tool.heal": [
+          "J"
+        ],
+        "image.tool.heal_cycle": [
+          "Shift+J"
+        ],
         "image.tool.lasso": [
           "L"
         ],
@@ -1887,6 +2361,24 @@
         ],
         "image.tool.move": [
           "V"
+        ],
+        "image.tool.path_select": [
+          "A"
+        ],
+        "image.tool.pen": [
+          "P"
+        ],
+        "image.tool.pen_cycle": [
+          "Shift+P"
+        ],
+        "image.tool.shape": [
+          "U"
+        ],
+        "image.tool.shape_cycle": [
+          "Shift+U"
+        ],
+        "image.tool.text": [
+          "T"
         ],
         "image.tool.wand": [
           "W"

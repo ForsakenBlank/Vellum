@@ -536,6 +536,117 @@ app_commands! {
     FlipLayerV = "image.flip_layer_v", "Image", "Flip layer vertically",
         "Mirror the current layer top to bottom.",
         |ctx| { ui(ctx, "image.flip_layer_v") }
+    ToolText = "image.tool.text", "Image tools", "Type tool",
+        "Click to type a line, or drag a box for a paragraph.",
+        |ctx| { ui(ctx, "image.tool.text") }
+    ToolShape = "image.tool.shape", "Image tools", "Shape tool",
+        "Draw rectangles with live corners, ellipses, polygons, stars, lines and custom shapes.",
+        |ctx| { ui(ctx, "image.tool.shape") }
+    ToolShapeCycle = "image.tool.shape_cycle", "Image tools", "Next shape tool",
+        "Switch between the rectangle, ellipse, polygon, line and custom shape.",
+        |ctx| { ui(ctx, "image.tool.shape_cycle") }
+    ToolPen = "image.tool.pen", "Image tools", "Pen tool",
+        "Draw a path point by point. Drag to pull out curve handles.",
+        |ctx| { ui(ctx, "image.tool.pen") }
+    ToolPenCycle = "image.tool.pen_cycle", "Image tools", "Next pen tool",
+        "Switch between the pen and the curvature pen.",
+        |ctx| { ui(ctx, "image.tool.pen_cycle") }
+    ToolPathSelect = "image.tool.path_select", "Image tools", "Path selection tool",
+        "Move a shape or path layer.",
+        |ctx| { ui(ctx, "image.tool.path_select") }
+    ToolClone = "image.tool.clone", "Image tools", "Clone stamp tool",
+        "Paint with pixels copied from elsewhere. Alt click sets where they come from.",
+        |ctx| { ui(ctx, "image.tool.clone") }
+    ToolHeal = "image.tool.heal", "Image tools", "Healing tools",
+        "Spot healing, healing brush, patch, content-aware move and red eye.",
+        |ctx| { ui(ctx, "image.tool.heal") }
+    ToolHealCycle = "image.tool.heal_cycle", "Image tools", "Next healing tool",
+        "Switch between spot healing, healing brush, patch, content-aware move and red eye.",
+        |ctx| { ui(ctx, "image.tool.heal_cycle") }
+    ToolDodge = "image.tool.dodge", "Image tools", "Dodge, burn and sponge",
+        "Lighten, darken or change the colour of what you paint over.",
+        |ctx| { ui(ctx, "image.tool.dodge") }
+    ToolDodgeCycle = "image.tool.dodge_cycle", "Image tools", "Next toning tool",
+        "Switch between dodge, burn and sponge.",
+        |ctx| { ui(ctx, "image.tool.dodge_cycle") }
+    ToolBlur = "image.tool.blur", "Image tools", "Blur, sharpen and smudge",
+        "Soften, crisp up or smear what you paint over.",
+        |ctx| { ui(ctx, "image.tool.blur") }
+    ToolArtboard = "image.tool.artboard", "Image tools", "Artboard tool",
+        "Drag to make an artboard.",
+        |ctx| { ui(ctx, "image.tool.artboard") }
+    AutoTone = "image.auto_tone", "Image", "Auto tone",
+        "Stretch each channel to use the full range, as a Curves layer.",
+        |ctx| { ui(ctx, "image.auto_tone") }
+    AutoContrast = "image.auto_contrast", "Image", "Auto contrast",
+        "Stretch the tones without changing the colours, as a Curves layer.",
+        |ctx| { ui(ctx, "image.auto_contrast") }
+    AutoColor = "image.auto_color", "Image", "Auto colour",
+        "Fix the tones and take out a colour cast, as a Curves layer.",
+        |ctx| { ui(ctx, "image.auto_color") }
+    Enhance = "image.enhance", "Image", "Enhance",
+        "One click to make a photo look better, as a Camera Raw layer you can tweak.",
+        |ctx| { ui(ctx, "image.enhance") }
+    Equalize = "image.equalize", "Image", "Equalize",
+        "Spread the tones out evenly, as a Curves layer.",
+        |ctx| { ui(ctx, "image.equalize") }
+    CameraRaw = "image.camera_raw", "Filter", "Camera Raw",
+        "Develop the photo: white balance, tone, colour, detail, optics and effects.",
+        |ctx| { ui(ctx, "image.camera_raw") }
+    Adjustments = "image.adjustments", "Image", "Adjustments",
+        "Add an adjustment layer: curves, levels, hue and saturation and more.",
+        |ctx| { ui(ctx, "image.adjustments") }
+    FilterGallery = "image.filter_gallery", "Filter", "Filter gallery",
+        "Browse every filter with a live preview of each.",
+        |ctx| { ui(ctx, "image.filter_gallery") }
+    Liquify = "image.liquify", "Filter", "Liquify",
+        "Push, pull, pucker and bloat pixels with a brush.",
+        |ctx| { ui(ctx, "image.liquify") }
+    PuppetWarp = "image.puppet_warp", "Image", "Puppet warp",
+        "Pin the layer and drag the pins to bend it.",
+        |ctx| { ui(ctx, "image.puppet_warp") }
+    LayerStyle = "image.layer_style", "Layers", "Layer style",
+        "Shadows, glows, bevels, overlays and strokes.",
+        |ctx| { ui(ctx, "image.layer_style") }
+    CopyStyle = "image.style.copy", "Layers", "Copy layer style",
+        "Copy the current layer's style.",
+        |ctx| { ui(ctx, "image.style.copy") }
+    PasteStyle = "image.style.paste", "Layers", "Paste layer style",
+        "Give the current layer the copied style.",
+        |ctx| { ui(ctx, "image.style.paste") }
+    ClearStyle = "image.style.clear", "Layers", "Clear layer style",
+        "Remove the current layer's style.",
+        |ctx| { ui(ctx, "image.style.clear") }
+    ConvertToSmart = "image.smart.convert", "Layers", "Convert to smart object",
+        "Keep the layer's pixels safe through transforms and filters.",
+        |ctx| { ui(ctx, "image.smart.convert") }
+    Rasterize = "image.layer.rasterize", "Layers", "Rasterize layer",
+        "Turn a text, shape, fill or smart object layer into plain pixels.",
+        |ctx| { ui(ctx, "image.layer.rasterize") }
+    PlaceEmbedded = "image.place_embedded", "File", "Place embedded",
+        "Add a picture as a smart object kept inside this document.",
+        |ctx| { ui(ctx, "image.place_embedded") }
+    PlaceLinked = "image.place_linked", "File", "Place linked",
+        "Add a picture as a smart object that follows its file.",
+        |ctx| { ui(ctx, "image.place_linked") }
+    SavePsd = "image.save_psd", "File", "Save as Photoshop file",
+        "Save a PSD or PSB with the layers.",
+        |ctx| { ui(ctx, "image.save_psd") }
+    ExportLayers = "image.export_layers", "File", "Export layers to files",
+        "Save each layer as its own picture.",
+        |ctx| { ui(ctx, "image.export_layers") }
+    ExportArtboards = "image.export_artboards", "File", "Export artboards",
+        "Save each artboard as its own picture.",
+        |ctx| { ui(ctx, "image.export_artboards") }
+    SaveForWeb = "image.save_for_web", "File", "Save for web",
+        "Compare quality and file size side by side before saving.",
+        |ctx| { ui(ctx, "image.save_for_web") }
+    FontBrowser = "image.font_browser", "Type", "Fonts",
+        "Browse installed fonts and download Google Fonts.",
+        |ctx| { ui(ctx, "image.font_browser") }
+    ContentAwareFill = "image.content_aware_fill", "Edit", "Content-aware fill",
+        "Fill the selection with what is around it.",
+        |ctx| { ui(ctx, "image.content_aware_fill") }
     ClearFinishedJobs = "jobs.clear_finished", "Jobs", "Clear finished jobs",
         "Remove done, failed and cancelled jobs from the list.",
         |ctx| {
