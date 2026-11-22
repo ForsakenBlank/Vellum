@@ -14,6 +14,7 @@ pub mod document;
 pub mod export;
 pub mod fills;
 pub mod flatten;
+pub mod fonts;
 pub mod format;
 pub mod heal;
 pub mod layer_ops;
@@ -25,6 +26,7 @@ pub mod selection;
 pub mod service;
 pub mod smart;
 pub mod transform;
+pub mod vector;
 pub mod warp;
 
 pub use compose::{Part, Preview, build};

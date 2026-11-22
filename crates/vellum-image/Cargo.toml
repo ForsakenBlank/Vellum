@@ -25,6 +25,10 @@ png = "0.18"
 tempfile.workspace = true
 zip = { version = "4", default-features = false }
 moxcms = "0.9"
+fontdb = "0.24"
+rustybuzz = "0.20"
+ttf-parser = "0.25"
+ureq = "3"
 
 [dev-dependencies]
 tempfile.workspace = true
