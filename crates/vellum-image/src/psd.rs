@@ -18,6 +18,7 @@ use std::path::Path;
 use flate2::read::ZlibDecoder;
 use vellum_gpu::{BlendMode, IRect};
 
+use crate::adjustments::Adjustment;
 use crate::document::{Content, DocColor, Guide, ImageDocument, Label, Layer, LayerMask, Locks};
 use crate::raster::{Depth, Raster, TILE};
 
@@ -136,6 +137,8 @@ struct Record {
     label: Label,
     locks: Locks,
     origin: Option<String>,
+    /// an adjustment layer vellum can keep as one
+    adjustment: Option<crate::adjustments::Adjustment>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -530,6 +533,40 @@ fn read_record<R: Read + Seek>(r: &mut Reader<R>) -> Res<Record> {
                     all: f & 0x8000_0000 != 0,
                 };
             }
+            b"nvrt" => rec.adjustment = Some(Adjustment::new("effect.invert")),
+            b"post" if len >= 2 => {
+                let levels = i32::from(r.u16()?.clamp(2, 255));
+                rec.adjustment = Some(Adjustment::new("effect.posterize").with("levels", levels));
+            }
+            b"thrs" if len >= 2 => {
+                let level = f32::from(r.u16()?.clamp(1, 255));
+                rec.adjustment = Some(Adjustment::new("effect.threshold").with("level", level));
+            }
+            b"levl" if len >= 2 + 4 * 10 => {
+                let _version = r.u16()?;
+                // the composite record and the three channel records; levels here keeps one
+                // channel, so the first that changes anything wins
+                let mut chosen = None;
+                for (i, channel) in ["rgb", "red", "green", "blue"].into_iter().enumerate() {
+                    let v = [r.u16()?, r.u16()?, r.u16()?, r.u16()?, r.u16()?];
+                    if chosen.is_none()
+                        && (v[0] != 0 || v[1] != 255 || v[2] != 0 || v[3] != 255 || v[4] != 100)
+                    {
+                        chosen = Some((i, channel, v));
+                    }
+                }
+                let mut a = Adjustment::new("effect.levels");
+                if let Some((_, channel, v)) = chosen {
+                    a = a
+                        .with("channel", channel)
+                        .with("input_black", f32::from(v[0]))
+                        .with("input_white", f32::from(v[1]))
+                        .with("output_black", f32::from(v[2]))
+                        .with("output_white", f32::from(v[3]))
+                        .with("gamma", f32::from(v[4]) / 100.0);
+                }
+                rec.adjustment = Some(a);
+            }
             b"TySh" | b"tySh" => rec.origin = Some("text".into()),
             b"SoLd" | b"SoLE" | b"PlLd" => {
                 rec.origin.get_or_insert_with(|| "smart object".into());
@@ -895,6 +932,9 @@ fn build_tree(doc: &mut ImageDocument, reads: Vec<Decoded>) -> Res<Vec<Layer>> {
             _ => {
                 let id = doc.new_id();
                 let mut layer = Layer::pixels(id, rec.name.clone(), read.pixels);
+                if let Some(a) = &rec.adjustment {
+                    layer.content = Content::Adjustment(a.clone());
+                }
                 layer.blend = blend_of(rec.blend);
                 layer.origin = rec.origin.clone();
                 apply_common(&mut layer, rec, read.mask);

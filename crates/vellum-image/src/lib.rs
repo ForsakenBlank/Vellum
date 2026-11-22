@@ -20,6 +20,7 @@ pub mod heal;
 pub mod layer_ops;
 pub mod paint;
 pub mod psd;
+pub mod psd_write;
 pub mod raster;
 pub mod retouch;
 pub mod selection;
