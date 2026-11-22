@@ -69,7 +69,7 @@ function Field({
             const v = Number(e.target.value);
             if (Number.isFinite(v)) onChange(v);
           }}
-          className="h-6 w-16 rounded-md border border-line bg-raised px-1 text-right text-xs text-fg tabular-nums disabled:opacity-50"
+          className="h-6 w-14 rounded-md border border-line bg-raised px-1 text-right text-xs text-fg tabular-nums disabled:opacity-50"
         />
         <span className="-ml-0.5 text-xs">{unit}</span>
       </label>
@@ -206,9 +206,9 @@ export function TransformOptions({ fail }: { fail: (err: unknown) => void }) {
           flip(false);
         }}
       />
-      <label className="flex items-center gap-1.5 text-2xs text-fg-subtle">
-        Interpolation
+      <Tooltip text="How pixels are picked: bicubic is smooth and sharp, nearest keeps hard pixels">
         <select
+          aria-label="Interpolation"
           value={t.interpolation}
           onChange={(e) => {
             patch({ interpolation: e.target.value as Interpolation });
@@ -221,7 +221,7 @@ export function TransformOptions({ fail }: { fail: (err: unknown) => void }) {
             </option>
           ))}
         </select>
-      </label>
+      </Tooltip>
       <span className="ml-auto flex items-center gap-1">
         <IconButton
           size="sm"

@@ -150,7 +150,7 @@ export function CanvasSizeDialog({
       }
     >
       <form
-        className="flex flex-col gap-3"
+        className="flex flex-col gap-3 px-5 py-4"
         onSubmit={(e) => {
           e.preventDefault();
           apply();
@@ -293,7 +293,7 @@ export function ImageSizeDialog({
       }
     >
       <form
-        className="flex flex-col gap-3"
+        className="flex flex-col gap-3 px-5 py-4"
         onSubmit={(e) => {
           e.preventDefault();
           apply();
@@ -476,7 +476,7 @@ export function ExportDialog({
         </>
       }
     >
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-3 px-5 py-4">
         <div role="radiogroup" aria-label="Format" className="grid grid-cols-4 gap-1">
           {FORMATS.map(([id, name, hint]) => (
             <Tooltip key={id} text={hint}>
@@ -639,7 +639,7 @@ export function GridDialog({ open, onClose }: { open: boolean; onClose: () => vo
         </Button>
       }
     >
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-3 px-5 py-4">
         <Row label="Grid line every">
           <Num
             label="Grid spacing"

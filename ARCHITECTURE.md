@@ -267,7 +267,7 @@ Directory: `ui/` (Vite, React 19, TypeScript strict with `noUncheckedIndexedAcce
 - **Pause is cooperative.** Every long loop in a job must call `ctx.checkpoint()`. FFmpeg runs as a child process whose output is read on the job thread (section 22), so cancel kills it at the next read, and pause stops reading, which stalls FFmpeg once its output pipe fills. For an encode that only writes a progress line every half second that takes a minute or two, so a paused encode keeps going for a while before it really stops. Suspending the process (SIGSTOP, `NtSuspendProcess`) would be instant but needs platform code; worth doing if it bothers anyone.
 - **Snapshots pin history.** A user who keeps an early snapshot keeps every step after it. If that becomes a memory problem, store a full document state in the snapshot and unpin it.
 - **Event subscriptions are unbounded channels.** Fine for the current subscribers; anything that subscribes and stops reading leaks memory. The settings and notification followers live as long as the process by design.
-- **The window has only been run on Linux,** under a virtual X display (Xvfb, with openbox as the window manager for the close tests) in a headless container. Dropping files from a real file manager was not possible there, so the drop path was tested through the same Tauri events in Playwright. It has not been opened on Windows or macOS yet.
+- **The window has only been run on Linux,** under a virtual X display (Xvfb, with openbox as the window manager for the close tests) in a headless container. Phase 5's second half was checked there by hand too (section 25, Testing). Dropping files from a real file manager was not possible there, so the drop path was tested through the same Tauri events in Playwright. It has not been opened on Windows or macOS yet.
 
 ## 12. App services
 
@@ -791,7 +791,7 @@ The display side, measured in Chromium against the e2e backend: 56 to 57 frames 
 
 ## 25. Image editor core
 
-Crate: `crates/vellum-image`, window: `ui/src/workspaces/image/`. Phase 5, first half: documents, layers, compositing, selections, painting, undo and the native file. Transforms, crop, canvas and image size, PSD import, export, and rulers, guides and the grid are the second half.
+Crate: `crates/vellum-image`, window: `ui/src/workspaces/image/`. Phase 5: documents, layers, compositing, selections, painting, undo and the native file (first half), then transforms, crop, canvas and image size, layered PSD import, export, and rulers, guides, smart guides, the grid and the navigator (second half).
 
 ```
  ImageService (service.rs) ── opener, saver, live strokes and previews, viewport updates
@@ -803,6 +803,10 @@ Crate: `crates/vellum-image`, window: `ui/src/workspaces/image/`. Phase 5, first
       ├── paint.rs ──── brush engine, bucket, gradients, eyedropper
       ├── compose.rs ── the document as a vellum-gpu graph, plus what a tool previews
       ├── flatten.rs ── renders layers back to pixels on the cpu (merging, sampling, thumbnails)
+      ├── transform.rs  free transform, warp, transform selection: one TransformNode, previewed and committed
+      ├── canvas.rs ─── flips, quarter turns, canvas size, image size, crop, guides
+      ├── psd.rs ────── layered psd and psb reader
+      ├── export.rs ─── png, jpeg, webp, avif, export to a size, embedded profiles
       └── format.rs ─── manifest json, raster files, autosave state files, .vellum zip
 ```
 
@@ -873,7 +877,7 @@ The paint bucket uses the wand's area. Gradients come in all five kinds (linear,
 
 **The native `.vellum` file** is a zip with the same layout: `manifest.json`, `pixels/*.bin`, the colour profile and a thumbnail. Entries are stored, not compressed again. `PLAN.md` describes projects as folders; a single file is what people expect from Save (it can be picked in an open dialog, which on Windows and Linux cannot pick a folder as a file, and attached to an email), and unzipping one gives exactly the folder, which Vellum also opens. Saving writes to a temporary name and renames, so a failed save never damages the old file. Saving is a job.
 
-**Opening** goes through `AppServices::set_opener`: the tab appears at once with the document marked as loading, and a background job decodes the file and swaps the finished document in with `DocumentManager::replace`, which starts its history afresh. Pictures open as one "Background" layer at 8 bits (vellum-media decodes to 8 bit for now); PSD files open flattened until the second half adds layered PSD import. `file.save` goes through `set_saver`: a `.vellum` document saves to its file, anything else asks where to save (`file.save_as`).
+**Opening** goes through `AppServices::set_opener`: the tab appears at once with the document marked as loading, and a background job decodes the file and swaps the finished document in with `DocumentManager::replace`, which starts its history afresh. Pictures open as one "Background" layer at 8 bits (vellum-media decodes to 8 bit for now); PSD and PSB files open with their layers (see Photoshop files below). `file.save` goes through `set_saver`: a `.vellum` document saves to its file, anything else asks where to save (`file.save_as`).
 
 ### The window
 
@@ -881,24 +885,60 @@ The paint bucket uses the wand's area. Gradients come in all five kinds (linear,
 
 `ui/src/workspaces/image/` holds the workspace: the toolbox, the options bar, the layers panel (visibility, thumbnails, masks, clipping, labels, locks, blend mode, opacity, fill, search, drag to reorder or into groups), colour, saved selections and dialogs. Tool options are per window and kept in local storage, like the palette's recent commands. Every `image.*` app command is a ui action handled by the workspace, so shortcuts, menus, the palette and macros all reach them. The defaults follow Photoshop (V, M, L, W, I, B, E, G, H, Z, Q, D, X, [ and ], Ctrl+J, Ctrl+G, Ctrl+E, Ctrl+D, Ctrl+Shift+I and so on).
 
+### Transforms
+
+A free transform is a box in the document (`source`) and where its four corners land, which covers scale, rotate, skew, distort and perspective with one projective map, or a warp: a bicubic bezier patch of sixteen control points. Both become one phase 4 `TransformNode` (`TransformSpec::node`). The node gained a mesh mode for warps: the patch is cut into a 33 by 33 mesh, `mesh_grid` turns it around into a grid over the output saying where each point reads from (triangles mapped exactly, two rings extrapolated past the edge so it cuts cleanly), and the kernel interpolates that grid, so a warp costs the same per pixel as a matrix on both backends. The grid travels as the node's new `Attachment::Data`, whose hash is part of the node's cache key.
+
+- **Preview and commit share the graph.** While transforming, the window sends the spec in `PreviewRequest.transform`; the service plans which parts move (`transform::plan`) and `compose` puts the node into the document's graph in place of those parts. Enter renders the same small graph on the processor (`transform::prepare`) and stores the result, so what was previewed is what lands. The goldens check the gpu preview against the cpu commit.
+- **The pixels are worked out before the document is locked**, the same pattern as a brush stroke: `commit_transform` prepares the new rasters from a snapshot and executes a `Transform` command carrying them, which uses them if nothing changed meanwhile and repaints from its parameters otherwise (or in a macro).
+- **With a selection only the selected pixels move**: the layer is split by the selection with two `MaskNode`s, the lifted part transforms, and lands over the rest, which keeps a hole. The selection moves with it. A group transforms every layer in it; a layer mask that is being edited transforms on its own.
+- Masks and selections resample bilinearly (bicubic overshoot means nothing in a mask) and keep their fill value wherever nothing lands.
+- Flips and quarter turns, of the canvas or a layer, are exact whole pixel maps (`canvas::Ortho`), never resampled.
+- The window keeps the session in a small store (`session.ts`) and draws the handles, the warp grid and the selection carried along on the overlay with the same maths in TypeScript (`transformMath.ts`, tested against the rust cases). Numeric fields describe the box as centre, size, angle and skew while it is still a parallelogram.
+
+### Canvas, image size and crop
+
+Canvas size and plain crops shift every raster by whole pixels (layers, masks, the selection, saved selections and guides). A crop deletes what falls outside by default, like Photoshop; with that off, the pixels stay beyond the canvas and come back with canvas size, which rasters allow for free. Image size, straightened crops and perspective crops map every raster through the transform node. A perspective crop maps its quad straight onto the result (`TransformSpec::source_quad`), so the canvas's far corners never have to cross the horizon. Straightening fits the turned box inside the picture so no see through corners show.
+
+### Photoshop files
+
+`psd.rs` reads PSD and PSB itself, because the `psd` crate has no layer masks, fill opacity or 16 and 32 bit layers. It streams the file through a buffered reader and holds one layer's channels at a time, so a big PSB is never in memory whole. It keeps layers and groups (from the section divider records, bottom to top), blend modes, opacity, fill (`iOpa`), visibility, clipping, locks (`lspf` and the transparency flag), colour labels (`lclr`), unicode names, layer masks with their default colour and disabled flag, guides (resource 1032), the resolution and the colour profile. 16 and 32 bit layers come from the `Lr16` and `Lr32` blocks. Channels may be raw, packbits, zip, or zip with Photoshop's prediction (row deltas, and for 32 bit values byte planes first). Text, shape and smart object layers keep their stored pixels and say what they were in `origin`. CMYK, Lab, bitmap and indexed files fall back to the flattened picture.
+
+The tests use a writer that lives only in the tests (`tests/common/psd_writer.rs`), written from Adobe's specification rather than from the reader, to make files in every depth and compression, PSD and PSB, and check the layer tree, every setting and the composite against golden images.
+
+### Export
+
+`export.rs` renders the visible layers a tile at a time, then encodes. PNG stays 16 bit for 16 and 32 bit documents (32 bit is linear, so it goes out sRGB encoded). JPEG and AVIF go over a background colour. WebP and AVIF go through FFmpeg like the quick tools. "Fit under a size" calls phase 3's `size::image::squeeze`, made public for this, so the image editor and Export to X MB share one quality search and scaling ladder. The colour profile is written into PNG (`iCCP`), JPEG (`APP2` segments) and WebP (a `VP8X` header and an `ICCP` chunk); FFmpeg cannot put one in an AVIF, so AVIF is converted to sRGB instead. Export is a job whose result is a quick tool result, so the jobs panel opens it.
+
+### Rulers, guides and snapping
+
+Guides are part of the document (`ImageDocument.guides`, saved in the manifest), so adding, moving and deleting one are commands that undo; whether they show, lock or snap is per window, like the tool options. Rulers, guides, the grid and the pink smart guide lines are drawn by one wrapper around whatever tool is active (`aids.ts`), on the viewport's overlay with its camera, so they never lag the picture. Presses on a ruler drag out a guide; with the move tool a guide can be dragged, and dropping it back on a ruler deletes it. A shared snapper lines up the move tool, marquees, free transform and crop with guides, the grid, the canvas edges and middle, and other layers' edges and middles, within six screen pixels; Ctrl turns it off for one drag. Rulers show while the view is straight (a turned view has no sensible ruler).
+
 ### Brush latency
 
-`cargo run --release -p vellum-image --example bench_brush`: a 3840x2160 document with three layers under the one painted, a 60 pixel brush dragged across it in 240 batches of four pointer samples, the view 1920x1080 and still. Times are from samples arriving to every changed display tile being rendered, in the same 4 core container as phase 2 and 4, without a graphics card:
+`cargo run --release -p vellum-image --example bench_brush`: a 3840x2160 document with three layers under the one painted, a 60 pixel brush dragged across it in 240 batches of four pointer samples, the view 1920x1080 and still. Times are from samples arriving to every changed display tile being rendered, in the same 4 core container as phase 2 and 4, without a graphics card.
 
-| backend | zoom | paint | tiles | total, median | total, p95 |
-|---|---|---|---|---|---|
-| cpu | fit (about 50%) | 1.0 ms | 14.5 ms | 15.5 ms | 30.2 ms |
-| cpu | 100% | 0.9 ms | 23.3 ms | 24.1 ms | 50.7 ms |
-| gpu (lavapipe, software) | fit | 1.0 ms | 23.8 ms | 24.8 ms | 58.8 ms |
-| gpu (lavapipe, software) | 100% | 1.0 ms | 36.8 ms | 37.8 ms | 78.0 ms |
+Painting itself is about a millisecond; the rest is redrawing display tiles. In the first half every raster tile had one revision, so a dab anywhere in a 256 pixel tile changed the key of every display tile touching it, up to nine of them, because display tiles carry a one pixel gutter that overlaps their neighbours. Tiles now also keep a revision per 64 pixel block (`Tile::blocks`): a write gives only the blocks it touched a new revision, and `hash_region` hashes only the blocks under the region asked for, so a dab in the middle of a tile changes one display tile's key. Undo still puts whole tiles back with their old revisions, blocks included, so it keeps hitting the caches.
 
-Painting itself is about a millisecond; the rest is redrawing display tiles. One painted raster tile invalidates up to nine display tiles, because display tiles carry a one pixel gutter that overlaps their neighbours. Revisions per 64 pixel block instead of per tile would cut that by about three; it is the first thing to try if strokes feel slow on real machines. The gpu rows need a run on a real graphics card.
+Before and after, measured back to back on the same machine (the gpu rows ran on llvmpipe, Mesa's software OpenGL driver used through Vulkan, so they show the overhead of the gpu path, not a real card):
+
+| backend | zoom | display tiles sent | total, median | total, p95 |
+|---|---|---|---|---|
+| cpu | fit (about 50%) | 1732, now 978 | 13.7 ms, now 8.4 ms | 26.2 ms, now 22.4 ms |
+| cpu | 100% | 2657, now 1274 | 21.6 ms, now 10.7 ms | 46.5 ms, now 34.9 ms |
+| gpu (software) | fit | 1732, now 978 | 20.8 ms, now 11.5 ms | 61.8 ms, now 41.4 ms |
+| gpu (software) | 100% | 2657, now 1274 | 36.4 ms, now 13.9 ms | 76.0 ms, now 49.4 ms |
+
+The p95 frames are the ones where the brush crosses into new display tiles. The gpu rows still need a run on a real graphics card.
 
 ### Testing
 
 - Unit tests in every module: raster reads, writes, sharing, mips and bounds; selection areas against geometry (rectangles exact, ellipses within 0.2 percent, a triangle's area, a square grown by r gains four sides and four quarter circles), combine modes, wand, colour range, outlines, the live wire; the brush (opacity caps, flow builds up, pressure widens, the eraser and the selection); gradients and the eyedropper; every command undone and redone back to the same pixels; slider merging, failed commands, locks, grouping and moving; raster files at every depth, `.vellum` round trips and restoring from state files; the service opening a PNG in the background, a live stroke becoming one undo step, and save as.
 - Golden images (`tests/golden/image/`, `crates/vellum-image/tests/golden.rs`): seven compositing scenes (blend modes with opacity and fill, a layer mask, a clipping group with base fill, pass through and isolated groups, hidden and empty clipping bases, a 32 bit linear document) as 16 bit pngs, checked on the gpu too when one is present, and fifteen selection results (anti aliased and hard rectangles, an ellipse, a star filled by the non zero rule, add, subtract and intersect, feather, expand, contract, border, smooth, invert, contiguous and global wand, colour range, quick selection) as 8 bit masks. `VELLUM_UPDATE_GOLDEN=1` rewrites them; look at them before committing.
-- Core: state files written once and restored. Vitest: marquee boxes, modifier rules, brush steps, colour conversion, layer rows and search, the thumbnail format.
+- Second half: free transform with and without a selection, masks keeping their fill, the corner and warp maths, flips and quarter turns landing exactly, guides following turns, canvas size anchors and fill, crops that shift, clip and straighten, image size scaling everything, guides added, moved and removed; the transform node's mesh mode against a shifted mesh and against the gpu (`tests/engine.rs`); per block revisions keeping untouched keys; the PSD reader's packbits and prediction; export of 16 bit PNG with a profile, JPEG over a background with a profile, a WebP gaining its extended header, export to a size landing under it, and every format as a job through the service with real FFmpeg.
+- Golden images for the second half: eight transforms (bicubic and nearest turns, a bilinear shrink, skew, perspective, warp, flip, selected pixels moved) whose gpu preview must match the cpu commit, eight resamples (nearest, bilinear and bicubic, up and down) plus straightened and perspective crops, and PSD import composites at 8, 16 and 32 bits, which every compression and PSB must reproduce (`tests/psd.rs`, `tests/golden/image/{transform,resample,psd}/`).
+- Core: state files written once and restored. Vitest: marquee boxes, modifier rules, brush steps, colour conversion, layer rows and search, the thumbnail format, and the transform maths (the corner map against the rust cases, handles, numeric fields, straightening, fitting a turned crop, snapping, ruler steps).
+- **The real app was run** on Linux under Xvfb with openbox, built in release, with the window loaded from the Vite dev server: a JPEG opened through File, Open; a brush stroke, undo and redo; a marquee; Ctrl+T on the selected pixels, scaled, turned and committed; a warp previewed and cancelled; a turned and resized crop; rulers and two guides dragged out of them; save as `.vellum`, close, reopen (pixels, size and guides back); export to a 50 KB JPEG; image size; a quarter turn from the palette with the grid on; an ImageMagick written 16 bit layered PSD opened with its layers. What that found is fixed and listed in the changelog.
 
 ### Alternatives considered
 
@@ -906,13 +946,20 @@ Painting itself is about a millisecond; the rest is redrawing display tiles. One
 - *Mutating the document during a stroke* and recording the stroke afterwards. A stroke cut short by an undo would leave the history and the pixels disagreeing; keeping the stroke as a preview avoids that by construction.
 - *A dense mask per selection.* Simple, but a select all on a big canvas would cost gigabytes. Neighbourhood operations still use dense buffers, sized to the area they touch.
 - *Marching ants rendered by rust into tiles.* They would lag the picture while panning and blur when zoomed. Vector outlines in the overlay stay crisp.
-- *The `psd` crate* for layered PSD import (second half): it has no layer masks, fill opacity or 16 and 32 bit layers, so the second half writes its own reader.
+- *The `psd` crate* for layered PSD import: it has no layer masks, fill opacity or 16 and 32 bit layers, so Vellum reads PSD itself.
+- *Warps rendered by a separate node* that rasterises triangles. It would preview fine but could not share the transform node's sampling, supersampling and caching, and the preview and commit would have needed two code paths. An inverse grid read by the same kernel keeps one.
+- *Previewing a transform by rendering it in rust into a temporary raster* each time a handle moves. Simple, but every move would redo the whole layer on the cpu; a node in the graph is redrawn only for the display tiles that show it.
+- *Embedding a profile in AVIF* by writing the `colr` box ourselves. Possible, but it means editing an ISOBMFF file FFmpeg wrote; converting to sRGB is honest and safe until an AVIF encoder library is used directly.
+- *Revisions per pixel row or per 16 pixel block.* Finer blocks would cut display redraws a little more, but every key would hash many more numbers, and 64 pixels already brings a dab in the middle of a tile down to one display tile.
 
 ### Known limits
 
-- The second half of phase 5 is still to come: free transform, warp, perspective, flips and rotations, canvas size, image size, crop and perspective crop, transform selection, layered PSD import, PNG, JPEG, WebP and AVIF export with export to X MB, rulers, guides, smart guides, the grid and the navigator. Their shortcuts and menu entries exist and say so when used.
-- Pictures open at 8 bits per channel; 16 and 32 bit documents can be made new.
-- Long commands hold the one documents lock (section 11).
+- Pictures open at 8 bits per channel; 16 and 32 bit documents can be made new or come from PSD files.
+- Long commands hold the one documents lock (section 11). Free transform prepares its pixels before taking it; image size, straightened crops and perspective crops still compute inside it.
 - A save marks the step current when it finishes as saved, even if the user painted while it ran.
 - Pass through groups with opacity or a mask are exact over opaque backdrops only.
-- The real app was not run with these changes in this session; the service, commands and window code are tested separately (Rust integration tests, vitest, the existing Playwright suite).
+- A layer mask being edited transforms on its own and ignores the selection; Photoshop would move only the selected part of the mask.
+- Rulers hide while the view is turned.
+- PSD: CMYK, Lab, bitmap and indexed files open flattened; adjustment layers, layer styles, vector masks and smart object contents are not read (their stored pixels are). Linked masks are assumed, since the flag Photoshop writes for that is unclear in the specification. The file Info panel's preview of a PSD still comes from the media core's flattened reader, which refuses some files the layered reader opens.
+- AVIF exports are converted to sRGB rather than carrying the profile.
+- The gpu path of the preview and the brush benchmarks were measured only on software Vulkan.

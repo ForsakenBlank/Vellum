@@ -621,19 +621,23 @@ think carefully about threading, gpu memory, and how video playback will feed fr
 
 **Done when:**
 - [x] Raster documents with layers, groups, masks, clipping masks, blend modes, opacity/fill
-- [x] Selection tools: marquee, lasso, polygon, magnetic lasso, magic wand, quick selection, colour range (transform selection is with the transforms below)
-- [ ] Free transform, warp, perspective, rotate, flip, canvas/image size, crop with straighten
+- [x] Selection tools: marquee, lasso, polygon, magnetic lasso, magic wand, quick selection, colour range, transform selection
+- [x] Free transform, warp, perspective, rotate, flip, canvas/image size, crop with straighten
 - [x] Brush engine with pressure/tilt, smoothing, eraser, gradient, bucket, eyedropper
 - [x] Undo/redo for everything, history panel with snapshots
-- [ ] PSD import with layers; native `.vellum` save; PNG/JPG/WebP export (native `.vellum` save is done)
-- [ ] Rulers, guides, smart guides, grid
+- [x] PSD import with layers; native `.vellum` save; PNG/JPG/WebP export (and AVIF, PSB and export to X MB)
+- [x] Rulers, guides, smart guides, grid (and the navigator)
 
 **How it was built, where it differs from the prompt below** (details and reasons in `ARCHITECTURE.md` section 25):
-- Phase 5 was split in two to keep each session a sensible size. The first half (above) is the document model, compositing through the phase 4 engine, every selection tool and modifier, the brush engine and painting tools, undo for everything, the native file and the workspace UI. The second half is transforms, crop, canvas and image size, transform selection, layered PSD import, export with export to X MB, rulers, guides, smart guides, the grid and the navigator. Their shortcuts and menu entries already exist and say so when used.
+- Phase 5 was split in two to keep each session a sensible size. The first half is the document model, compositing through the phase 4 engine, every selection tool and modifier, the brush engine and painting tools, undo for everything, the native file and the workspace UI. The second half is transforms, crop, canvas and image size, transform selection, layered PSD import, export with export to X MB, rulers, guides, smart guides, the grid and the navigator.
+- Free transform and warp preview through the phase 4 transform node and commit by rendering the same graph, so the preview is the result. The node gained a mesh mode (a grid saying where each output point reads from) so warps cost what a matrix costs.
+- PSD and PSB are read by Vellum's own reader, since the `psd` crate has no masks, fill or 16 and 32 bit layers. CMYK, Lab, bitmap and indexed files still open flattened. Text layers keep Photoshop's pixels and are marked as text (editable type is phase 6).
+- Export embeds the colour profile in PNG, JPEG and WebP. AVIF is converted to sRGB instead, because FFmpeg cannot write a profile into it.
+- Guides are part of the document and undo; rulers, the grid and snapping are view settings per window.
 - The `.vellum` file is a zip holding the project folder (manifest, one file per raster, profile, thumbnail) rather than a bare folder, so it can be picked in an open dialog and attached to an email; an unzipped one opens too.
 - Undo keeps the document before and after each command, which costs a few pointer copies because tiles are shared and copied only when written.
 - A workspace's own shortcut now takes over a global one inside that workspace (Ctrl+E merges down in the image editor, exports to a size elsewhere). The window already behaved this way; the conflict checker now agrees.
-- Brush latency on a 4K canvas, without a graphics card: about 15 ms median from pointer samples to finished display tiles fitted to the screen, 24 ms at 100%.
+- Brush latency on a 4K canvas, without a graphics card: about 8 ms median from pointer samples to finished display tiles fitted to the screen, 11 ms at 100%, after the second half gave rasters a revision per 64 pixel block (it was 14 and 22 ms).
 
 **Model:** Fable 5.2 · **Effort:** xhigh
 

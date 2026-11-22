@@ -1,3 +1,4 @@
+import { ChevronRight } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import type { ViewportApi } from "../../components/viewport/tool";
@@ -8,7 +9,16 @@ import { useViewCamera } from "./viewCamera";
 
 /** the navigator's picture is this wide at most, in css pixels */
 const WIDE = 240;
-const TALL = 150;
+const TALL = 120;
+const OPEN_KEY = "vellum.imageNavigatorOpen";
+
+function startsOpen(): boolean {
+  try {
+    return localStorage.getItem(OPEN_KEY) !== "false";
+  } catch {
+    return true;
+  }
+}
 
 /**
  * a small picture of the whole document with the part the view shows outlined. drag in
@@ -24,16 +34,18 @@ export function Navigator({
   doc: string;
   width: number;
   height: number;
-  /** changes whenever the picture does */
-  revision: string;
+  /** a new value whenever the picture changes */
+  revision: unknown;
   view: ViewportApi | null;
 }) {
   const camera = useViewCamera((s) => s.views[doc] ?? null);
   const [thumb, setThumb] = useState<Thumb | null>(null);
+  const [open, setOpen] = useState(startsOpen);
   const canvas = useRef<HTMLCanvasElement>(null);
 
   // the picture, a moment after the last change
   useEffect(() => {
+    if (!open) return;
     let stale = false;
     const timer = window.setTimeout(() => {
       ipc
@@ -47,7 +59,7 @@ export function Navigator({
       stale = true;
       window.clearTimeout(timer);
     };
-  }, [doc, revision]);
+  }, [doc, revision, open]);
 
   const fitScale = Math.min(WIDE / width, TALL / height);
   const w = Math.max(1, Math.round(width * fitScale));
@@ -104,38 +116,62 @@ export function Navigator({
   // the slider moves along powers of two, so each notch feels the same
   const toSlider = (z: number) => Math.log2(z);
   return (
-    <section aria-label="Navigator" className="flex flex-col gap-1.5 border-b border-line p-2.5">
-      <h3 className="text-xs font-medium text-fg-muted">Navigator</h3>
-      <div className="flex justify-center rounded-md bg-canvas p-1">
-        <canvas
-          ref={canvas}
-          aria-label="Drag to move the view"
-          style={{ width: w, height: h }}
-          className="cursor-move touch-none"
-          onPointerDown={(e) => {
-            e.currentTarget.setPointerCapture(e.pointerId);
-            go(e);
-          }}
-          onPointerMove={(e) => {
-            if (e.buttons & 1) go(e);
-          }}
-        />
-      </div>
-      <label className="flex items-center gap-2 text-2xs text-fg-subtle">
-        <span className="w-12 tabular-nums">{zoomLabel(zoom)}</span>
-        <input
-          type="range"
-          aria-label="Zoom"
-          min={toSlider(MIN_ZOOM)}
-          max={toSlider(MAX_ZOOM)}
-          step={0.05}
-          value={toSlider(zoom)}
-          onChange={(e) => {
-            view?.setZoom(2 ** Number(e.target.value));
-          }}
-          className="flex-1 accent-(--accent)"
-        />
-      </label>
+    <section
+      aria-label="Navigator"
+      className="flex shrink-0 flex-col gap-1.5 border-b border-line p-2.5"
+    >
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => {
+          setOpen((o) => {
+            try {
+              localStorage.setItem(OPEN_KEY, String(!o));
+            } catch {
+              // only a convenience
+            }
+            return !o;
+          });
+        }}
+        className="flex items-center gap-1 text-left text-xs font-medium text-fg-muted hover:text-fg"
+      >
+        <ChevronRight className={`size-3.5 transition-transform ${open ? "rotate-90" : ""}`} />
+        Navigator
+      </button>
+      {open && (
+        <>
+          <div className="flex justify-center rounded-md bg-canvas p-1">
+            <canvas
+              ref={canvas}
+              aria-label="Drag to move the view"
+              style={{ width: w, height: h }}
+              className="cursor-move touch-none"
+              onPointerDown={(e) => {
+                e.currentTarget.setPointerCapture(e.pointerId);
+                go(e);
+              }}
+              onPointerMove={(e) => {
+                if (e.buttons & 1) go(e);
+              }}
+            />
+          </div>
+          <label className="flex items-center gap-2 text-2xs text-fg-subtle">
+            <span className="w-12 tabular-nums">{zoomLabel(zoom)}</span>
+            <input
+              type="range"
+              aria-label="Zoom"
+              min={toSlider(MIN_ZOOM)}
+              max={toSlider(MAX_ZOOM)}
+              step={0.05}
+              value={toSlider(zoom)}
+              onChange={(e) => {
+                view?.setZoom(2 ** Number(e.target.value));
+              }}
+              className="flex-1 accent-(--accent)"
+            />
+          </label>
+        </>
+      )}
     </section>
   );
 }

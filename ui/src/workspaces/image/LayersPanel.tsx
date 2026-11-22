@@ -129,7 +129,7 @@ export function LayersPanel({ doc, state, thumbs, fail, maskView, setMaskView }:
   };
 
   return (
-    <section aria-label="Layers" className="flex min-h-0 flex-1 flex-col">
+    <section aria-label="Layers" className="flex min-h-64 flex-1 flex-col">
       <div className="flex flex-col gap-1.5 border-b border-line px-2.5 py-2">
         <div className="flex items-center gap-1.5">
           <select

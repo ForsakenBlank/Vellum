@@ -107,10 +107,6 @@ export function ImageWorkspace({ doc }: { doc: DocumentInfo }) {
   }, [id, level, selectionKey, showAnts]);
 
   // layer thumbnails, a moment after the last change so a stroke does not ask for many
-  const layerKey = state
-    ? JSON.stringify(state.layers.map((l) => [l.id, l.bounds, l.mask?.raster.file])) +
-      JSON.stringify(state.layers)
-    : "";
   useEffect(() => {
     if (!state || state.loading) return;
     const wanted: [number, boolean][] = [];
@@ -135,8 +131,8 @@ export function ImageWorkspace({ doc }: { doc: DocumentInfo }) {
       stale = true;
       window.clearTimeout(timer);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, layerKey]);
+    // every change brings a new state, so painting inside a layer's bounds redraws too
+  }, [id, state]);
 
   // one preview request carries both the mask view and a free transform in progress
   const sendPreview = useMemo(
@@ -167,6 +163,13 @@ export function ImageWorkspace({ doc }: { doc: DocumentInfo }) {
     }
     sessions.setCrop(startCrop(id, stateRef.current, cropKind === "perspective"));
   }, [id, tools.tool, cropKind, width, height]);
+  // after a crop is applied the tool is ready for the next one
+  useEffect(() => {
+    const s = stateRef.current;
+    if (tools.tool === "crop" && !cropping && s && !s.loading) {
+      useSessions.getState().setCrop(startCrop(id, s, cropKind === "perspective"));
+    }
+  }, [id, tools.tool, cropKind, cropping]);
   useEffect(() => {
     view?.redraw();
   }, [crop, view]);
@@ -595,13 +598,13 @@ export function ImageWorkspace({ doc }: { doc: DocumentInfo }) {
         </div>
         <aside
           aria-label="Image panels"
-          className="flex w-72 shrink-0 flex-col border-l border-line bg-panel"
+          className="flex w-72 shrink-0 flex-col overflow-y-auto border-l border-line bg-panel"
         >
           <Navigator
             doc={id}
             width={state.width}
             height={state.height}
-            revision={layerKey}
+            revision={state}
             view={view}
           />
           <ColorPanel />

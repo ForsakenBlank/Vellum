@@ -116,6 +116,7 @@ export function ModifyDialog({
       }
     >
       <form
+        className="px-5 py-4"
         onSubmit={(e) => {
           e.preventDefault();
           apply();
@@ -179,7 +180,7 @@ export function ColorRangeDialog({
         </>
       }
     >
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-3 px-5 py-4">
         <div className="flex items-center gap-2 text-sm">
           <span
             className="size-6 rounded-md border border-line-strong"
@@ -287,7 +288,7 @@ export function NewImageDialog({
       }
     >
       <form
-        className="flex flex-col gap-3"
+        className="flex flex-col gap-3 px-5 py-4"
         onSubmit={(e) => {
           e.preventDefault();
           create();

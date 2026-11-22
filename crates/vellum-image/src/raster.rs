@@ -28,6 +28,10 @@ use vellum_gpu::image::{AlphaMode, SourceData, SourceFormat, SourcePixels};
 pub const TILE: u32 = 256;
 const TILE_I: i32 = TILE as i32;
 const TILE_PX: usize = (TILE * TILE) as usize;
+/// tiles keep a revision for each block this many pixels square, so a dab in the middle
+/// of a tile does not make every view tile that touches the tile draw again
+pub const BLOCK: i32 = 64;
+const BLOCKS: usize = (TILE_I / BLOCK) as usize;
 
 static NEXT_REV: AtomicU64 = AtomicU64::new(1);
 static NEXT_ID: AtomicU64 = AtomicU64::new(1);
@@ -192,6 +196,35 @@ fn to_u16(v: f32) -> u16 {
 pub struct Tile {
     pub data: Arc<TileData>,
     pub rev: u64,
+    /// the revision of each block, row by row; a write gives the blocks it touched the
+    /// tile's new revision and leaves the rest alone
+    pub blocks: [u64; BLOCKS * BLOCKS],
+}
+
+impl Tile {
+    fn new(data: Arc<TileData>, rev: u64) -> Self {
+        Self {
+            data,
+            rev,
+            blocks: [rev; BLOCKS * BLOCKS],
+        }
+    }
+
+    /// a new revision for the tile and for the blocks under `local`, in tile pixels
+    fn touch(&mut self, local: IRect) {
+        let rev = next_rev();
+        self.rev = rev;
+        if local.is_empty() {
+            return;
+        }
+        let (bx0, by0) = (local.x / BLOCK, local.y / BLOCK);
+        let (bx1, by1) = ((local.right() - 1) / BLOCK, (local.bottom() - 1) / BLOCK);
+        for by in by0.max(0)..=by1.min(BLOCKS as i32 - 1) {
+            for bx in bx0.max(0)..=bx1.min(BLOCKS as i32 - 1) {
+                self.blocks[by as usize * BLOCKS + bx as usize] = rev;
+            }
+        }
+    }
 }
 
 /// (level, tile x, tile y) to (stamp of the level 0 tiles it was built from, tile)
@@ -358,13 +391,7 @@ impl Raster {
             Some(data) => {
                 debug_assert_eq!(data.len(), TILE_PX * self.channels.n());
                 debug_assert_eq!(data.depth(), self.depth);
-                self.tiles.insert(
-                    (tx, ty),
-                    Tile {
-                        data,
-                        rev: next_rev(),
-                    },
-                );
+                self.tiles.insert((tx, ty), Tile::new(data, next_rev()));
             }
             None => {
                 self.tiles.remove(&(tx, ty));
@@ -390,11 +417,11 @@ impl Raster {
     /// revision.
     pub fn tile_mut(&mut self, tx: i32, ty: i32) -> &mut TileData {
         let (depth, channels, fill) = (self.depth, self.channels, self.fill);
-        let tile = self.tiles.entry((tx, ty)).or_insert_with(|| Tile {
-            data: Arc::new(TileData::filled(depth, channels, fill)),
-            rev: 0,
-        });
-        tile.rev = next_rev();
+        let tile = self
+            .tiles
+            .entry((tx, ty))
+            .or_insert_with(|| Tile::new(Arc::new(TileData::filled(depth, channels, fill)), 0));
+        tile.touch(IRect::new(0, 0, TILE, TILE));
         Arc::make_mut(&mut tile.data)
     }
 
@@ -448,9 +475,8 @@ impl Raster {
         let (depth, channels, fill) = (self.depth, self.channels, self.fill);
         work.par_iter_mut().for_each(|(key, tile)| {
             let both = tile_rect(key.0, key.1).intersect(&rect);
-            let t = tile.get_or_insert_with(|| Tile {
-                data: Arc::new(TileData::filled(depth, channels, fill)),
-                rev: 0,
+            let t = tile.get_or_insert_with(|| {
+                Tile::new(Arc::new(TileData::filled(depth, channels, fill)), 0)
             });
             let data = Arc::make_mut(&mut t.data);
             for y in both.y..both.bottom() {
@@ -461,7 +487,7 @@ impl Raster {
                     data.set(dst + k, values[src + k]);
                 }
             }
-            t.rev = next_rev();
+            t.touch(both.translate(-key.0 * TILE_I, -key.1 * TILE_I));
             if blank(&t.data, channels, fill) {
                 *tile = None;
             }
@@ -486,9 +512,8 @@ impl Raster {
         let (depth, channels, fill) = (self.depth, self.channels, self.fill);
         work.par_iter_mut().for_each(|(key, tile)| {
             let both = tile_rect(key.0, key.1).intersect(&rect);
-            let t = tile.get_or_insert_with(|| Tile {
-                data: Arc::new(TileData::filled(depth, channels, fill)),
-                rev: 0,
+            let t = tile.get_or_insert_with(|| {
+                Tile::new(Arc::new(TileData::filled(depth, channels, fill)), 0)
             });
             let data = Arc::make_mut(&mut t.data);
             let mut px = [0f32; 4];
@@ -504,7 +529,7 @@ impl Raster {
                     }
                 }
             }
-            t.rev = next_rev();
+            t.touch(both.translate(-key.0 * TILE_I, -key.1 * TILE_I));
             if blank(&t.data, channels, fill) {
                 *tile = None;
             }
@@ -578,12 +603,27 @@ impl Raster {
         out
     }
 
-    /// feeds the revisions of the level 0 tiles under a level 0 rectangle into `h`
+    /// feeds the revisions of the level 0 blocks under a level 0 rectangle into `h`.
+    /// only the blocks the rectangle touches count, so a change elsewhere in a tile keeps
+    /// the key.
     pub fn hash_region(&self, rect: IRect, h: &mut dyn Hasher) {
         h.write_u64(self.id);
         h.write_u32(self.fill.to_bits());
         for key in tiles_under(rect) {
-            h.write_u64(self.tiles.get(&key).map_or(0, |t| t.rev));
+            let Some(t) = self.tiles.get(&key) else {
+                h.write_u64(0);
+                continue;
+            };
+            let local = tile_rect(key.0, key.1)
+                .intersect(&rect)
+                .translate(-key.0 * TILE_I, -key.1 * TILE_I);
+            let (bx0, by0) = (local.x / BLOCK, local.y / BLOCK);
+            let (bx1, by1) = ((local.right() - 1) / BLOCK, (local.bottom() - 1) / BLOCK);
+            for by in by0..=by1 {
+                for bx in bx0..=bx1 {
+                    h.write_u64(t.blocks[by as usize * BLOCKS + bx as usize]);
+                }
+            }
         }
     }
 
@@ -846,6 +886,27 @@ mod tests {
         r.write(IRect::new(300, 40, 3, 2), &[0.5; 24]);
         assert_eq!(r.content_bounds(), IRect::new(300, 40, 3, 2));
         assert_eq!(r.tile_extent(), IRect::new(256, 0, 256, 256));
+    }
+
+    #[test]
+    fn keys_change_only_where_a_tile_was_painted() {
+        let mut r = Raster::rgba(Depth::U8);
+        r.write(IRect::new(0, 0, 256, 256), &vec![0.5; 256 * 256 * 4]);
+        let key = |r: &Raster, rect: IRect| {
+            let mut h = std::hash::DefaultHasher::new();
+            r.hash_region(rect, &mut h);
+            h.finish()
+        };
+        let far = IRect::new(200, 200, 40, 40);
+        let near = IRect::new(0, 0, 40, 40);
+        let (far_before, near_before) = (key(&r, far), key(&r, near));
+        let old = r.tile(0, 0).cloned();
+        r.update(IRect::new(10, 10, 5, 5), |_, _, px| px[0] = 1.0);
+        assert_eq!(key(&r, far), far_before, "an untouched block keeps its key");
+        assert_ne!(key(&r, near), near_before);
+        // undo puts the old tile back, blocks and all, so the old keys come back
+        r.restore_tile(0, 0, old);
+        assert_eq!(key(&r, near), near_before);
     }
 
     #[test]

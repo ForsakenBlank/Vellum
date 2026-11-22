@@ -34,7 +34,7 @@ function close(
   expect(a).toBeTruthy();
   expect(b).toBeTruthy();
   (a ?? []).forEach((v, i) => {
-    expect(Math.abs(v - (b[i] ?? NaN))).toBeLessThan(eps);
+    expect(Math.abs(v - (b?.[i] ?? NaN))).toBeLessThan(eps);
   });
 }
 
