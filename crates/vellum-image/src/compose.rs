@@ -181,6 +181,13 @@ impl Builder<'_> {
                 self.g.add(n)
             }
             Content::Smart(s) => self.smart(layer.id, s),
+            Content::Text { pixels, .. } | Content::Shape { pixels, .. } => {
+                if pixels.is_empty() {
+                    return None;
+                }
+                let (dx, dy) = self.shift(layer.id);
+                self.source(RasterSource::new(pixels.clone()).shifted(dx, dy))
+            }
         };
         let node = match &self.preview.mesh {
             Some((id, mesh)) if *id == layer.id => {
@@ -295,6 +302,20 @@ impl Builder<'_> {
 
     /// hides parts of `node` with the layer's mask
     fn masked(&mut self, layer: &Layer, node: NodeId) -> NodeId {
+        let node = match layer.vector_mask.as_ref().filter(|v| v.mask.enabled) {
+            Some(v) => {
+                let fill = v.raster.fill();
+                let (dx, dy) = self.shift(layer.id);
+                let m = self.source(RasterSource::new(v.raster.clone()).shifted(dx, dy));
+                self.g.add(
+                    Node::of(nodes::MaskNode)
+                        .param("outside", fill)
+                        .input(0, node)
+                        .input(1, m),
+                )
+            }
+            None => node,
+        };
         let Some(mask) = layer.mask.as_ref().filter(|m| m.enabled) else {
             return node;
         };

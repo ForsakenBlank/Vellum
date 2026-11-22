@@ -827,19 +827,51 @@ impl Edit for OffsetLayers {
         } else {
             self.ids.clone()
         };
-        fn shift_layer(l: &mut Layer, dx: i32, dy: i32) {
-            if let Content::Pixels(r) = &mut l.content {
-                *r = shifted(r, dx, dy);
+        let (depth, canvas, to_doc) = (doc.depth, doc.canvas(), crate::vector_ops::to_doc(doc));
+        let shift_layer = |l: &mut Layer, dx: i32, dy: i32| {
+            fn walk(
+                l: &mut Layer,
+                dx: i32,
+                dy: i32,
+                depth: Depth,
+                canvas: IRect,
+                to_doc: &dyn Fn([f32; 4]) -> [f32; 4],
+            ) {
+                let m = [1.0, 0.0, 0.0, 1.0, dx as f32, dy as f32];
+                match &mut l.content {
+                    Content::Pixels(r) => *r = shifted(r, dx, dy),
+                    // vector layers move their description and redraw; the shifted pixels
+                    // stand in while a missing font keeps them from redrawing
+                    Content::Text { pixels, .. } | Content::Shape { pixels, .. } => {
+                        *pixels = shifted(pixels, dx, dy);
+                    }
+                    _ => {}
+                }
+                let vector = matches!(
+                    l.content,
+                    Content::Text { .. } | Content::Shape { .. } | Content::Smart(_)
+                );
+                if vector || l.vector_mask.is_some() {
+                    let before = l.raster().cloned();
+                    crate::vector_ops::transform_layer(l, &m, depth, canvas, to_doc);
+                    // keep the shifted pixels if the redraw had nothing to draw with
+                    if let (Content::Text { text, pixels }, Some(b)) = (&mut l.content, before)
+                        && text.missing_font
+                    {
+                        *pixels = b;
+                    }
+                }
+                if let Some(m) = &mut l.mask
+                    && m.linked
+                {
+                    m.raster = shifted(&m.raster, dx, dy);
+                }
+                for c in l.children_mut().into_iter().flatten() {
+                    walk(c, dx, dy, depth, canvas, to_doc);
+                }
             }
-            if let Some(m) = &mut l.mask
-                && m.linked
-            {
-                m.raster = shifted(&m.raster, dx, dy);
-            }
-            for c in l.children_mut().into_iter().flatten() {
-                shift_layer(c, dx, dy);
-            }
-        }
+            walk(l, dx, dy, depth, canvas, &to_doc);
+        };
         for id in ids {
             let layer = layer_mut(doc, id)?;
             if layer.locks.position_locked() {
@@ -1565,6 +1597,16 @@ pub fn registry() -> CommandRegistry<ImageDocument> {
     add::<crate::retouch::ContentAwareMove>(&mut r, "Retouch");
     add::<crate::retouch::RedEye>(&mut r, "Retouch");
     add::<crate::warp::MeshWarp>(&mut r, "Filter");
+    add::<crate::vector_ops::AddText>(&mut r, "Type");
+    add::<crate::vector_ops::SetText>(&mut r, "Type");
+    add::<crate::vector_ops::ReplaceFont>(&mut r, "Type");
+    add::<crate::vector_ops::RefreshText>(&mut r, "Type");
+    add::<crate::vector_ops::AddShape>(&mut r, "Shapes");
+    add::<crate::vector_ops::SetShape>(&mut r, "Shapes");
+    add::<crate::vector_ops::SetVectorMask>(&mut r, "Layers");
+    add::<crate::vector_ops::SavePath>(&mut r, "Paths");
+    add::<crate::vector_ops::RemovePath>(&mut r, "Paths");
+    add::<crate::vector_ops::PathToSelection>(&mut r, "Paths");
     if let Err(err) = r.register::<RenameDocument>(CommandInfo {
         kind: RenameDocument::KIND,
         title: "Rename document",

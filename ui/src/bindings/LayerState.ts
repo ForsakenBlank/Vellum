@@ -8,7 +8,10 @@ import type { LayerId } from "./LayerId";
 import type { Locks } from "./Locks";
 import type { MaskState } from "./MaskState";
 import type { RasterRef } from "./RasterRef";
+import type { ShapeLayer } from "./ShapeLayer";
 import type { SmartState } from "./SmartState";
+import type { TextLayer } from "./TextLayer";
+import type { VectorMask } from "./VectorMask";
 
 export type LayerState = { id: LayerId, name: string, visible: boolean, opacity: number, fill: number, blend: BlendMode, passThrough: boolean, locks: Locks, label: Label, clipped: boolean, origin: string | null, group: boolean, expanded: boolean, 
 /**
@@ -18,4 +21,4 @@ children: Array<LayerState>, pixels: RasterRef | null, mask: MaskState | null,
 /**
  * where the layer has pixels, for the window's move handles and snapping
  */
-bounds: IRect, adjustment: Adjustment | null, fillLayer: FillLayer | null, smart: SmartState | null, };
+bounds: IRect, adjustment: Adjustment | null, fillLayer: FillLayer | null, smart: SmartState | null, text: TextLayer | null, shape: ShapeLayer | null, vectorMask: VectorMask | null, };

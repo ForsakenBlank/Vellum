@@ -454,8 +454,19 @@ pub struct Plan {
     pub lift: bool,
 }
 
+/// layers that keep a description (text, shapes, smart objects): a free transform changes
+/// the description rather than resampling pixels
+fn is_vector(layer: &Layer) -> bool {
+    matches!(
+        layer.content,
+        crate::document::Content::Text { .. }
+            | crate::document::Content::Shape { .. }
+            | crate::document::Content::Smart(_)
+    )
+}
+
 fn pixel_layers(layer: &Layer, out: &mut Vec<Part>) {
-    if layer.raster().is_some() {
+    if layer.raster().is_some() || layer.smart().is_some() {
         out.push(Part::Pixels(layer.id));
         if layer.mask.as_ref().is_some_and(|m| m.linked) {
             out.push(Part::Mask(layer.id));
@@ -543,6 +554,12 @@ pub fn prepare(
     };
     let mut out = Vec::new();
     for part in plan.parts {
+        // vector layers are transformed by `Transform::run` itself
+        if let Part::Pixels(id) = part
+            && doc.layer(id).is_some_and(is_vector)
+        {
+            continue;
+        }
         let base = paint::raster_for(doc, &part)?;
         let spec = match part {
             // outlines and masks never need more than smooth edges
@@ -603,6 +620,70 @@ impl Edit for Transform {
         };
         for (part, _, result) in parts {
             paint::set_part(doc, &part, result);
+        }
+        if self.target != TransformTarget::Selection {
+            self.vectors(doc)?;
+        }
+        Ok(())
+    }
+}
+
+impl Transform {
+    /// transforms text, shape and smart object layers: their description when the
+    /// transform is a plain move, scale, turn or skew, or their pixels when it is a
+    /// perspective or warp (which turns them into a pixel layer)
+    fn vectors(&self, doc: &mut ImageDocument) -> Result<(), String> {
+        let plan = plan(doc, self.target)?;
+        let ids: Vec<LayerId> = plan
+            .parts
+            .iter()
+            .filter_map(|p| match p {
+                Part::Pixels(id) if doc.layer(*id).is_some_and(is_vector) => Some(*id),
+                _ => None,
+            })
+            .collect();
+        if ids.is_empty() {
+            return Ok(());
+        }
+        let m = self.spec.matrix()?;
+        let affine = self.spec.warp.is_none()
+            && m[2][0].abs() < 1e-9
+            && m[2][1].abs() < 1e-9
+            && (m[2][2] - 1.0).abs() < 1e-9;
+        let (depth, canvas, to_doc) = (doc.depth, doc.canvas(), crate::vector_ops::to_doc(doc));
+        let working = doc.working();
+        for id in ids {
+            let Some(layer) = doc.layer_mut(id) else {
+                continue;
+            };
+            if affine {
+                let a = [
+                    m[0][0] as f32,
+                    m[1][0] as f32,
+                    m[0][1] as f32,
+                    m[1][1] as f32,
+                    m[0][2] as f32,
+                    m[1][2] as f32,
+                ];
+                crate::vector_ops::transform_layer(layer, &a, depth, canvas, &to_doc);
+                continue;
+            }
+            // perspective and warps bend pixels: draw the layer, then bend that
+            let mut solo = ImageDocument::empty("solo", canvas.w, canvas.h, depth);
+            solo.layers = vec![Layer {
+                visible: true,
+                opacity: 1.0,
+                fill: 1.0,
+                blend: vellum_gpu::BlendMode::Normal,
+                clipped: false,
+                mask: None,
+                vector_mask: None,
+                ..layer.clone()
+            }];
+            let bounds = layer.bounds();
+            let drawn = crate::flatten::merged(&solo, bounds, depth)?;
+            let bent = transform_raster(&drawn, &self.spec, None, working, None)?;
+            layer.content = crate::document::Content::Pixels(bent);
         }
         Ok(())
     }

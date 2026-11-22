@@ -91,6 +91,40 @@ pub enum Content {
     Fill(crate::fills::FillLayer),
     /// placed pixels that keep their quality through transforms, with live filters
     Smart(Box<crate::smart::SmartObject>),
+    /// type, kept as text and drawn into `pixels` whenever it changes
+    Text {
+        text: Box<crate::text::TextLayer>,
+        pixels: Raster,
+    },
+    /// vector shapes, drawn into `pixels` whenever they change
+    Shape {
+        shape: Box<crate::vector::ShapeLayer>,
+        pixels: Raster,
+    },
+}
+
+/// a vector mask and the coverage drawn from it
+#[derive(Clone, Debug)]
+pub struct LayerVectorMask {
+    pub mask: crate::vector::VectorMask,
+    pub raster: Raster,
+}
+
+impl LayerVectorMask {
+    pub fn new(mask: crate::vector::VectorMask, canvas: IRect) -> Self {
+        let raster = mask.raster(canvas);
+        Self { mask, raster }
+    }
+}
+
+/// a path kept in the paths panel
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct SavedPath {
+    pub id: u32,
+    pub name: String,
+    pub path: crate::vector::VectorPath,
 }
 
 #[derive(Clone, Debug)]
@@ -111,6 +145,7 @@ pub struct Layer {
     pub content: Content,
     /// what the layer was before it became pixels, eg "text" for imported type
     pub origin: Option<String>,
+    pub vector_mask: Option<LayerVectorMask>,
 }
 
 impl Layer {
@@ -128,6 +163,7 @@ impl Layer {
             mask: None,
             content: Content::Pixels(raster),
             origin: None,
+            vector_mask: None,
         }
     }
 
@@ -146,9 +182,11 @@ impl Layer {
         matches!(self.content, Content::Group { .. })
     }
 
+    /// the layer's own pixels: a pixel layer's, or what a text or shape layer last drew
     pub fn raster(&self) -> Option<&Raster> {
         match &self.content {
             Content::Pixels(r) => Some(r),
+            Content::Text { pixels, .. } | Content::Shape { pixels, .. } => Some(pixels),
             _ => None,
         }
     }
@@ -196,6 +234,8 @@ impl Layer {
             Content::Adjustment(_) => "adjustment layer",
             Content::Fill(_) => "fill layer",
             Content::Smart(_) => "smart object",
+            Content::Text { .. } => "text layer",
+            Content::Shape { .. } => "shape layer",
         }
     }
 
@@ -223,6 +263,7 @@ impl Layer {
                 .iter()
                 .fold(IRect::EMPTY, |acc, c| acc.union(&c.bounds())),
             Content::Smart(s) => s.bounds(),
+            Content::Text { pixels, .. } | Content::Shape { pixels, .. } => pixels.content_bounds(),
             Content::Adjustment(_) | Content::Fill(_) => IRect::EMPTY,
         }
     }
@@ -355,6 +396,8 @@ pub struct ImageDocument {
     /// the selection is shown as a red overlay and brushes paint it
     pub quick_mask: bool,
     pub guides: Vec<Guide>,
+    /// the paths panel
+    pub paths: Vec<SavedPath>,
     pub next_id: u32,
     /// set while the file is still loading in the background
     pub loading: Option<String>,
@@ -404,6 +447,7 @@ impl ImageDocument {
             channels: Vec::new(),
             quick_mask: false,
             guides: Vec::new(),
+            paths: Vec::new(),
             next_id: 1,
             loading: None,
         }

@@ -195,6 +195,15 @@ impl Edit for OrientCanvas {
         if matches!(self.op, Orient::Rotate90 | Orient::Rotate270) {
             std::mem::swap(&mut doc.width, &mut doc.height);
         }
+        // text, shapes and smart objects turn with the canvas and stay editable
+        let m = match self.op {
+            Orient::FlipHorizontal => [-1.0, 0.0, 0.0, 1.0, wf, 0.0],
+            Orient::FlipVertical => [1.0, 0.0, 0.0, -1.0, 0.0, hf],
+            Orient::Rotate180 => [-1.0, 0.0, 0.0, -1.0, wf, hf],
+            Orient::Rotate90 => [0.0, 1.0, -1.0, 0.0, hf, 0.0],
+            Orient::Rotate270 => [0.0, -1.0, 1.0, 0.0, 0.0, wf],
+        };
+        crate::vector_ops::transform_vectors(doc, &m);
         Ok(())
     }
 }
@@ -284,6 +293,7 @@ fn shift_all(doc: &mut ImageDocument, dx: i32, dy: i32) -> Result<(), String> {
         *r = crate::commands::shifted(r, dx, dy);
         Ok(())
     })?;
+    crate::vector_ops::transform_vectors(doc, &[1.0, 0.0, 0.0, 1.0, dx as f32, dy as f32]);
     for g in &mut doc.guides {
         g.position += if g.vertical { dx as f32 } else { dy as f32 };
     }
@@ -428,6 +438,7 @@ impl Edit for ImageSize {
         }
         doc.width = self.width;
         doc.height = self.height;
+        crate::vector_ops::transform_vectors(doc, &[sx as f32, 0.0, 0.0, sy as f32, 0.0, 0.0]);
         Ok(())
     }
 }
@@ -498,15 +509,35 @@ impl Edit for Crop {
                 [0.0, f64::from(h)],
             ];
             let from = self.corners();
-            quad_to_quad(&from, &to).ok_or(
+            let m = quad_to_quad(&from, &to).ok_or(
                 "That crop folds over itself. Move its corners so it stays the right way out.",
             )?;
+            // a straightened crop is a turn and a move, which vector layers can follow; a
+            // perspective crop bends them, so they become pixels first
+            let affine = m[2][0].abs() < 1e-9 && m[2][1].abs() < 1e-9;
+            if !affine {
+                crate::vector_ops::rasterize_vectors(doc)?;
+            }
             let mut spec = TransformSpec::identity(canvas);
             spec.interpolation = self.interpolation;
             spec.source_quad = Some(from.map(|p| [p[0] as f32, p[1] as f32]));
             transform_all(doc, &spec, self.delete_outside.then_some(canvas))?;
             // guides would no longer line up with anything
             doc.guides.clear();
+            if affine {
+                let n = m[2][2];
+                let a = [
+                    (m[0][0] / n) as f32,
+                    (m[1][0] / n) as f32,
+                    (m[0][1] / n) as f32,
+                    (m[1][1] / n) as f32,
+                    (m[0][2] / n) as f32,
+                    (m[1][2] / n) as f32,
+                ];
+                doc.width = w;
+                doc.height = h;
+                crate::vector_ops::transform_vectors(doc, &a);
+            }
         } else {
             let dx = -(self.rect[0].round() as i32);
             let dy = -(self.rect[1].round() as i32);

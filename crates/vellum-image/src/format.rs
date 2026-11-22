@@ -99,6 +99,12 @@ pub struct LayerState {
     pub fill_layer: Option<crate::fills::FillLayer>,
     #[serde(default)]
     pub smart: Option<SmartState>,
+    #[serde(default)]
+    pub text: Option<crate::text::TextLayer>,
+    #[serde(default)]
+    pub shape: Option<crate::vector::ShapeLayer>,
+    #[serde(default)]
+    pub vector_mask: Option<crate::vector::VectorMask>,
 }
 
 /// a smart object without its pixels
@@ -170,6 +176,8 @@ pub struct ImageState {
     pub quick_mask: bool,
     #[serde(default)]
     pub guides: Vec<Guide>,
+    #[serde(default)]
+    pub paths: Vec<crate::document::SavedPath>,
     pub next_id: u32,
     /// the file still loading in the background, if any
     #[serde(default)]
@@ -188,6 +196,7 @@ pub fn describe(doc: &ImageDocument) -> (ImageState, Vec<(String, Raster)>) {
     };
     fn layer(l: &Layer, add: &mut dyn FnMut(String, &Raster) -> RasterRef) -> LayerState {
         let (mut adjustment, mut fill_layer, mut smart) = (None, None, None);
+        let (mut text, mut shape) = (None, None);
         let (group, expanded, pass_through, children, pixels) = match &l.content {
             Content::Pixels(r) => (
                 false,
@@ -232,6 +241,16 @@ pub fn describe(doc: &ImageDocument) -> (ImageState, Vec<(String, Raster)>) {
                 children.iter().map(|c| layer(c, add)).collect(),
                 None,
             ),
+            Content::Text { text: t, pixels } => {
+                text = Some((**t).clone());
+                let r = add(format!("layer-{}.bin", l.id.0), pixels);
+                (false, false, false, Vec::new(), Some(r))
+            }
+            Content::Shape { shape: sh, pixels } => {
+                shape = Some((**sh).clone());
+                let r = add(format!("layer-{}.bin", l.id.0), pixels);
+                (false, false, false, Vec::new(), Some(r))
+            }
         };
         LayerState {
             id: l.id,
@@ -258,6 +277,9 @@ pub fn describe(doc: &ImageDocument) -> (ImageState, Vec<(String, Raster)>) {
             adjustment,
             fill_layer,
             smart,
+            text,
+            shape,
+            vector_mask: l.vector_mask.as_ref().map(|v| v.mask.clone()),
         }
     }
     let layers = doc.layers.iter().map(|l| layer(l, &mut add)).collect();
@@ -297,6 +319,7 @@ pub fn describe(doc: &ImageDocument) -> (ImageState, Vec<(String, Raster)>) {
         channels,
         quick_mask: doc.quick_mask,
         guides: doc.guides.clone(),
+        paths: doc.paths.clone(),
         next_id: doc.next_id,
         loading: doc.loading.clone(),
     };
@@ -327,16 +350,33 @@ pub fn assemble(
         s: LayerState,
         load: &dyn Fn(&RasterRef, Channels) -> Result<Raster, String>,
         depth: Depth,
+        canvas: IRect,
     ) -> Result<Layer, String> {
         let content = if s.group {
             Content::Group {
                 children: s
                     .children
                     .into_iter()
-                    .map(|c| layer(c, load, depth))
+                    .map(|c| layer(c, load, depth, canvas))
                     .collect::<Result<_, _>>()?,
                 expanded: s.expanded,
                 pass_through: s.pass_through,
+            }
+        } else if let Some(t) = s.text {
+            Content::Text {
+                text: Box::new(t),
+                pixels: match &s.pixels {
+                    Some(r) => load(r, Channels::Rgba)?,
+                    None => Raster::rgba(depth),
+                },
+            }
+        } else if let Some(sh) = s.shape {
+            Content::Shape {
+                shape: Box::new(sh),
+                pixels: match &s.pixels {
+                    Some(r) => load(r, Channels::Rgba)?,
+                    None => Raster::rgba(depth),
+                },
             }
         } else if let Some(a) = s.adjustment {
             Content::Adjustment(a)
@@ -385,6 +425,9 @@ pub fn assemble(
             mask,
             content,
             origin: s.origin,
+            vector_mask: s
+                .vector_mask
+                .map(|m| crate::document::LayerVectorMask::new(m, canvas)),
         })
     }
     let mut doc = ImageDocument::empty(state.title, state.width, state.height, state.depth);
@@ -397,7 +440,14 @@ pub fn assemble(
     doc.layers = state
         .layers
         .into_iter()
-        .map(|l| layer(l, &load, state.depth))
+        .map(|l| {
+            layer(
+                l,
+                &load,
+                state.depth,
+                IRect::of_size(state.width, state.height),
+            )
+        })
         .collect::<Result<_, _>>()?;
     doc.active = state.active.filter(|id| doc.layer(*id).is_some());
     doc.target = state.target;
@@ -424,6 +474,7 @@ pub fn assemble(
         .collect::<Result<_, String>>()?;
     doc.quick_mask = state.quick_mask;
     doc.guides = state.guides;
+    doc.paths = state.paths;
     let highest = doc.all_layers().iter().map(|l| l.id.0).max().unwrap_or(0);
     doc.next_id = state.next_id.max(highest + 1);
     doc.loading = state.loading;

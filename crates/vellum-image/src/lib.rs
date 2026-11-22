@@ -25,8 +25,10 @@ pub mod retouch;
 pub mod selection;
 pub mod service;
 pub mod smart;
+pub mod text;
 pub mod transform;
 pub mod vector;
+pub mod vector_ops;
 pub mod warp;
 
 pub use compose::{Part, Preview, build};

@@ -7,6 +7,7 @@ import type { IRect } from "./IRect";
 import type { LayerId } from "./LayerId";
 import type { LayerState } from "./LayerState";
 import type { RasterRef } from "./RasterRef";
+import type { SavedPath } from "./SavedPath";
 
 /**
  * the whole document without its pixels
@@ -19,7 +20,7 @@ kind: string, format: number, title: string, width: number, height: number, dept
 /**
  * where the selection is, for the window
  */
-selectionBounds: IRect | null, lastSelection: RasterRef | null, channels: Array<ChannelState>, quickMask: boolean, guides: Array<Guide>, nextId: number, 
+selectionBounds: IRect | null, lastSelection: RasterRef | null, channels: Array<ChannelState>, quickMask: boolean, guides: Array<Guide>, paths: Array<SavedPath>, nextId: number, 
 /**
  * the file still loading in the background, if any
  */
