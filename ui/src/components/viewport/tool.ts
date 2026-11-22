@@ -1,5 +1,7 @@
 import { type Camera, type Size, toDocument, toScreen } from "../../lib/viewport/camera";
 
+export type { Camera, Size };
+
 /** what a tool can ask the viewport while it works */
 export interface ViewportContext {
   /** the document pixel position under a point on the page */
@@ -42,6 +44,15 @@ export interface ViewportApi {
   zoomStep: (direction: 1 | -1) => void;
   /** zooms by a factor around a document point */
   zoomAround: (x: number, y: number, factor: number) => void;
+  /** moves the view so a document point is in the middle */
+  centerOn: (x: number, y: number) => void;
+  /** zooms to an exact level about the middle of the view */
+  setZoom: (zoom: number) => void;
+  /** where the view looks now */
+  camera: () => Camera;
+  size: () => Size;
+  /** draws the overlay again, eg after a tool's state changed outside the view */
+  redraw: () => void;
 }
 
 interface Holder<T> {

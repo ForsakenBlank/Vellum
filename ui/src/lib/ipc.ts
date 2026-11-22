@@ -11,6 +11,7 @@ import type { CommandInfo } from "../bindings/CommandInfo";
 import type { CommandOutcome } from "../bindings/CommandOutcome";
 import type { ConvertTarget } from "../bindings/ConvertTarget";
 import type { DocumentInfo } from "../bindings/DocumentInfo";
+import type { ExportOptions } from "../bindings/ExportOptions";
 import type { DocumentState } from "../bindings/DocumentState";
 import type { EngineStatus } from "../bindings/EngineStatus";
 import type { GifFramesView } from "../bindings/GifFramesView";
@@ -25,6 +26,8 @@ import type { MediaCapabilities } from "../bindings/MediaCapabilities";
 import type { MediaInfo } from "../bindings/MediaInfo";
 import type { NewImage } from "../bindings/NewImage";
 import type { PreviewRequest } from "../bindings/PreviewRequest";
+import type { TransformRequest } from "../bindings/TransformRequest";
+import type { TransformTarget } from "../bindings/TransformTarget";
 import type { StrokePoint } from "../bindings/StrokePoint";
 import type { NodeId } from "../bindings/NodeId";
 import type { NotificationsChanged } from "../bindings/NotificationsChanged";
@@ -162,4 +165,10 @@ export const ipc = {
     invoke<ArrayBuffer>("image_thumbnails", { document, layers, size }),
   imageSaveAs: (document: string, path: string) =>
     invoke<JobId>("image_save_as", { document, path }),
+  imageTransformBox: (document: string, target: TransformTarget) =>
+    invoke<[number, number, number, number]>("image_transform_box", { document, target }),
+  imageTransform: (document: string, request: TransformRequest) =>
+    invoke<null>("image_transform", { document, request }),
+  imageExport: (document: string, path: string, options: ExportOptions) =>
+    invoke<JobId>("image_export", { document, path, options }),
 };

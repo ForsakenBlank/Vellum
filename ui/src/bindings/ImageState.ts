@@ -2,6 +2,7 @@
 import type { ChannelState } from "./ChannelState";
 import type { Depth } from "./Depth";
 import type { EditTarget } from "./EditTarget";
+import type { Guide } from "./Guide";
 import type { IRect } from "./IRect";
 import type { LayerId } from "./LayerId";
 import type { LayerState } from "./LayerState";
@@ -18,7 +19,7 @@ kind: string, format: number, title: string, width: number, height: number, dept
 /**
  * where the selection is, for the window
  */
-selectionBounds: IRect | null, lastSelection: RasterRef | null, channels: Array<ChannelState>, quickMask: boolean, nextId: number, 
+selectionBounds: IRect | null, lastSelection: RasterRef | null, channels: Array<ChannelState>, quickMask: boolean, guides: Array<Guide>, nextId: number, 
 /**
  * the file still loading in the background, if any
  */

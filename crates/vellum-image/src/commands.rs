@@ -1542,6 +1542,15 @@ pub fn registry() -> CommandRegistry<ImageDocument> {
     add::<Bucket>(&mut r, "Paint");
     add::<Gradient>(&mut r, "Paint");
     add::<FillSelection>(&mut r, "Paint");
+    add::<crate::transform::Transform>(&mut r, "Transform");
+    add::<crate::canvas::OrientCanvas>(&mut r, "Image");
+    add::<crate::canvas::OrientLayer>(&mut r, "Transform");
+    add::<crate::canvas::CanvasSize>(&mut r, "Image");
+    add::<crate::canvas::ImageSize>(&mut r, "Image");
+    add::<crate::canvas::Crop>(&mut r, "Image");
+    add::<crate::canvas::AddGuide>(&mut r, "View");
+    add::<crate::canvas::MoveGuide>(&mut r, "View");
+    add::<crate::canvas::ClearGuides>(&mut r, "View");
     if let Err(err) = r.register::<RenameDocument>(CommandInfo {
         kind: RenameDocument::KIND,
         title: "Rename document",

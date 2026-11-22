@@ -8,8 +8,10 @@ use tauri::State;
 use vellum_core::command::CommandRecord;
 use vellum_core::documents::DocumentInfo;
 use vellum_core::jobs::JobId;
+use vellum_image::export::ExportOptions;
 use vellum_image::paint::{BrushSettings, StrokePoint};
-use vellum_image::service::{ImageService, NewImage, PreviewRequest};
+use vellum_image::service::{ImageService, NewImage, PreviewRequest, TransformRequest};
+use vellum_image::transform::TransformTarget;
 
 use crate::ipc::{IpcError, IpcResult};
 use crate::state::AppState;
@@ -176,5 +178,45 @@ pub fn image_save_as(
     state
         .images
         .save_as(&document, &path)
+        .map_err(IpcError::Invalid)
+}
+
+/// the box free transform starts from: the selection or the layer's pixels
+#[tauri::command]
+pub async fn image_transform_box(
+    state: State<'_, AppState>,
+    document: String,
+    target: TransformTarget,
+) -> IpcResult<[i32; 4]> {
+    off_main(&state, move |images| {
+        images.transform_box(&document, target)
+    })
+    .await
+}
+
+/// commits a free transform, warp or transform selection as one step
+#[tauri::command]
+pub async fn image_transform(
+    state: State<'_, AppState>,
+    document: String,
+    request: TransformRequest,
+) -> IpcResult<()> {
+    off_main(&state, move |images| {
+        images.commit_transform(&document, request)
+    })
+    .await
+}
+
+/// exports the picture as png, jpeg, webp or avif in a job
+#[tauri::command]
+pub fn image_export(
+    state: State<'_, AppState>,
+    document: String,
+    path: PathBuf,
+    options: ExportOptions,
+) -> IpcResult<JobId> {
+    state
+        .images
+        .export(&document, &path, options)
         .map_err(IpcError::Invalid)
 }

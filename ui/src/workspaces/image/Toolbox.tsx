@@ -14,6 +14,7 @@ import {
   Wand2,
   ZoomIn,
   Blend,
+  Crop,
   Magnet,
   Spline,
   VenetianMask,
@@ -51,6 +52,12 @@ const entries: Entry[] = [
     command: "image.tool.wand",
     label: "Magic wand and quick selection",
     icon: (t) => (t.wand === "quick" ? SquareDashedMousePointer : Wand2),
+  },
+  {
+    tool: "crop",
+    command: "image.tool.crop",
+    label: "Crop: drag the edges, turn outside the box to straighten. Enter crops",
+    icon: () => Crop,
   },
   {
     tool: "eyedropper",

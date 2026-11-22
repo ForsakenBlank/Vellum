@@ -30,9 +30,11 @@ use vellum_media::picture::{self, DecodeOptions};
 use crate::commands::{self, Cmd, PaintStroke};
 use crate::compose::{self, Preview};
 use crate::document::{DocColor, ImageDocument, Layer, LayerId};
+use crate::export::ExportOptions;
 use crate::paint::{self, BrushSettings, Stroke, StrokePoint};
 use crate::raster::{Depth, Raster};
 use crate::selection::{self, EdgeMap};
+use crate::transform::{self, TransformSpec, TransformTarget};
 use crate::{flatten, format};
 
 /// the display transform for a working space, from the render settings
@@ -74,6 +76,17 @@ pub struct PreviewRequest {
     pub offset: Option<(Vec<LayerId>, i32, i32)>,
     /// a layer whose mask is shown on its own
     pub show_mask: Option<LayerId>,
+    /// a free transform in progress
+    pub transform: Option<TransformRequest>,
+}
+
+/// a free transform the window is showing or committing
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct TransformRequest {
+    pub target: TransformTarget,
+    pub spec: TransformSpec,
 }
 
 struct LiveStroke {
@@ -234,6 +247,16 @@ impl ImageService {
             doc.title.clear();
             return Ok(doc);
         }
+        let layered = path
+            .extension()
+            .is_some_and(|e| e.eq_ignore_ascii_case("psd") || e.eq_ignore_ascii_case("psb"));
+        if layered {
+            match crate::psd::open(path) {
+                Ok(doc) => return Ok(doc),
+                // modes without layers vellum can keep (cmyk, lab, bitmap) open flattened
+                Err(err) => tracing::info!(%err, "opening a photoshop file flattened"),
+            }
+        }
         let mut pic = picture::decode(path, DecodeOptions::default(), self.inner.media.ffmpeg())
             .map_err(failed)?;
         let icc = pic.icc.take();
@@ -360,6 +383,50 @@ impl ImageService {
                     docs.mark_saved(&id).map_err(JobError::fatal)?;
                 }
                 Ok(serde_json::json!({ "path": path.display().to_string() }))
+            },
+        ))
+    }
+
+    /// exports the picture as png, jpeg, webp or avif in a background job. the result
+    /// says what was done, like the quick tools' results, so the jobs panel can open it.
+    pub fn export(&self, id: &str, path: &Path, options: ExportOptions) -> Result<JobId, String> {
+        let doc = self.read(id, ImageDocument::clone)?;
+        if doc.loading.is_some() {
+            return Err("The picture is still opening.".into());
+        }
+        let ext = options.format.extension();
+        let path = if path.extension().is_some_and(|e| {
+            e.eq_ignore_ascii_case(ext) || (ext == "jpg" && e.eq_ignore_ascii_case("jpeg"))
+        }) {
+            path.to_path_buf()
+        } else {
+            path.with_extension(ext)
+        };
+        let me = self.clone();
+        let name = display_name(&path);
+        Ok(self.app().jobs.submit(
+            JobSpec::cpu(format!("Export {name}"))
+                .owned_by(id.to_owned())
+                .about(path.display().to_string()),
+            move |ctx: &vellum_core::jobs::JobContext| {
+                ctx.checkpoint()?;
+                let media = &me.inner.media;
+                let hardware = media.hardware();
+                let env = vellum_export::Env {
+                    ffmpeg: media.ffmpeg(),
+                    hardware: &hardware,
+                    allow_hardware: false,
+                    output_folder: None,
+                };
+                let margin = me.app().settings.get().export.safety_margin_percent;
+                match crate::export::export(&doc, &path, &options, &env, margin, ctx) {
+                    Ok(result) => Ok(serde_json::to_value(result).map_err(JobError::failed)?),
+                    Err(err) => {
+                        // a cancel shows as cancelled rather than as a failure
+                        ctx.checkpoint()?;
+                        Err(JobError::failed(err))
+                    }
+                }
             },
         ))
     }
@@ -546,13 +613,58 @@ impl ImageService {
 
     /// shows a tool's temporary change, eg a layer being dragged
     pub fn set_preview(&self, id: &str, request: PreviewRequest) {
+        let transform = request.transform.and_then(|t| {
+            let plan = self.read(id, |d| transform::plan(d, t.target)).ok()?.ok()?;
+            Some(compose::TransformPreview { spec: t.spec, plan })
+        });
         {
             let mut live = self.inner.live.lock();
             let l = live.entry(id.to_owned()).or_default();
             l.preview.offset = request.offset;
             l.preview.show_mask = request.show_mask;
+            l.preview.transform = transform;
         }
         self.refresh(id);
+    }
+
+    /// the box free transform starts from, x y w h, or an error saying why it cannot
+    pub fn transform_box(&self, id: &str, target: TransformTarget) -> Result<[i32; 4], String> {
+        let b = self.read(id, |d| transform::start_box(d, target))??;
+        if b.is_empty() {
+            return Err(
+                "There are no pixels to transform here. Pick a layer with something on it.".into(),
+            );
+        }
+        Ok([b.x, b.y, b.w as i32, b.h as i32])
+    }
+
+    /// commits a free transform as one undoable step. the pixels are worked out before
+    /// the document is locked, so other documents do not wait for a big transform.
+    pub fn commit_transform(&self, id: &str, request: TransformRequest) -> Result<(), String> {
+        let doc = self.read(id, ImageDocument::clone)?;
+        let prepared = transform::prepare(&doc, request.target, &request.spec);
+        {
+            let mut live = self.inner.live.lock();
+            if let Some(l) = live.get_mut(id) {
+                l.preview.transform = None;
+            }
+        }
+        let result = prepared.and_then(|parts| {
+            let edit = transform::Transform {
+                spec: request.spec,
+                target: request.target,
+                prepared: Some(parts),
+            };
+            self.app()
+                .documents
+                .execute_command::<ImageDocument>(id, Box::new(Cmd::new(edit)))
+                .map_err(|err| match err {
+                    vellum_core::documents::DocumentError::Command(CommandError::Failed(m)) => m,
+                    other => other.to_string(),
+                })
+        });
+        self.refresh(id);
+        result
     }
 
     /// the selection outline for marching ants, at a mip level that suits the zoom
@@ -725,6 +837,68 @@ mod tests {
             .read(&info.id, |d| d.layers[0].raster().unwrap().get(100, 100, 0))
             .unwrap();
         assert_eq!(undone, 1.0);
+    }
+
+    fn wait(app: &AppServices, job: JobId) -> vellum_core::jobs::JobSnapshot {
+        for _ in 0..3000 {
+            if let Some(j) = app.jobs.snapshot(job).filter(|j| j.state.is_finished()) {
+                return j;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+        panic!("the job did not finish");
+    }
+
+    #[test]
+    fn export_writes_every_format_as_a_job() {
+        let (dir, app, service) = start();
+        let info = service
+            .new_document(
+                &NewImage {
+                    title: Some("art".into()),
+                    width: 64,
+                    height: 48,
+                    depth: Depth::U8,
+                    background: Some([0.2, 0.6, 0.9, 1.0]),
+                },
+                "main",
+            )
+            .unwrap();
+        let has_ffmpeg = vellum_media::ffmpeg::Ffmpeg::locate().is_ok();
+        for format in [
+            crate::export::ExportFormat::Png,
+            crate::export::ExportFormat::Jpeg,
+            crate::export::ExportFormat::Webp,
+            crate::export::ExportFormat::Avif,
+        ] {
+            let needs_ffmpeg = matches!(
+                format,
+                crate::export::ExportFormat::Webp | crate::export::ExportFormat::Avif
+            );
+            if needs_ffmpeg && !has_ffmpeg {
+                assert!(
+                    std::env::var_os("VELLUM_REQUIRE_FFMPEG").is_none(),
+                    "ffmpeg is missing"
+                );
+                continue;
+            }
+            // the extension follows the format
+            let path = dir.path().join("out.bin");
+            let options = ExportOptions {
+                format,
+                ..ExportOptions::default()
+            };
+            let job = service.export(&info.id, &path, options).unwrap();
+            let done = wait(&app, job);
+            assert!(
+                matches!(done.state, vellum_core::jobs::JobState::Completed),
+                "{format:?}: {:?}",
+                done.state
+            );
+            let written = dir.path().join(format!("out.{}", format.extension()));
+            let probe = image::ImageReader::open(&written).and_then(|r| r.with_guessed_format());
+            assert!(written.exists() && probe.is_ok(), "{format:?}");
+        }
     }
 
     #[test]

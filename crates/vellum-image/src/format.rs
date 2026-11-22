@@ -31,7 +31,7 @@ use vellum_core::documents::{DocumentError, DocumentModel, StateFile};
 use vellum_gpu::{BlendMode, IRect};
 
 use crate::document::{
-    Content, DocColor, EditTarget, ImageDocument, Label, Layer, LayerId, LayerMask, Locks,
+    Content, DocColor, EditTarget, Guide, ImageDocument, Label, Layer, LayerId, LayerMask, Locks,
     SavedChannel,
 };
 use crate::raster::{Channels, Depth, Raster, TILE, TileData};
@@ -137,6 +137,8 @@ pub struct ImageState {
     pub channels: Vec<ChannelState>,
     #[serde(default)]
     pub quick_mask: bool,
+    #[serde(default)]
+    pub guides: Vec<Guide>,
     pub next_id: u32,
     /// the file still loading in the background, if any
     #[serde(default)]
@@ -234,6 +236,7 @@ pub fn describe(doc: &ImageDocument) -> (ImageState, Vec<(String, Raster)>) {
         last_selection,
         channels,
         quick_mask: doc.quick_mask,
+        guides: doc.guides.clone(),
         next_id: doc.next_id,
         loading: doc.loading.clone(),
     };
@@ -340,6 +343,7 @@ pub fn assemble(
         })
         .collect::<Result<_, String>>()?;
     doc.quick_mask = state.quick_mask;
+    doc.guides = state.guides;
     let highest = doc.all_layers().iter().map(|l| l.id.0).max().unwrap_or(0);
     doc.next_id = state.next_id.max(highest + 1);
     doc.loading = state.loading;

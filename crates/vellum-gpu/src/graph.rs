@@ -100,6 +100,28 @@ pub enum Attachment {
     Source(Arc<dyn ImageSource>),
     /// a colour transform that does not fit in parameters, like an icc lut
     Color(Arc<ColorTransform>),
+    /// numbers that do not fit in parameters, like a warp mesh
+    Data(Arc<NodeData>),
+}
+
+/// floats a node reads besides its parameters, with a key that changes when they do
+#[derive(Debug, Clone, PartialEq)]
+pub struct NodeData {
+    pub values: Vec<f32>,
+    pub key: u64,
+}
+
+impl NodeData {
+    pub fn new(values: Vec<f32>) -> Self {
+        let mut h = std::hash::DefaultHasher::new();
+        for v in &values {
+            h.write_u32(v.to_bits());
+        }
+        Self {
+            key: h.finish(),
+            values,
+        }
+    }
 }
 
 /// what a node produced
@@ -142,6 +164,16 @@ impl NodeCx<'_> {
     pub fn color_transform(&self) -> Option<&Arc<ColorTransform>> {
         match self.attachment {
             Some(Attachment::Color(t)) => Some(t),
+            _ => None,
+        }
+    }
+}
+
+impl<'a> NodeCx<'a> {
+    /// the node's data attachment, for as long as the node lives
+    pub fn data(&self) -> Option<&'a Arc<NodeData>> {
+        match self.attachment {
+            Some(Attachment::Data(d)) => Some(d),
             _ => None,
         }
     }
@@ -239,6 +271,11 @@ impl Node {
 
     pub fn transform(mut self, transform: ColorTransform) -> Self {
         self.attachment = Some(Attachment::Color(Arc::new(transform)));
+        self
+    }
+
+    pub fn data(mut self, data: NodeData) -> Self {
+        self.attachment = Some(Attachment::Data(Arc::new(data)));
         self
     }
 

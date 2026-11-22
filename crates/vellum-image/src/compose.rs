@@ -48,6 +48,15 @@ pub struct Preview {
     pub offset: Option<(Vec<LayerId>, i32, i32)>,
     /// shows one layer's mask on its own in black and white
     pub show_mask: Option<LayerId>,
+    /// a free transform in progress
+    pub transform: Option<TransformPreview>,
+}
+
+/// what a free transform shows before it is committed
+#[derive(Clone, Debug)]
+pub struct TransformPreview {
+    pub spec: crate::transform::TransformSpec,
+    pub plan: crate::transform::Plan,
 }
 
 /// a raster in the graph, as document values, with an optional whole pixel shift
@@ -108,6 +117,8 @@ impl ImageSource for RasterSource {
 struct Builder<'a> {
     g: Graph,
     preview: &'a Preview,
+    /// the selection, which floats the pixels a transform moves
+    selection: Option<&'a Raster>,
 }
 
 impl Builder<'_> {
@@ -121,6 +132,14 @@ impl Builder<'_> {
             Some((ids, dx, dy)) if ids.contains(&id) => (*dx, *dy),
             _ => (0, 0),
         }
+    }
+
+    /// the transform previewed on a part, if any
+    fn transforming(&self, part: &Part) -> Option<&TransformPreview> {
+        self.preview
+            .transform
+            .as_ref()
+            .filter(|t| t.plan.parts.contains(part))
     }
 
     fn replaced(&self, part: &Part) -> Option<&Raster> {
@@ -142,7 +161,19 @@ impl Builder<'_> {
                     return None;
                 }
                 let (dx, dy) = self.shift(layer.id);
-                Some(self.source(RasterSource::new(raster).shifted(dx, dy)))
+                let node = self.source(RasterSource::new(raster).shifted(dx, dy));
+                if let Some(t) = self.transforming(&Part::Pixels(layer.id)).cloned() {
+                    let sel = match (t.plan.lift, self.selection) {
+                        (true, Some(s)) => Some(self.source(RasterSource::new(s.clone()))),
+                        _ => None,
+                    };
+                    if let Ok(moved) =
+                        crate::transform::pixels_node(&mut self.g, node, sel, &t.spec)
+                    {
+                        return Some(moved);
+                    }
+                }
+                Some(node)
             }
             Content::Group { children, .. } => self.stack(children, None),
         }
@@ -163,7 +194,12 @@ impl Builder<'_> {
         } else {
             (0, 0)
         };
-        let m = self.source(RasterSource::new(raster).shifted(dx, dy));
+        let mut m = self.source(RasterSource::new(raster).shifted(dx, dy));
+        if let Some(t) = self.transforming(&Part::Mask(layer.id)).cloned()
+            && let Ok(moved) = crate::transform::gray_node(&mut self.g, m, fill, &t.spec)
+        {
+            m = moved;
+        }
         self.g.add(
             Node::of(nodes::MaskNode)
                 .param("outside", fill)
@@ -281,6 +317,7 @@ pub fn build_raw(doc: &ImageDocument, preview: &Preview) -> (Graph, NodeId) {
     let mut b = Builder {
         g: Graph::new(),
         preview,
+        selection: doc.selection.as_ref(),
     };
     if let Some(id) = preview.show_mask
         && let Some(mask) = doc.layer(id).and_then(|l| l.mask.as_ref())

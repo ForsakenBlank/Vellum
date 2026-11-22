@@ -1,9 +1,12 @@
 import type { ReactNode } from "react";
 
 import type { Combine } from "../../bindings/Combine";
+import type { ImageState } from "../../bindings/ImageState";
 import type { GradientKind } from "../../bindings/GradientKind";
 import { Tooltip } from "../../components/Tooltip";
+import { useSessions } from "./session";
 import { type ToolState, useImageTools } from "./store";
+import { CropOptions, TransformOptions } from "./TransformOptions";
 
 // the bar along the top of the canvas with the current tool's options, like photoshop's
 
@@ -154,12 +157,19 @@ function selectionOptions(t: ToolState, set: (patch: Partial<ToolState>) => void
   );
 }
 
-export function OptionsBar() {
+export function OptionsBar({ state, fail }: { state: ImageState; fail: (err: unknown) => void }) {
   const t = useImageTools();
+  const transforming = useSessions((s) => s.transform !== null);
   const set = t.set;
   const b = t.tool === "eraser" ? t.eraser : t.brush;
   let body: ReactNode = null;
-  switch (t.tool) {
+  switch (transforming ? "transform" : t.tool) {
+    case "transform":
+      body = <TransformOptions fail={fail} />;
+      break;
+    case "crop":
+      body = <CropOptions state={state} fail={fail} />;
+      break;
     case "brush":
     case "eraser":
       body = (
@@ -605,7 +615,8 @@ export function OptionsBar() {
       body = (
         <span className="text-2xs text-fg-subtle">
           Drag to move the current layer. Shift keeps it straight, arrow keys nudge a pixel (Shift
-          for ten).
+          for ten), Ctrl stops it snapping. Drag guides to move them, or back onto a ruler to delete
+          them.
         </span>
       );
       break;

@@ -142,6 +142,25 @@ fn scenes() -> Vec<(&'static str, Graph, NodeId)> {
             .expect("p3 profile");
         g.add(Node::of(nodes::LutNode).transform(t).input(0, pic))
     });
+    add("warp mesh", &|g, pic| {
+        // a 4 by 3 mesh over the picture, pushed in a wave
+        let src = [0.0, 0.0, 160.0, 120.0];
+        let pts: Vec<[f32; 2]> = (0..12)
+            .map(|k| {
+                let (i, j) = ((k % 4) as f32, (k / 4) as f32);
+                [
+                    i * 53.3 + 6.0 * (j * 1.7).sin(),
+                    j * 60.0 + 9.0 * (i * 1.3).cos(),
+                ]
+            })
+            .collect();
+        g.add(
+            Node::of(nodes::TransformNode)
+                .param("interpolation", "bicubic")
+                .data(nodes::transform::mesh_grid(src, 4, 3, &pts))
+                .input(0, pic),
+        )
+    });
     add("output over a background", &|g, pic| {
         g.add(
             Node::of(nodes::OutputNode)

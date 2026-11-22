@@ -189,6 +189,18 @@ pub enum EditTarget {
     Mask,
 }
 
+/// a guide line across the canvas, dragged out of a ruler
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct Guide {
+    pub id: u32,
+    /// a vertical line at x, or a horizontal one at y
+    pub vertical: bool,
+    /// document pixels from the left or top edge
+    pub position: f32,
+}
+
 /// a selection kept for later, photoshop's alpha channels
 #[derive(Clone, Debug)]
 pub struct SavedChannel {
@@ -291,6 +303,7 @@ pub struct ImageDocument {
     pub channels: Vec<SavedChannel>,
     /// the selection is shown as a red overlay and brushes paint it
     pub quick_mask: bool,
+    pub guides: Vec<Guide>,
     pub next_id: u32,
     /// set while the file is still loading in the background
     pub loading: Option<String>,
@@ -339,6 +352,7 @@ impl ImageDocument {
             last_selection: None,
             channels: Vec::new(),
             quick_mask: false,
+            guides: Vec::new(),
             next_id: 1,
             loading: None,
         }

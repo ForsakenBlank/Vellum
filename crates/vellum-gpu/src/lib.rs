@@ -31,7 +31,9 @@ pub use blend::BlendMode;
 pub use color::{ColorSpace, ColorTransform, IccProfile, Primaries, Transfer, WorkingSpace};
 pub use engine::{Backend, BackendChoice, Engine, EngineOptions, EngineStatus, RenderRequest};
 pub use gpu::{GpuContext, GpuError, GpuOptions};
-pub use graph::{Graph, ImageSource, Node, NodeId, NodeInfo, NodeKind, NodeRegistry, RenderError};
+pub use graph::{
+    Graph, ImageSource, Node, NodeData, NodeId, NodeInfo, NodeKind, NodeRegistry, RenderError,
+};
 pub use hub::{HubError, ViewHub, ViewInfo};
 pub use image::{AlphaMode, CpuImage, Precision, SourceFormat, SourcePixels};
 pub use params::{ParamSpec, ParamValue};

@@ -229,3 +229,8 @@ export function parseThumbnails(buffer: ArrayBuffer): Map<string, Thumb> {
 export function thumbKey(layer: number, mask: boolean): string {
   return `${String(layer)}${mask ? "m" : ""}`;
 }
+
+/** the other side when one changes and proportions are kept */
+export function keepRatio(changed: number, from: number, other: number): number {
+  return Math.max(1, Math.round((changed / Math.max(1, from)) * other));
+}

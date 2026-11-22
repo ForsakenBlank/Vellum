@@ -18,6 +18,7 @@ export type ToolId =
   | "brush"
   | "eraser"
   | "gradient"
+  | "crop"
   | "hand"
   | "zoom";
 
@@ -26,6 +27,7 @@ export type LassoKind = "free" | "polygon" | "magnetic";
 export type WandKind = "wand" | "quick";
 export type BrushKind = "brush" | "pencil";
 export type FillKind = "gradient" | "bucket";
+export type CropKind = "crop" | "perspective";
 
 export type Rgb = [number, number, number];
 
@@ -36,6 +38,7 @@ export interface ToolState {
   wand: WandKind;
   brushKind: BrushKind;
   fill: FillKind;
+  cropKind: CropKind;
   brush: BrushSettings;
   eraser: BrushSettings;
   selectMode: Combine;
@@ -92,6 +95,7 @@ export const defaultTools: ToolState = {
   wand: "wand",
   brushKind: "brush",
   fill: "gradient",
+  cropKind: "crop",
   brush: defaultBrush,
   eraser: { ...defaultBrush, tool: "eraser", hardness: 0.5, size: 40 },
   selectMode: "replace",

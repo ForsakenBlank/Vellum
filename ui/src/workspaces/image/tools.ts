@@ -5,7 +5,8 @@ import type { Shape } from "../../bindings/Shape";
 import type { StrokePoint } from "../../bindings/StrokePoint";
 import type { ViewportApi, ViewportContext, ViewportTool } from "../../components/viewport/tool";
 import { ipc } from "../../lib/ipc";
-import { combineFor, marqueeBox, snapAngle, snapBox } from "./geometry";
+import type { Snapper } from "./aids";
+import { combineFor, findLayer, marqueeBox, snapAngle, snapBox } from "./geometry";
 import type { ToolState } from "./store";
 
 // the image editor's tools. each is a plain object the viewport calls with pointer events;
@@ -21,6 +22,8 @@ export interface ToolEnv {
   /** says what went wrong in a toast */
   fail: (err: unknown) => void;
   pickColor: (rgb: [number, number, number], background: boolean) => void;
+  /** lines drags up with guides, the grid, the canvas and other layers */
+  snap: Snapper;
 }
 
 type Pt = [number, number];
@@ -28,7 +31,7 @@ type Pt = [number, number];
 const ACCENT = "#ffb547";
 
 /** runs `task` with the newest value, never more than one at a time */
-function latest<T>(task: (value: T) => Promise<unknown>) {
+export function latest<T>(task: (value: T) => Promise<unknown>) {
   let busy = false;
   let next: { value: T } | null = null;
   const pump = () => {
@@ -228,7 +231,7 @@ function marqueeTool(env: ToolEnv): ViewportTool {
     cursor: "crosshair",
     down: (event, cx) => {
       if (event.button !== 0) return false;
-      start = cx.toDoc(event.clientX, event.clientY);
+      start = env.snap.point(cx.toDoc(event.clientX, event.clientY), cx, event);
       end = start;
       // modifiers at the start pick add or subtract, during the drag they shape the box
       mode = combineFor(t.selectMode, event.shiftKey, event.altKey);
@@ -237,7 +240,7 @@ function marqueeTool(env: ToolEnv): ViewportTool {
     },
     move: (event, cx) => {
       if (!start) return;
-      end = cx.toDoc(event.clientX, event.clientY);
+      end = env.snap.point(cx.toDoc(event.clientX, event.clientY), cx, event);
       keys = { shift: event.shiftKey, alt: event.altKey };
     },
     up: () => {
@@ -502,9 +505,19 @@ function moveTool(env: ToolEnv): ViewportTool {
   let delta: Pt = [0, 0];
   const preview = latest((d: Pt) =>
     ipc
-      .imagePreview(env.doc, { offset: [layerIds(env), d[0], d[1]], showMask: null })
+      .imagePreview(env.doc, {
+        offset: [layerIds(env), d[0], d[1]],
+        showMask: null,
+        transform: null,
+      })
       .catch(() => undefined),
   );
+  const bounds = () => {
+    const s = env.state;
+    const id = s?.active;
+    const b = s && id !== null && id !== undefined ? findLayer(s.layers, id)?.bounds : undefined;
+    return b && b.w > 0 ? b : null;
+  };
   const commit = (dx: number, dy: number) => {
     if (dx === 0 && dy === 0) return;
     run(env, "image.layer.offset", { ids: layerIds(env), dx, dy });
@@ -527,15 +540,22 @@ function moveTool(env: ToolEnv): ViewportTool {
         if (Math.abs(dx) > Math.abs(dy)) dy = 0;
         else dx = 0;
       }
+      const b = bounds();
+      if (b) {
+        const [sx, sy] = env.snap.move(b, dx, dy, cx, event);
+        dx = Math.round(sx);
+        dy = Math.round(sy);
+      }
       delta = [dx, dy];
       preview(delta);
     },
     up: () => {
       if (!start) return;
       start = null;
+      env.snap.clear();
       const [dx, dy] = delta;
       void ipc
-        .imagePreview(env.doc, { offset: null, showMask: null })
+        .imagePreview(env.doc, { offset: null, showMask: null, transform: null })
         .then(() => {
           commit(dx, dy);
         })
@@ -543,7 +563,8 @@ function moveTool(env: ToolEnv): ViewportTool {
     },
     cancel: () => {
       start = null;
-      void ipc.imagePreview(env.doc, { offset: null, showMask: null });
+      env.snap.clear();
+      void ipc.imagePreview(env.doc, { offset: null, showMask: null, transform: null });
     },
     key: (event) => {
       const step = event.shiftKey ? 10 : 1;

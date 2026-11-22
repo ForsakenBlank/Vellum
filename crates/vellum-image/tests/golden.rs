@@ -13,10 +13,13 @@ use vellum_gpu::gpu::GpuOptions;
 use vellum_gpu::{
     Backend, BackendChoice, BlendMode, CpuImage, Engine, EngineOptions, IRect, Precision,
 };
-use vellum_image::compose::{Preview, build};
+use vellum_image::canvas::{Crop, ImageSize};
+use vellum_image::commands::Edit;
+use vellum_image::compose::{Preview, TransformPreview, build};
 use vellum_image::document::{Content, ImageDocument, Layer, LayerMask};
 use vellum_image::raster::{Depth, Raster};
 use vellum_image::selection::{self, ColorBuf, Combine, GrayBuf, Shape};
+use vellum_image::transform::{Interpolation, Transform, TransformSpec, TransformTarget};
 
 const SIZE: u32 = 64;
 
@@ -510,6 +513,323 @@ fn selection_maths_matches_golden_images() {
             worst <= 1,
             "{name} no longer matches {}: off by {worst}/255",
             path.display()
+        );
+    }
+    assert!(
+        missing.is_empty(),
+        "no golden images for {missing:?}; run with VELLUM_UPDATE_GOLDEN=1"
+    );
+}
+
+/// a picture with soft edges, colour and see through parts, to show what resampling does
+fn transform_source() -> ImageDocument {
+    let mut doc = ImageDocument::empty("", SIZE, SIZE, Depth::U16);
+    let bg = layer(&mut doc, "pattern", |x, y| {
+        let check = ((x / 8.0).floor() as i32 + (y / 8.0).floor() as i32) % 2 == 0;
+        let c = hsv(x / SIZE as f32, 0.8, if check { 0.95 } else { 0.45 });
+        let edge = ((x - 32.0).hypot(y - 32.0) - 28.0).clamp(0.0, 1.0);
+        [c[0], c[1], c[2], 1.0 - edge]
+    });
+    doc.active = Some(bg.id);
+    doc.layers = vec![bg];
+    doc
+}
+
+fn spec(corners: [[f32; 2]; 4], interpolation: Interpolation) -> TransformSpec {
+    TransformSpec {
+        source: [0.0, 0.0, SIZE as f32, SIZE as f32],
+        corners,
+        warp: None,
+        source_quad: None,
+        interpolation,
+    }
+}
+
+fn transform_cases() -> Vec<(&'static str, TransformSpec, bool)> {
+    let n = SIZE as f32;
+    let turn = |deg: f32, s: f32| {
+        let (sn, cs) = deg.to_radians().sin_cos();
+        [(-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (-1.0, 1.0)].map(|(x, y): (f32, f32)| {
+            let (x, y) = (x * n / 2.0 * s, y * n / 2.0 * s);
+            [n / 2.0 + x * cs - y * sn, n / 2.0 + x * sn + y * cs]
+        })
+    };
+    let wave: Vec<[f32; 2]> = (0..16)
+        .map(|k| {
+            let (i, j) = ((k % 4) as f32, (k / 4) as f32);
+            [
+                i * n / 3.0 + 6.0 * (j * 1.9).sin(),
+                j * n / 3.0 + 7.0 * (i * 1.4).cos(),
+            ]
+        })
+        .collect();
+    vec![
+        (
+            "rotate_30_bicubic",
+            spec(turn(30.0, 0.8), Interpolation::Bicubic),
+            false,
+        ),
+        (
+            "rotate_30_nearest",
+            spec(turn(30.0, 0.8), Interpolation::Nearest),
+            false,
+        ),
+        (
+            "shrink_bilinear",
+            spec(turn(0.0, 0.45), Interpolation::Bilinear),
+            false,
+        ),
+        (
+            "skew",
+            spec(
+                [[12.0, 0.0], [n, 0.0], [n - 12.0, n], [0.0, n]],
+                Interpolation::Bicubic,
+            ),
+            false,
+        ),
+        (
+            "perspective",
+            spec(
+                [[16.0, 4.0], [48.0, 4.0], [n, n - 2.0], [0.0, n - 2.0]],
+                Interpolation::Bicubic,
+            ),
+            false,
+        ),
+        (
+            "warp",
+            TransformSpec {
+                warp: Some(wave),
+                ..spec(turn(0.0, 1.0), Interpolation::Bicubic)
+            },
+            false,
+        ),
+        (
+            "flip_horizontal",
+            spec(
+                [[n, 0.0], [0.0, 0.0], [0.0, n], [n, n]],
+                Interpolation::Bicubic,
+            ),
+            false,
+        ),
+        (
+            "selection_moved",
+            TransformSpec {
+                source: [8.0, 8.0, 24.0, 24.0],
+                corners: [[30.0, 26.0], [58.0, 30.0], [54.0, 58.0], [26.0, 54.0]],
+                warp: None,
+                source_quad: None,
+                interpolation: Interpolation::Bicubic,
+            },
+            true,
+        ),
+    ]
+}
+
+fn png16(path: &PathBuf, w: u32, h: u32, data: &[u16]) {
+    let img: image::ImageBuffer<image::Rgba<u16>, Vec<u16>> =
+        image::ImageBuffer::from_raw(w, h, data.to_vec()).expect("size");
+    img.save(path).expect("write golden");
+}
+
+/// checks `stored` against the golden png at `path`, or writes it when updating
+fn check_golden(path: &PathBuf, w: u32, h: u32, stored: &[u16], missing: &mut Vec<String>) {
+    if update() {
+        png16(path, w, h, stored);
+        return;
+    }
+    if !path.exists() {
+        missing.push(path.display().to_string());
+        return;
+    }
+    let golden = image::open(path).expect("read golden").to_rgba16();
+    assert_eq!(
+        golden.dimensions(),
+        (w, h),
+        "{} changed size",
+        path.display()
+    );
+    let worst = golden
+        .into_raw()
+        .iter()
+        .zip(stored)
+        .map(|(a, b)| a.abs_diff(*b))
+        .max()
+        .unwrap_or(0);
+    assert!(
+        worst <= 3,
+        "{} no longer matches: off by {worst}/65535",
+        path.display()
+    );
+}
+
+fn layer_png16(r: &Raster, w: u32, h: u32) -> Vec<u16> {
+    r.read(IRect::of_size(w, h))
+        .iter()
+        .map(|v| (v.clamp(0.0, 1.0) * 65535.0).round() as u16)
+        .collect()
+}
+
+#[test]
+fn transforms_match_golden_images() {
+    let out = dir("transform");
+    std::fs::create_dir_all(&out).expect("golden folder");
+    let gpu = gpu_engine();
+    let mut missing = Vec::new();
+    for (name, spec, lift) in transform_cases() {
+        let mut doc = transform_source();
+        if lift {
+            let s = Shape::Ellipse {
+                x: 8.0,
+                y: 8.0,
+                w: 24.0,
+                h: 24.0,
+            };
+            doc.selection = selection::combine(
+                None,
+                doc.canvas(),
+                s.bounds(),
+                Combine::Replace,
+                &*s.coverage(true),
+            );
+        }
+        let before = doc.clone();
+        let mut edit = Transform {
+            spec: spec.clone(),
+            target: TransformTarget::Layer,
+            prepared: None,
+        };
+        edit.run(&mut doc).expect(name);
+        let r = doc.layers[0].raster().expect("pixels");
+        let stored = layer_png16(r, SIZE, SIZE);
+        check_golden(
+            &out.join(format!("{name}.png")),
+            SIZE,
+            SIZE,
+            &stored,
+            &mut missing,
+        );
+
+        // the live preview runs the same node on the graphics card and must agree
+        if let Some(gpu) = &gpu {
+            let plan =
+                vellum_image::transform::plan(&before, TransformTarget::Layer).expect("plan");
+            let preview = Preview {
+                transform: Some(TransformPreview { spec, plan }),
+                ..Preview::default()
+            };
+            let (graph, node) = build(&before, &preview);
+            let req = RenderRequest::new(node, before.canvas())
+                .working(before.working())
+                .precision(Precision::F32);
+            let on_gpu = gpu
+                .render_image(&graph, &req.backend(BackendChoice::Gpu))
+                .expect("gpu");
+            // compared premultiplied, since a nearly clear pixel's colour means little
+            let worst = on_gpu
+                .data
+                .iter()
+                .zip(stored.chunks_exact(4))
+                .flat_map(|(g, s)| {
+                    // bicubic overshoot above full alpha is clamped when it is stored
+                    let g = if g[3] > 1.0 { g.map(|v| v / g[3]) } else { *g };
+                    let a = f32::from(s[3]) / 65535.0;
+                    (0..4).map(move |k| {
+                        let mine = if k == 3 {
+                            a
+                        } else {
+                            f32::from(s[k]) / 65535.0 * a
+                        };
+                        ((g[k] - mine).abs() * 65535.0) as u32
+                    })
+                })
+                .max()
+                .unwrap_or(0);
+            // nearest neighbour may pick the next pixel where a sample lands on an edge,
+            // bicubic overshoot at hard edges is clamped in a slightly different order, and
+            // where a perspective shrinks, f32 rounding can take one more or one fewer
+            // sample per axis on one backend
+            let allowed = if name.contains("nearest") {
+                65535
+            } else {
+                1640
+            };
+            assert!(
+                worst <= allowed,
+                "{name} previews differently on the gpu: {worst}/65535"
+            );
+        }
+    }
+    assert!(
+        missing.is_empty(),
+        "no golden images for {missing:?}; run with VELLUM_UPDATE_GOLDEN=1"
+    );
+}
+
+#[test]
+fn resampling_matches_golden_images() {
+    let out = dir("resample");
+    std::fs::create_dir_all(&out).expect("golden folder");
+    let mut missing = Vec::new();
+    for (interp, label) in [
+        (Interpolation::Nearest, "nearest"),
+        (Interpolation::Bilinear, "bilinear"),
+        (Interpolation::Bicubic, "bicubic"),
+    ] {
+        for (w, h, size) in [(40u32, 30u32, "down"), (100, 90, "up")] {
+            let mut doc = transform_source();
+            ImageSize {
+                width: w,
+                height: h,
+                interpolation: interp,
+                resolution: None,
+            }
+            .run(&mut doc)
+            .expect("image size");
+            let r = doc.layers[0].raster().expect("pixels");
+            let stored = layer_png16(r, w, h);
+            check_golden(
+                &out.join(format!("{label}_{size}.png")),
+                w,
+                h,
+                &stored,
+                &mut missing,
+            );
+        }
+    }
+    // a straightened crop and a perspective crop resample too
+    for (name, crop) in [
+        (
+            "crop_straighten",
+            Crop {
+                rect: [12.0, 12.0, 40.0, 30.0],
+                angle: 8.0,
+                perspective: None,
+                delete_outside: true,
+                interpolation: Interpolation::Bicubic,
+            },
+        ),
+        (
+            "crop_perspective",
+            Crop {
+                rect: [0.0, 0.0, 48.0, 48.0],
+                angle: 0.0,
+                perspective: Some([[10.0, 6.0], [54.0, 12.0], [60.0, 58.0], [4.0, 50.0]]),
+                delete_outside: true,
+                interpolation: Interpolation::Bicubic,
+            },
+        ),
+    ] {
+        let mut doc = transform_source();
+        let mut c = crop.clone();
+        c.run(&mut doc).expect(name);
+        let r = doc.layers[0].raster().expect("pixels");
+        let stored = layer_png16(r, doc.width, doc.height);
+        check_golden(
+            &out.join(format!("{name}.png")),
+            doc.width,
+            doc.height,
+            &stored,
+            &mut missing,
         );
     }
     assert!(

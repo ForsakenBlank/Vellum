@@ -52,6 +52,8 @@ interface Props {
   onReady?: ((api: ViewportApi) => void) | undefined;
   /** called when the zoom changes, eg so marching ants can ask for a matching outline */
   onZoom?: ((zoom: number) => void) | undefined;
+  /** called when the view moves, at most once a frame, eg for the navigator */
+  onCamera?: ((camera: Camera, size: Size) => void) | undefined;
 }
 
 interface Hud {
@@ -86,7 +88,7 @@ const mod = isMac ? "Cmd" : "Ctrl";
  * for rust: the window places the tiles it holds at the display's refresh rate and asks
  * for missing ones in the background, one request at a time.
  */
-export function GpuViewport({ document: docId, title, tool, onReady, onZoom }: Props) {
+export function GpuViewport({ document: docId, title, tool, onReady, onZoom, onCamera }: Props) {
   const box = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const overlay = useRef<HTMLCanvasElement>(null);
@@ -95,6 +97,10 @@ export function GpuViewport({ document: docId, title, tool, onReady, onZoom }: P
   useEffect(() => {
     onZoomRef.current = onZoom;
   }, [onZoom]);
+  const onCameraRef = useRef(onCamera);
+  useEffect(() => {
+    onCameraRef.current = onCamera;
+  }, [onCamera]);
   const overlayDirty = useRef(true);
   const [reopen, setReopen] = useState(0);
   const [info, setInfo] = useState<ViewInfo | null>(null);
@@ -303,12 +309,19 @@ export function GpuViewport({ document: docId, title, tool, onReady, onZoom }: P
     let animating = false;
     let drewOverlay = false;
     let lastZoom = 0;
+    let lastCamera: Camera | null = null;
+    let lastSize: Size | null = null;
     const tick = (time: number) => {
       raf = requestAnimationFrame(tick);
       const s = loop.current;
       if (cam.current.zoom !== lastZoom) {
         lastZoom = cam.current.zoom;
         onZoomRef.current?.(lastZoom);
+      }
+      if (cam.current !== lastCamera || size.current !== lastSize) {
+        lastCamera = cam.current;
+        lastSize = size.current;
+        onCameraRef.current?.(lastCamera, lastSize);
       }
       const over = overlay.current;
       const t = toolRef.current;
@@ -417,6 +430,19 @@ export function GpuViewport({ document: docId, title, tool, onReady, onZoom }: P
         if (!cx) return;
         const [sx, sy] = cx.toView(x, y);
         setCamera(zoomAt(cam.current, size.current, sx, sy, factor));
+      },
+      centerOn: (x, y) => {
+        setCamera({ ...cam.current, centerX: x, centerY: y });
+      },
+      setZoom: (zoom) => {
+        setCamera(
+          zoomTo(cam.current, size.current, size.current.width / 2, size.current.height / 2, zoom),
+        );
+      },
+      camera: () => cam.current,
+      size: () => size.current,
+      redraw: () => {
+        overlayDirty.current = true;
       },
     });
   }, [setCamera]);

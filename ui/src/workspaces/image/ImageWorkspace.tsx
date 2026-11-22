@@ -1,7 +1,10 @@
+import { Grid3x3, Magnet, PanelTop, Settings2, SquareDashed } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { DocumentInfo } from "../../bindings/DocumentInfo";
 import type { ImageState } from "../../bindings/ImageState";
+import type { PreviewRequest } from "../../bindings/PreviewRequest";
+import { IconButton } from "../../components/Button";
 import { Skeleton } from "../../components/Skeleton";
 import { GpuViewport } from "../../components/viewport/GpuViewport";
 import type { ViewportApi } from "../../components/viewport/tool";
@@ -10,20 +13,32 @@ import { levelForZoom } from "../../lib/viewport/camera";
 import { registerUiHandlers } from "../../state/commands";
 import { useDocuments } from "../../state/documents";
 import { useUi } from "../../state/ui";
+import { makeSnapper, withAids } from "./aids";
 import { ColorRangeDialog, ModifyDialog, type ModifyOp } from "./dialogs";
 import { type Thumb, cycle, findLayer, parseThumbnails, stepHardness, stepSize } from "./geometry";
 import { LayersPanel } from "./LayersPanel";
+import { Navigator } from "./Navigator";
 import { OptionsBar } from "./OptionsBar";
+import { useAids, useSessions } from "./session";
 import { ChannelsPanel, ColorPanel } from "./SidePanels";
+import { CanvasSizeDialog, ExportDialog, GridDialog, ImageSizeDialog } from "./sizeDialogs";
 import { useImageTools } from "./store";
 import { Toolbox } from "./Toolbox";
-import { makeTool } from "./tools";
+import { drawAnts, latest, makeTool } from "./tools";
+import { useViewCamera } from "./viewCamera";
+import type { Snap } from "./transformMath";
+import {
+  beginTransform,
+  cancelTransform,
+  commitTransform,
+  cropTool,
+  startCrop,
+  transformSpec,
+  transformTool,
+} from "./transformTool";
 
 type Pt = [number, number];
-
-/** what is still to come, said plainly instead of doing nothing */
-const LATER =
-  "Crop, free transform, canvas size, image size, export, rulers, guides and the grid arrive with the second half of the image editor.";
+type Dialogs = "canvas" | "image" | "export" | "grid" | null;
 
 function useImageState(doc: string): ImageState | null {
   const summary = useDocuments((s) => s.summaries[doc]);
@@ -56,10 +71,20 @@ export function ImageWorkspace({ doc }: { doc: DocumentInfo }) {
   const [range, setRange] = useState(false);
   const [maskView, setMaskView] = useState<number | null>(null);
   const [view, setView] = useState<ViewportApi | null>(null);
+  const [dialog, setDialog] = useState<Dialogs>(null);
+  const aids = useAids();
+  const transform = useSessions((s) => (s.transform?.doc === id ? s.transform : null));
+  const crop = useSessions((s) => (s.crop?.doc === id ? s.crop : null));
+  const transforming = transform !== null;
+  const cropping = crop !== null;
 
   const fail = useCallback((err: unknown) => {
     useUi.getState().toast({ level: "error", title: "That did not work", body: String(err) });
   }, []);
+  const stateRef = useRef(state);
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
 
   // marching ants, refetched when the selection or the zoom level changes
   const selectionKey = state?.selectionBounds
@@ -113,9 +138,44 @@ export function ImageWorkspace({ doc }: { doc: DocumentInfo }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, layerKey]);
 
+  // one preview request carries both the mask view and a free transform in progress
+  const sendPreview = useMemo(
+    () => latest((request: PreviewRequest) => ipc.imagePreview(id, request).catch(() => undefined)),
+    [id],
+  );
   useEffect(() => {
-    void ipc.imagePreview(id, { offset: null, showMask: maskView }).catch(() => undefined);
-  }, [id, maskView]);
+    sendPreview({
+      offset: null,
+      showMask: maskView,
+      transform:
+        transform && transform.target === "layer"
+          ? { target: transform.target, spec: transformSpec(transform) }
+          : null,
+    });
+    view?.redraw();
+  }, [sendPreview, maskView, transform, view]);
+
+  // the crop box follows the canvas, and leaves with the crop tool
+  const cropKind = tools.cropKind;
+  const width = state?.width;
+  const height = state?.height;
+  useEffect(() => {
+    const sessions = useSessions.getState();
+    if (tools.tool !== "crop" || !stateRef.current || stateRef.current.loading) {
+      if (sessions.crop?.doc === id) sessions.setCrop(null);
+      return;
+    }
+    sessions.setCrop(startCrop(id, stateRef.current, cropKind === "perspective"));
+  }, [id, tools.tool, cropKind, width, height]);
+  useEffect(() => {
+    view?.redraw();
+  }, [crop, view]);
+
+  // picking another tool applies a free transform, like photopea
+  const toolId = tools.tool;
+  useEffect(() => {
+    if (useSessions.getState().transform?.doc === id) void commitTransform(fail);
+  }, [toolId, id, fail]);
 
   const run = useCallback(
     (kind: string, params: unknown = {}) => {
@@ -125,18 +185,20 @@ export function ImageWorkspace({ doc }: { doc: DocumentInfo }) {
   );
 
   // the image editor's commands, for shortcuts, menus and the palette
-  const stateRef = useRef(state);
-  useEffect(() => {
-    stateRef.current = state;
-  }, [state]);
   useEffect(() => {
     const t = () => useImageTools.getState();
     const set = (patch: Parameters<ReturnType<typeof t>["set"]>[0]) => {
       t().set(patch);
     };
-    const later = () => {
-      useUi.getState().toast({ level: "info", title: "Not here yet", body: LATER });
+    const info = (title: string, body: string) => {
+      useUi.getState().toast({ level: "info", title, body });
     };
+    // anything that changes the canvas first drops a transform in progress
+    const reshape = (kind: string, params: unknown) => {
+      cancelTransform();
+      run(kind, params);
+    };
+    const aid = useAids.getState;
     const active = () => {
       const s = stateRef.current;
       return s && s.active !== null ? findLayer(s.layers, s.active) : undefined;
@@ -191,27 +253,88 @@ export function ImageWorkspace({ doc }: { doc: DocumentInfo }) {
       "image.tool.zoom": () => {
         set({ tool: "zoom" });
       },
-      "image.tool.crop": later,
-      "image.tool.crop_cycle": later,
-      "image.transform": later,
-      "image.select.transform": later,
-      "image.canvas_size": later,
-      "image.image_size": later,
-      "image.crop_to_selection": later,
-      "image.rotate_right": later,
-      "image.rotate_left": later,
-      "image.rotate_180": later,
-      "image.flip_canvas_h": later,
-      "image.flip_canvas_v": later,
-      "image.flip_layer_h": later,
-      "image.flip_layer_v": later,
-      "image.export": later,
-      "image.view.rulers": later,
-      "image.view.grid": later,
-      "image.view.guides": later,
-      "image.view.snap": later,
-      "image.view.lock_guides": later,
-      "image.view.clear_guides": later,
+      "image.tool.crop": () => {
+        set({ tool: "crop" });
+      },
+      "image.tool.crop_cycle": () => {
+        set({ tool: "crop", cropKind: cycle(["crop", "perspective"] as const, t().cropKind) });
+      },
+      "image.transform": () => {
+        if (!useSessions.getState().transform) void beginTransform(id, "layer", fail);
+      },
+      "image.select.transform": () => {
+        if (!stateRef.current?.selection) {
+          info("Nothing is selected", "Select something first, then transform the selection.");
+          return;
+        }
+        if (!useSessions.getState().transform) void beginTransform(id, "selection", fail);
+      },
+      "image.canvas_size": () => {
+        setDialog("canvas");
+      },
+      "image.image_size": () => {
+        setDialog("image");
+      },
+      "image.crop_to_selection": () => {
+        const b = stateRef.current?.selectionBounds;
+        if (!stateRef.current?.selection || !b || b.w === 0) {
+          info("Nothing is selected", "Select the part to keep, then crop to the selection.");
+          return;
+        }
+        reshape("image.crop", { rect: [b.x, b.y, b.w, b.h], deleteOutside: true });
+      },
+      "image.rotate_right": () => {
+        reshape("image.canvas.orient", { op: "rotate90" });
+      },
+      "image.rotate_left": () => {
+        reshape("image.canvas.orient", { op: "rotate270" });
+      },
+      "image.rotate_180": () => {
+        reshape("image.canvas.orient", { op: "rotate180" });
+      },
+      "image.flip_canvas_h": () => {
+        reshape("image.canvas.orient", { op: "flipHorizontal" });
+      },
+      "image.flip_canvas_v": () => {
+        reshape("image.canvas.orient", { op: "flipVertical" });
+      },
+      "image.flip_layer_h": () => {
+        reshape("image.layer.orient", { op: "flipHorizontal" });
+      },
+      "image.flip_layer_v": () => {
+        reshape("image.layer.orient", { op: "flipVertical" });
+      },
+      "image.export": () => {
+        setDialog("export");
+      },
+      "image.view.rulers": () => {
+        aid().toggle("rulers");
+      },
+      "image.view.grid": () => {
+        aid().toggle("grid");
+      },
+      "image.view.guides": () => {
+        aid().toggle("guides");
+      },
+      "image.view.snap": () => {
+        aid().toggle("snap");
+      },
+      "image.view.lock_guides": () => {
+        aid().toggle("lockGuides");
+        info(
+          aid().lockGuides ? "Guides locked" : "Guides unlocked",
+          aid().lockGuides
+            ? "Guides stay where they are until you unlock them."
+            : "Guides can be dragged again with the move tool.",
+        );
+      },
+      "image.view.clear_guides": () => {
+        if ((stateRef.current?.guides.length ?? 0) === 0) {
+          info("No guides", "Drag from a ruler to add a guide. Ctrl+R shows the rulers.");
+          return;
+        }
+        run("image.guide.clear", {});
+      },
       "image.view.fit": () => view?.fit(),
       "image.view.actual_pixels": () => view?.actualPixels(),
       "image.view.zoom_in": () => view?.zoomStep(1),
@@ -327,16 +450,51 @@ export function ImageWorkspace({ doc }: { doc: DocumentInfo }) {
         run("image.mask.add", { reveal: true });
       },
     });
-  }, [run, view]);
+  }, [run, view, id, fail]);
+
+  const closeDialog = useCallback(() => {
+    setDialog(null);
+  }, []);
 
   const pickColor = useCallback((rgb: [number, number, number], background: boolean) => {
     useImageTools.getState().set(background ? { background: rgb } : { foreground: rgb });
   }, []);
 
-  const tool = useMemo(
-    () => makeTool({ doc: id, state, tools, view, fail, pickColor }, showAnts ? ants : []),
-    [id, state, tools, view, fail, pickColor, ants, showAnts],
-  );
+  // a plain holder rather than a ref, since tools built during render keep it
+  const [lines] = useState<{ current: Snap["lines"] }>(() => ({ current: [] }));
+  const tool = useMemo(() => {
+    const env = {
+      doc: id,
+      state,
+      aids,
+      canDragGuides: tools.tool === "move" && !transforming,
+      lines,
+      fail,
+    };
+    // the layer being moved never snaps to itself
+    const moving = tools.tool === "move" && state?.active != null ? [state.active] : [];
+    const snap = makeSnapper(env, moving);
+    const shown = showAnts ? ants : [];
+    const base = transforming
+      ? transformTool({ ants: shown, snap, fail, drawAnts })
+      : cropping && state
+        ? cropTool({ state, snap, fail })
+        : makeTool({ doc: id, state, tools, view, fail, pickColor, snap }, shown);
+    return withAids(base, env);
+  }, [
+    id,
+    state,
+    tools,
+    view,
+    fail,
+    pickColor,
+    ants,
+    showAnts,
+    aids,
+    transforming,
+    cropping,
+    lines,
+  ]);
 
   if (!state || state.loading !== null) {
     return (
@@ -352,7 +510,7 @@ export function ImageWorkspace({ doc }: { doc: DocumentInfo }) {
   const active = state.active === null ? undefined : findLayer(state.layers, state.active);
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <OptionsBar />
+      <OptionsBar state={state} fail={fail} />
       <div className="flex min-h-0 flex-1">
         <Toolbox
           quickMask={state.quickMask}
@@ -369,19 +527,83 @@ export function ImageWorkspace({ doc }: { doc: DocumentInfo }) {
             onZoom={(zoom) => {
               setLevel(levelForZoom(zoom));
             }}
+            onCamera={(camera, size) => {
+              useViewCamera.getState().set(id, camera, size);
+            }}
           />
-          <p className="truncate px-1 pt-1 text-2xs text-fg-subtle" aria-live="polite">
-            {`${String(state.width)} × ${String(state.height)} px · ${state.depth === "u8" ? "8" : state.depth === "u16" ? "16" : "32"} bit`}
-            {state.profile ? ` · ${state.profile}` : ""}
-            {active ? ` · ${active.name}${state.target === "mask" ? " (mask)" : ""}` : ""}
-            {state.quickMask ? " · Quick mask: paint white to select, black to deselect" : ""}
-            {maskView !== null ? " · Showing a mask on its own, Alt click it again to go back" : ""}
-          </p>
+          <div className="flex items-center gap-0.5 pt-1">
+            <IconButton
+              size="sm"
+              label="Rulers. Drag from one to add a guide"
+              command="image.view.rulers"
+              active={aids.rulers}
+              icon={<PanelTop className="size-3.5" />}
+              onClick={() => {
+                aids.toggle("rulers");
+              }}
+            />
+            <IconButton
+              size="sm"
+              label="Grid"
+              command="image.view.grid"
+              active={aids.grid}
+              icon={<Grid3x3 className="size-3.5" />}
+              onClick={() => {
+                aids.toggle("grid");
+              }}
+            />
+            <IconButton
+              size="sm"
+              label="Guides"
+              command="image.view.guides"
+              active={aids.guides}
+              icon={<SquareDashed className="size-3.5" />}
+              onClick={() => {
+                aids.toggle("guides");
+              }}
+            />
+            <IconButton
+              size="sm"
+              label="Snap to guides, the grid, the canvas and other layers"
+              command="image.view.snap"
+              active={aids.snap}
+              icon={<Magnet className="size-3.5" />}
+              onClick={() => {
+                aids.toggle("snap");
+              }}
+            />
+            <IconButton
+              size="sm"
+              label="Grid size and what snaps"
+              icon={<Settings2 className="size-3.5" />}
+              onClick={() => {
+                setDialog("grid");
+              }}
+            />
+            <p className="min-w-0 flex-1 truncate px-1 text-2xs text-fg-subtle" aria-live="polite">
+              {`${String(state.width)} × ${String(state.height)} px · ${state.depth === "u8" ? "8" : state.depth === "u16" ? "16" : "32"} bit`}
+              {state.profile ? ` · ${state.profile}` : ""}
+              {active ? ` · ${active.name}${state.target === "mask" ? " (mask)" : ""}` : ""}
+              {state.quickMask ? " · Quick mask: paint white to select, black to deselect" : ""}
+              {maskView !== null
+                ? " · Showing a mask on its own, Alt click it again to go back"
+                : ""}
+              {transforming ? " · Enter applies the transform, Esc cancels" : ""}
+              {cropping ? " · Enter crops, Esc starts over" : ""}
+            </p>
+          </div>
         </div>
         <aside
           aria-label="Image panels"
           className="flex w-72 shrink-0 flex-col border-l border-line bg-panel"
         >
+          <Navigator
+            doc={id}
+            width={state.width}
+            height={state.height}
+            revision={layerKey}
+            view={view}
+          />
           <ColorPanel />
           <LayersPanel
             doc={id}
@@ -411,6 +633,31 @@ export function ImageWorkspace({ doc }: { doc: DocumentInfo }) {
         }}
         fail={fail}
       />
+      <CanvasSizeDialog
+        key={`canvas-${String(state.width)}x${String(state.height)}`}
+        doc={id}
+        state={state}
+        open={dialog === "canvas"}
+        onClose={closeDialog}
+        fail={fail}
+      />
+      <ImageSizeDialog
+        key={`image-${String(state.width)}x${String(state.height)}`}
+        doc={id}
+        state={state}
+        open={dialog === "image"}
+        onClose={closeDialog}
+        fail={fail}
+      />
+      <ExportDialog
+        doc={id}
+        title={doc.title}
+        state={state}
+        open={dialog === "export"}
+        onClose={closeDialog}
+        fail={fail}
+      />
+      <GridDialog open={dialog === "grid"} onClose={closeDialog} />
     </div>
   );
 }
