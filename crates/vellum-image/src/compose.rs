@@ -174,7 +174,34 @@ impl Builder<'_> {
                 let (dx, dy) = self.shift(layer.id);
                 self.source(RasterSource::new(raster).shifted(dx, dy))
             }
-            Content::Group { children, .. } => return self.stack(children, None),
+            Content::Group { children, .. } => {
+                let inside = self.stack(children, None);
+                let Some(board) = layer.artboard else {
+                    return inside;
+                };
+                // an artboard: its background under its contents, both cut to its box
+                let node = match (board.background, inside) {
+                    (Some(bg), inside) => {
+                        let bg = crate::vector_ops::to_doc(self.doc)(bg);
+                        let solid = self.g.add(Node::of(nodes::SolidNode).param("color", bg));
+                        match inside {
+                            Some(i) => {
+                                Some(self.blend(Some(solid), i, BlendMode::Normal, 1.0, 1.0, None))
+                            }
+                            None => Some(solid),
+                        }
+                    }
+                    (None, inside) => inside,
+                };
+                let node = node?;
+                let mut rect = Raster::gray(crate::raster::Depth::U8, 0.0);
+                rect.update(board.rect, |_, _, v| v[0] = 1.0);
+                let m = self.source(RasterSource::new(rect));
+                return Some(
+                    self.g
+                        .add(Node::of(nodes::MaskNode).input(0, node).input(1, m)),
+                );
+            }
             Content::Adjustment(_) => return None,
             Content::Fill(fill) => {
                 let n = crate::fills::node(fill, self.doc.canvas());
@@ -392,6 +419,7 @@ impl Builder<'_> {
             pass_through: true,
             ..
         } = &base.content
+            && base.artboard.is_none()
             && clips.is_empty()
             && base.blend == BlendMode::Normal
         {

@@ -117,6 +117,17 @@ impl LayerVectorMask {
     }
 }
 
+/// a group shown as an artboard: its own box on the canvas, with an optional background,
+/// that clips what is inside it and exports on its own
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct Artboard {
+    pub rect: IRect,
+    /// straight srgb, none for see through
+    pub background: Option<[f32; 4]>,
+}
+
 /// a path kept in the paths panel
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
@@ -147,6 +158,8 @@ pub struct Layer {
     pub origin: Option<String>,
     pub vector_mask: Option<LayerVectorMask>,
     pub style: Option<crate::styles::LayerStyle>,
+    /// groups only
+    pub artboard: Option<Artboard>,
 }
 
 impl Layer {
@@ -166,6 +179,7 @@ impl Layer {
             origin: None,
             vector_mask: None,
             style: None,
+            artboard: None,
         }
     }
 

@@ -1593,6 +1593,7 @@ pub fn registry() -> CommandRegistry<ImageDocument> {
     add::<crate::layer_ops::ApplyFilter>(&mut r, "Filter");
     add::<crate::layer_ops::TargetFilterMask>(&mut r, "Filter");
     add::<crate::layer_ops::SetStyle>(&mut r, "Layers");
+    add::<crate::outputs::SetArtboard>(&mut r, "Layers");
     add::<crate::retouch::Patch>(&mut r, "Retouch");
     add::<crate::retouch::ContentAwareFill>(&mut r, "Retouch");
     add::<crate::retouch::ContentAwareMove>(&mut r, "Retouch");

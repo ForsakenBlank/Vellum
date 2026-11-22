@@ -18,6 +18,7 @@ pub mod fonts;
 pub mod format;
 pub mod heal;
 pub mod layer_ops;
+pub mod outputs;
 pub mod paint;
 pub mod psd;
 pub mod psd_write;
