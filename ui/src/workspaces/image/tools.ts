@@ -509,6 +509,7 @@ function moveTool(env: ToolEnv): ViewportTool {
         offset: [layerIds(env), d[0], d[1]],
         showMask: null,
         transform: null,
+        filter: null,
       })
       .catch(() => undefined),
   );
@@ -555,7 +556,7 @@ function moveTool(env: ToolEnv): ViewportTool {
       env.snap.clear();
       const [dx, dy] = delta;
       void ipc
-        .imagePreview(env.doc, { offset: null, showMask: null, transform: null })
+        .imagePreview(env.doc, { offset: null, showMask: null, transform: null, filter: null })
         .then(() => {
           commit(dx, dy);
         })
@@ -564,7 +565,12 @@ function moveTool(env: ToolEnv): ViewportTool {
     cancel: () => {
       start = null;
       env.snap.clear();
-      void ipc.imagePreview(env.doc, { offset: null, showMask: null, transform: null });
+      void ipc.imagePreview(env.doc, {
+        offset: null,
+        showMask: null,
+        transform: null,
+        filter: null,
+      });
     },
     key: (event) => {
       const step = event.shiftKey ? 10 : 1;

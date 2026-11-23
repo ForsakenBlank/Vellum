@@ -423,7 +423,7 @@ fn read_rgba(r: &Raster) -> (IRect, Vec<[f32; 4]>) {
     let v = r.read(rect);
     (
         rect,
-        v.chunks_exact(4)
+        v.as_chunks::<4>().0.iter()
             .map(|c| [c[0], c[1], c[2], c[3]])
             .collect(),
     )
@@ -616,7 +616,7 @@ pub fn encode(doc: &ImageDocument, big: bool) -> Result<Vec<u8>, String> {
     let px = merged.read(canvas);
     let linear = doc.depth == Depth::F32;
     let mut planes: [Vec<f32>; 4] = Default::default();
-    for p in px.chunks_exact(4) {
+    for p in px.as_chunks::<4>().0.iter() {
         let a = p[3];
         for k in 0..3 {
             let v = if linear { p[k] } else { p[k] * a + (1.0 - a) };

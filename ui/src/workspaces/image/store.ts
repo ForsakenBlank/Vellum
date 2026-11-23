@@ -86,6 +86,15 @@ export const defaultBrush: BrushSettings = {
   color: [0, 0, 0],
   background: [1, 1, 1],
   seed: 1,
+  retouch: {
+    offset: [0, 0],
+    sampleAll: false,
+    range: "midtones",
+    exposure: 0.5,
+    desaturate: false,
+    strength: 0.5,
+    fingerPainting: false,
+  },
 };
 
 export const defaultTools: ToolState = {

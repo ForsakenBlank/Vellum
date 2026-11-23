@@ -213,8 +213,9 @@ impl PictureFormat {
 fn iso_brand(head: &[u8]) -> Option<PictureFormat> {
     let size = u32::from_be_bytes([head[0], head[1], head[2], head[3]]) as usize;
     let end = size.clamp(12, head.len());
+    let compatible = head[16.min(end)..end].as_chunks::<4>().0;
     let brands: Vec<&[u8]> = std::iter::once(&head[8..12])
-        .chain(head[16.min(end)..end].chunks_exact(4))
+        .chain(compatible.iter().map(|b| b.as_slice()))
         .collect();
     let has = |brand: &[u8]| brands.contains(&brand);
     if has(b"crx ") {

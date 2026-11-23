@@ -147,6 +147,7 @@ export function ImageWorkspace({ doc }: { doc: DocumentInfo }) {
         transform && transform.target === "layer"
           ? { target: transform.target, spec: transformSpec(transform) }
           : null,
+      filter: null,
     });
     view?.redraw();
   }, [sendPreview, maskView, transform, view]);

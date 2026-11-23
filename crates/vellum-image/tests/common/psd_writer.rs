@@ -177,11 +177,11 @@ fn predict(data: &mut [u8], w: usize, h: usize, bytes: usize) {
         match bytes {
             2 => {
                 let vals: Vec<u16> = line
-                    .chunks_exact(2)
+                    .as_chunks::<2>().0.iter()
                     .map(|c| u16::from_be_bytes([c[0], c[1]]))
                     .collect();
                 let mut prev = 0u16;
-                for (c, v) in line.chunks_exact_mut(2).zip(vals) {
+                for (c, v) in line.as_chunks_mut::<2>().0.iter_mut().zip(vals) {
                     c.copy_from_slice(&v.wrapping_sub(prev).to_be_bytes());
                     prev = v;
                 }

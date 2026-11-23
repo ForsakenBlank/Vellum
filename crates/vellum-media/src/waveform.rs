@@ -88,10 +88,10 @@ impl Waveform {
                 folder.push(i16::from_le_bytes([first, second]));
                 bytes = rest;
             }
-            let pairs = bytes.chunks_exact(2);
-            leftover = pairs.remainder().first().copied();
+            let (pairs, rest) = bytes.as_chunks::<2>();
+            leftover = rest.first().copied();
             for pair in pairs {
-                folder.push(i16::from_le_bytes([pair[0], pair[1]]));
+                folder.push(i16::from_le_bytes(*pair));
             }
             if let Some(total) = expected_bytes {
                 control.progress((seen as f64 / total).min(1.0) as f32);
@@ -175,7 +175,9 @@ impl Waveform {
             return None;
         }
         let peaks = body
-            .chunks_exact(4)
+            .as_chunks::<4>()
+            .0
+            .iter()
             .map(|c| {
                 [
                     i16::from_le_bytes([c[0], c[1]]),

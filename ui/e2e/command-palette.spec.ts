@@ -64,7 +64,7 @@ test.describe("command palette", () => {
 
   test("switches to a shortcut preset, and the new shortcuts work", async ({ page }) => {
     await page.keyboard.press(`${mod}+k`);
-    await page.getByRole("combobox").fill("photoshop");
+    await page.getByRole("combobox").fill("photoshop shortcuts");
     await page.keyboard.press("Enter");
     // in the photoshop preset ctrl+k opens settings, like photoshop's preferences
     await page.keyboard.press(`${mod}+k`);

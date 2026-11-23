@@ -575,7 +575,7 @@ fn display_cpu(
         .enumerate()
         .for_each(|(y, row)| {
             let ay = region.y + y as i32;
-            for (x, px) in row.chunks_exact_mut(4).enumerate() {
+            for (x, px) in row.as_chunks_mut::<4>().0.iter_mut().enumerate() {
                 let ax = region.x + x as i32;
                 let c = crate::nodes::unpremultiply(img.get(ax, ay));
                 if c[3] <= 0.0 {

@@ -76,7 +76,12 @@ export async function commitTransform(fail: (err: unknown) => void): Promise<voi
     t.warp === null && t.corners.every((c, i) => len(sub(c, rectQuad(t.source)[i] as Pt)) < 1e-6);
   try {
     if (untouched) {
-      await ipc.imagePreview(t.doc, { offset: null, showMask: null, transform: null });
+      await ipc.imagePreview(t.doc, {
+        offset: null,
+        showMask: null,
+        transform: null,
+        filter: null,
+      });
       return;
     }
     await ipc.imageTransform(t.doc, { target: t.target, spec: transformSpec(t) });
@@ -90,7 +95,7 @@ export function cancelTransform() {
   if (!t) return;
   useSessions.getState().setTransform(null);
   void ipc
-    .imagePreview(t.doc, { offset: null, showMask: null, transform: null })
+    .imagePreview(t.doc, { offset: null, showMask: null, transform: null, filter: null })
     .catch(() => undefined);
 }
 

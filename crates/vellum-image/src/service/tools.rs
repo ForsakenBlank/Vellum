@@ -265,7 +265,7 @@ impl ImageService {
                 let h = clip.h;
                 let px = drawn.pixels.read(IRect::new(0, 0, w, h));
                 let pixels = px
-                    .chunks_exact(4)
+                    .as_chunks::<4>().0.iter()
                     .flat_map(|p| p.iter().map(|v| (v.clamp(0.0, 1.0) * 255.0).round() as u8))
                     .collect();
                 Some(FontPreview {

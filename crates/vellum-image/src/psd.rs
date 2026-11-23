@@ -498,7 +498,7 @@ fn read_record<R: Read + Seek>(r: &mut Reader<R>) -> Res<Record> {
                 if chars * 2 + 4 <= len as usize {
                     let raw = r.bytes(chars * 2)?;
                     let units: Vec<u16> = raw
-                        .chunks_exact(2)
+                        .as_chunks::<2>().0.iter()
                         .map(|c| u16::from_be_bytes([c[0], c[1]]))
                         .collect();
                     let name = String::from_utf16_lossy(&units);
@@ -624,7 +624,7 @@ fn unpredict(data: &mut [u8], w: usize, h: usize, bytes: usize) {
         match bytes {
             2 => {
                 let mut prev = 0u16;
-                for c in line.chunks_exact_mut(2) {
+                for c in line.as_chunks_mut::<2>().0.iter_mut() {
                     let v = u16::from_be_bytes([c[0], c[1]]).wrapping_add(prev);
                     c.copy_from_slice(&v.to_be_bytes());
                     prev = v;

@@ -58,7 +58,9 @@ fn jpeg_inner(path: &Path, size: u32) -> Option<(RgbaImage, u32, u32)> {
     let (w, h) = (u32::from(info.width), u32::from(info.height));
     let rgba: Vec<u8> = match info.pixel_format {
         jpeg_decoder::PixelFormat::RGB24 => pixels
-            .chunks_exact(3)
+            .as_chunks::<3>()
+            .0
+            .iter()
             .flat_map(|p| [p[0], p[1], p[2], 255])
             .collect(),
         jpeg_decoder::PixelFormat::L8 => pixels.iter().flat_map(|&l| [l, l, l, 255]).collect(),

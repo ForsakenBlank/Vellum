@@ -728,7 +728,7 @@ fn transforms_match_golden_images() {
             let worst = on_gpu
                 .data
                 .iter()
-                .zip(stored.chunks_exact(4))
+                .zip(stored.as_chunks::<4>().0.iter())
                 .flat_map(|(g, s)| {
                     // bicubic overshoot above full alpha is clamped when it is stored
                     let g = if g[3] > 1.0 { g.map(|v| v / g[3]) } else { *g };

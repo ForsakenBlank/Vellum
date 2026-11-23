@@ -171,10 +171,10 @@ fn flatten(
 /// a png at 8 or 16 bits, rgb when nothing is see through
 fn png(w: u32, h: u32, values: &[u16], sixteen: bool) -> Result<Vec<u8>, String> {
     let opaque = values
-        .chunks_exact(4)
+        .as_chunks::<4>().0.iter()
         .all(|p| p[3] == if sixteen { 65535 } else { 255 });
     let mut data = Vec::with_capacity(values.len() * if sixteen { 2 } else { 1 });
-    for p in values.chunks_exact(4) {
+    for p in values.as_chunks::<4>().0.iter() {
         for v in &p[..if opaque { 3 } else { 4 }] {
             if sixteen {
                 data.extend_from_slice(&v.to_be_bytes());

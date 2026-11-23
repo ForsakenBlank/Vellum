@@ -144,7 +144,7 @@ pub fn thumbnail(
             .ok_or("That layer has no mask.")?;
         let fill = (raster.fill().clamp(0.0, 1.0) * 255.0).round() as u8;
         let mut out = vec![fill; rect.area() as usize * 4];
-        out.chunks_exact_mut(4).for_each(|p| p[3] = 255);
+        out.as_chunks_mut::<4>().0.iter_mut().for_each(|p| p[3] = 255);
         if let Some(px) = raster.read_level(rect, level) {
             for y in px.rect.y..px.rect.bottom() {
                 for x in px.rect.x..px.rect.right() {

@@ -228,7 +228,7 @@ fn bench_pan(engine: &Engine, zoom: f64, label: &str) {
 fn bench_open(engine: &Engine, label: &str) {
     let (w, h) = (8000u32, 6000u32);
     let mut data = vec![0u8; (w * h * 4) as usize];
-    for (i, px) in data.chunks_exact_mut(4).enumerate() {
+    for (i, px) in data.as_chunks_mut::<4>().0.iter_mut().enumerate() {
         let (x, y) = (i as u32 % w, i as u32 / w);
         px.copy_from_slice(&[(x / 32) as u8, (y / 24) as u8, ((x ^ y) & 0xff) as u8, 255]);
     }

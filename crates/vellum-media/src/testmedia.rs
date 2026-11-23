@@ -515,7 +515,7 @@ pub fn mp4_rotated_90(mut mp4: Vec<u8>) -> MediaResult<Vec<u8>> {
     let slot = mp4
         .get_mut(matrix..matrix + 36)
         .ok_or_else(|| MediaError::Unsupported("the mp4 track header is cut short".into()))?;
-    for (chunk, value) in slot.chunks_exact_mut(4).zip(values) {
+    for (chunk, value) in slot.as_chunks_mut::<4>().0.iter_mut().zip(values) {
         chunk.copy_from_slice(&value.to_be_bytes());
     }
     Ok(mp4)

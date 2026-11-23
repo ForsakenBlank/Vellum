@@ -36,6 +36,14 @@ function layer(id: number, name: string, extra: Partial<LayerState> = {}): Layer
     pixels: null,
     mask: null,
     bounds: { x: 0, y: 0, w: 0, h: 0 },
+    adjustment: null,
+    fillLayer: null,
+    smart: null,
+    text: null,
+    shape: null,
+    vectorMask: null,
+    style: null,
+    artboard: null,
     ...extra,
   };
 }

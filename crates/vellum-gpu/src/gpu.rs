@@ -621,14 +621,14 @@ impl GpuContext {
         let data: Vec<[f32; 4]> = match img.format {
             StorageFormat::Rgba32F => bytemuck::cast_slice::<u8, [f32; 4]>(&bytes).to_vec(),
             StorageFormat::Rgba16F => bytes
-                .chunks_exact(8)
+                .as_chunks::<8>().0.iter()
                 .map(|c| {
-                    let h: &[half::f16] = bytemuck::cast_slice(c);
+                    let h: &[half::f16] = bytemuck::cast_slice(c.as_slice());
                     [h[0].to_f32(), h[1].to_f32(), h[2].to_f32(), h[3].to_f32()]
                 })
                 .collect(),
             StorageFormat::Rgba8 => bytes
-                .chunks_exact(4)
+                .as_chunks::<4>().0.iter()
                 .map(|c| [0, 1, 2, 3].map(|k| f32::from(c[k]) / 255.0))
                 .collect(),
         };

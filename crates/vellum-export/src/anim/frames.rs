@@ -241,14 +241,14 @@ fn shared_palette(frames: &[(&RgbaImage, u32)]) -> Palette {
     for (image, _) in frames.iter().step_by(step) {
         let raw = image.as_raw();
         let every = (raw.len() / 4 / 20_000).max(1) * 4;
-        for px in raw.chunks_exact(4).step_by(every / 4) {
+        for px in raw.as_chunks::<4>().0.iter().step_by(every / 4) {
             sample.extend([px[0], px[1], px[2], 255]);
         }
     }
     let quant = NeuQuant::new(3, 255, &sample);
     let colors = quant
         .color_map_rgba()
-        .chunks_exact(4)
+        .as_chunks::<4>().0.iter()
         .map(|c| [c[0], c[1], c[2]])
         .collect();
     Palette {

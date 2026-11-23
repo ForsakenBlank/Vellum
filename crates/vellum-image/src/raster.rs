@@ -828,11 +828,11 @@ fn blank(data: &TileData, channels: Channels, fill: f32) -> bool {
         Channels::Gray => data.is_uniform(fill),
         Channels::Rgba => match data {
             TileData::U8(d) => d
-                .chunks_exact(4)
+                .as_chunks::<4>().0.iter()
                 .all(|p| p[3] == 0 && p[0] == 0 && p[1] == 0 && p[2] == 0),
-            TileData::U16(d) => d.chunks_exact(4).all(|p| p == [0, 0, 0, 0]),
+            TileData::U16(d) => d.as_chunks::<4>().0.iter().all(|p| *p == [0, 0, 0, 0]),
             TileData::F32(d) => d
-                .chunks_exact(4)
+                .as_chunks::<4>().0.iter()
                 .all(|p| p[3] == 0.0 && p[0] == 0.0 && p[1] == 0.0 && p[2] == 0.0),
         },
     }
