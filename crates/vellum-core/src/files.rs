@@ -59,7 +59,7 @@ pub const FILE_KINDS: &[FileKindInfo] = &[
         workspace: Workspace::Image,
         extensions: &[
             "png", "jpg", "jpeg", "jfif", "webp", "avif", "heic", "heif", "bmp", "tif", "tiff",
-            "psd", "tga", "exr", "hdr", "ico", "jxl", "qoi",
+            "psd", "psb", "tga", "exr", "hdr", "ico", "jxl", "qoi",
         ],
     },
     FileKindInfo {
@@ -109,8 +109,9 @@ pub const FILE_KINDS: &[FileKindInfo] = &[
     FileKindInfo {
         kind: FileKind::Project,
         label: "project",
-        // projects remember their own workspace from phase 2, until then they open as video
-        workspace: Workspace::Video,
+        // image projects are the only kind so far; timeline projects (phase 8) will read
+        // the type from the project's manifest
+        workspace: Workspace::Image,
         extensions: &["vellum"],
     },
 ];

@@ -8,8 +8,9 @@
 //! every change emits `history:changed` for the document and `documents:changed` with the
 //! full list, so the ui can redraw tabs and the undo menu from what rust says.
 
+use std::any::Any;
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use parking_lot::Mutex;
@@ -41,6 +42,8 @@ pub enum DocumentError {
     History(#[from] HistoryError),
     #[error("the document could not be stored or restored: {0}")]
     State(String),
+    #[error("that document is not of type `{0}`")]
+    WrongType(&'static str),
 }
 
 impl From<serde_json::Error> for DocumentError {
@@ -63,6 +66,23 @@ pub trait DocumentModel: Send + Sized + 'static {
 
     fn from_state(state: serde_json::Value) -> Result<Self, DocumentError>;
 
+    /// files that hold what does not belong in json, like the pixels of an image. autosave
+    /// writes each one next to the json state, after the documents lock is released, and
+    /// skips files whose stamp has not changed since the last autosave.
+    fn state_files(&self) -> Vec<StateFile> {
+        Vec::new()
+    }
+
+    /// rebuilds the document from its json state and the folder its state files were
+    /// written to. documents without state files only need [`DocumentModel::from_state`].
+    fn from_saved_state(
+        state: serde_json::Value,
+        files: Option<&Path>,
+    ) -> Result<Self, DocumentError> {
+        let _ = files;
+        Self::from_state(state)
+    }
+
     /// a title that overrides the file name in tabs, if the document has one
     fn title(&self) -> Option<String> {
         None
@@ -72,6 +92,48 @@ pub trait DocumentModel: Send + Sized + 'static {
     /// (so adding and removing files can be undone). none uses the files it was opened with.
     fn inputs(&self) -> Option<Vec<PathBuf>> {
         None
+    }
+}
+
+type WriteFn = dyn Fn(&mut dyn std::io::Write) -> std::io::Result<()> + Send + Sync;
+
+/// one binary file of a document's autosave. `write` captures a cheap snapshot of what it
+/// writes (shared tiles, say), so it can run after the documents lock is released.
+#[derive(Clone)]
+pub struct StateFile {
+    /// a plain file name, unique within the document
+    pub name: String,
+    /// changes whenever the contents would; autosave only rewrites the file then
+    pub stamp: u64,
+    pub write: Arc<WriteFn>,
+}
+
+impl StateFile {
+    pub fn new(
+        name: impl Into<String>,
+        stamp: u64,
+        write: impl Fn(&mut dyn std::io::Write) -> std::io::Result<()> + Send + Sync + 'static,
+    ) -> Self {
+        Self {
+            name: name.into(),
+            stamp,
+            write: Arc::new(write),
+        }
+    }
+}
+
+impl std::fmt::Debug for StateFile {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("StateFile")
+            .field("name", &self.name)
+            .field("stamp", &self.stamp)
+            .finish_non_exhaustive()
+    }
+}
+
+impl PartialEq for StateFile {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name && self.stamp == other.stamp
     }
 }
 
@@ -165,6 +227,7 @@ pub struct DocumentSnapshot {
     pub meta: DocumentMeta,
     pub dirty: bool,
     pub state: serde_json::Value,
+    pub files: Vec<StateFile>,
 }
 
 /// the object safe face of an open document of any type
@@ -185,6 +248,9 @@ trait OpenDocument: Send {
     fn is_dirty(&self) -> bool;
     fn set_limits(&mut self, limits: HistoryLimits);
     fn state(&self) -> Result<serde_json::Value, DocumentError>;
+    fn state_files(&self) -> Vec<StateFile>;
+    fn as_any(&self) -> &dyn Any;
+    fn as_any_mut(&mut self) -> &mut dyn Any;
 }
 
 struct Open<D: DocumentModel> {
@@ -244,10 +310,23 @@ impl<D: DocumentModel> OpenDocument for Open<D> {
     fn state(&self) -> Result<serde_json::Value, DocumentError> {
         self.model.to_state()
     }
+    fn state_files(&self) -> Vec<StateFile> {
+        self.model.state_files()
+    }
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
 }
 
 type Loader = Box<
-    dyn Fn(serde_json::Value, HistoryLimits) -> Result<Box<dyn OpenDocument>, DocumentError>
+    dyn Fn(
+            serde_json::Value,
+            Option<&Path>,
+            HistoryLimits,
+        ) -> Result<Box<dyn OpenDocument>, DocumentError>
         + Send
         + Sync,
 >;
@@ -255,6 +334,9 @@ type Loader = Box<
 struct DocumentType {
     infos: Vec<CommandInfo>,
     load: Loader,
+    /// the type's `Arc<CommandRegistry<D>>`, so a model built in code opens without a trip
+    /// through json
+    commands: Arc<dyn Any + Send + Sync>,
 }
 
 struct Entry {
@@ -350,18 +432,23 @@ impl DocumentManager {
     pub fn register_type<D: DocumentModel>(&self) {
         let commands = Arc::new(D::commands());
         let infos = commands.infos().cloned().collect();
-        let load: Loader = Box::new(move |state, limits| {
-            let model = D::from_state(state)?;
+        let registry = commands.clone();
+        let load: Loader = Box::new(move |state, files, limits| {
+            let model = D::from_saved_state(state, files)?;
             Ok(Box::new(Open {
                 model,
                 history: History::new(limits),
-                commands: commands.clone(),
+                commands: registry.clone(),
             }))
         });
-        self.inner
-            .lock()
-            .types
-            .insert(D::TYPE, DocumentType { infos, load });
+        self.inner.lock().types.insert(
+            D::TYPE,
+            DocumentType {
+                infos,
+                load,
+                commands,
+            },
+        );
     }
 
     /// the commands every registered document type understands
@@ -378,13 +465,26 @@ impl DocumentManager {
         infos
     }
 
+    /// opens a document built in code. the model moves in as it is, so a big picture is
+    /// never turned into json just to be opened.
     pub fn open<D: DocumentModel>(
         &self,
         model: D,
         meta: DocumentMeta,
     ) -> Result<DocumentInfo, DocumentError> {
-        let state = model.to_state()?;
-        self.open_state(D::TYPE, state, meta, false)
+        let mut inner = self.inner.lock();
+        let limits = inner.limits;
+        let commands = inner
+            .types
+            .get(D::TYPE)
+            .and_then(|ty| ty.commands.clone().downcast::<CommandRegistry<D>>().ok())
+            .ok_or(DocumentError::UnknownType(D::TYPE.to_owned()))?;
+        let doc = Box::new(Open {
+            model,
+            history: History::new(limits),
+            commands,
+        });
+        Ok(self.insert(&mut inner, doc, meta))
     }
 
     /// opens a document from stored state. `dirty` marks it as having unsaved changes, for
@@ -396,23 +496,109 @@ impl DocumentManager {
         meta: DocumentMeta,
         dirty: bool,
     ) -> Result<DocumentInfo, DocumentError> {
+        self.open_saved(doc_type, state, None, meta, dirty)
+    }
+
+    /// like [`DocumentManager::open_state`], with the folder the document's state files
+    /// were written to
+    pub fn open_saved(
+        &self,
+        doc_type: &str,
+        state: serde_json::Value,
+        files: Option<&Path>,
+        meta: DocumentMeta,
+        dirty: bool,
+    ) -> Result<DocumentInfo, DocumentError> {
         let mut inner = self.inner.lock();
         let limits = inner.limits;
         let ty = inner
             .types
             .get(doc_type)
             .ok_or_else(|| DocumentError::UnknownType(doc_type.to_owned()))?;
-        let mut doc = (ty.load)(state, limits)?;
+        let mut doc = (ty.load)(state, files, limits)?;
         if dirty {
             doc.mark_unsaved();
         }
+        Ok(self.insert(&mut inner, doc, meta))
+    }
+
+    fn insert(
+        &self,
+        inner: &mut Inner,
+        doc: Box<dyn OpenDocument>,
+        meta: DocumentMeta,
+    ) -> DocumentInfo {
         let id = format!("doc-{}", inner.next_id);
         inner.next_id += 1;
         let entry = Entry { id, meta, doc };
         let info = entry.info();
         inner.entries.push(entry);
-        self.changed(&mut inner, Some(&info.id));
-        Ok(info)
+        self.changed(inner, Some(&info.id));
+        info
+    }
+
+    /// reads a document of a known type, eg to render it. keep `f` quick: every other
+    /// document call waits for it.
+    pub fn read<D: DocumentModel, R>(
+        &self,
+        id: &str,
+        f: impl FnOnce(&D) -> R,
+    ) -> Result<R, DocumentError> {
+        let inner = self.inner.lock();
+        let open = inner
+            .entry(id)?
+            .doc
+            .as_any()
+            .downcast_ref::<Open<D>>()
+            .ok_or(DocumentError::WrongType(D::TYPE))?;
+        Ok(f(&open.model))
+    }
+
+    /// runs a command built in code rather than from a record, for commands that carry
+    /// work already done (a brush stroke whose pixels were painted while it was drawn)
+    pub fn execute_command<D: DocumentModel>(
+        &self,
+        id: &str,
+        command: Box<dyn Command<D>>,
+    ) -> Result<(), DocumentError> {
+        self.with_doc(id, |doc| {
+            let open = doc
+                .as_any_mut()
+                .downcast_mut::<Open<D>>()
+                .ok_or(DocumentError::WrongType(D::TYPE))?;
+            open.history.execute(command, &mut open.model)?;
+            Ok(())
+        })
+    }
+
+    /// swaps in a new model and starts its history afresh, for a document that finished
+    /// loading in the background. the document counts as saved.
+    pub fn replace<D: DocumentModel>(&self, id: &str, model: D) -> Result<(), DocumentError> {
+        self.with_doc(id, |doc| {
+            let open = doc
+                .as_any_mut()
+                .downcast_mut::<Open<D>>()
+                .ok_or(DocumentError::WrongType(D::TYPE))?;
+            let limits = open.history.limits();
+            open.model = model;
+            open.history = History::new(limits);
+            Ok(())
+        })
+    }
+
+    /// points a document at another file, after "save as"
+    pub fn set_path(&self, id: &str, path: PathBuf) -> Result<(), DocumentError> {
+        let mut inner = self.inner.lock();
+        let entry = inner.entry_mut(id)?;
+        entry.meta.kind = FileKind::of_path(&path).or(entry.meta.kind);
+        entry.meta.path = Some(path);
+        self.changed(&mut inner, Some(id));
+        Ok(())
+    }
+
+    /// the type of an open document, eg `image`
+    pub fn doc_type(&self, id: &str) -> Result<&'static str, DocumentError> {
+        Ok(self.inner.lock().entry(id)?.doc.doc_type())
     }
 
     pub fn close(&self, id: &str) -> Result<(), DocumentError> {
@@ -572,6 +758,7 @@ impl DocumentManager {
                     meta: entry.meta.clone(),
                     dirty: entry.doc.is_dirty(),
                     state,
+                    files: entry.doc.state_files(),
                 }),
                 Err(err) => tracing::warn!(id = entry.id, %err, "could not autosave a document"),
             }

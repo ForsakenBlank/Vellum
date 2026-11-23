@@ -18,14 +18,18 @@
 //! the os lock (not a pid file) is what tells a live session from a dead one, so two
 //! vellum windows running at once never offer each other's work.
 
+use std::collections::HashMap;
 use std::fs::{self, File};
+use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use crate::documents::{DocumentError, DocumentInfo, DocumentManager, DocumentMeta, MAIN_WINDOW};
+use crate::documents::{
+    DocumentError, DocumentInfo, DocumentManager, DocumentMeta, MAIN_WINDOW, StateFile,
+};
 use crate::files::Workspace;
 use crate::recent::now_ms;
 use crate::settings::{SettingsError, write_atomic};
@@ -65,6 +69,9 @@ struct ManifestDocument {
     meta: DocumentMeta,
     dirty: bool,
     state_file: String,
+    /// the folder holding the document's binary state files, if it has any
+    #[serde(default)]
+    files_dir: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -118,6 +125,8 @@ struct Pending {
 struct Autosaved {
     revision: Option<u64>,
     files: Vec<String>,
+    /// state file folder to the stamp of every file written there
+    stamps: HashMap<String, HashMap<String, u64>>,
 }
 
 pub struct Recovery {
@@ -175,6 +184,7 @@ impl Recovery {
             autosaved: Mutex::new(Autosaved {
                 revision: None,
                 files: Vec::new(),
+                stamps: HashMap::new(),
             }),
         })
     }
@@ -279,8 +289,18 @@ impl Recovery {
 
         let mut files = Vec::new();
         let mut entries = Vec::new();
+        let mut dirs = Vec::new();
         for doc in docs {
             let state_file = format!("{}.json", doc.id);
+            let files_dir = if doc.files.is_empty() {
+                None
+            } else {
+                let dir = format!("{}.files", doc.id);
+                let stamps = autosaved.stamps.entry(dir.clone()).or_default();
+                write_state_files(&self.session_dir.join(&dir), &doc.files, stamps)?;
+                dirs.push(dir.clone());
+                Some(dir)
+            };
             let bytes = serde_json::to_vec(&doc.state)?;
             write_atomic(&self.session_dir.join(&state_file), &bytes)?;
             files.push(state_file.clone());
@@ -290,6 +310,7 @@ impl Recovery {
                 meta: doc.meta,
                 dirty: doc.dirty,
                 state_file,
+                files_dir,
             });
         }
         let manifest = Manifest {
@@ -306,6 +327,13 @@ impl Recovery {
         for old in autosaved.files.iter().filter(|f| !files.contains(f)) {
             let _ = fs::remove_file(self.session_dir.join(old));
         }
+        autosaved.stamps.retain(|dir, _| {
+            let keep = dirs.contains(dir);
+            if !keep {
+                let _ = fs::remove_dir_all(self.session_dir.join(dir));
+            }
+            keep
+        });
         autosaved.files = files;
         autosaved.revision = Some(revision);
         Ok(true)
@@ -370,7 +398,57 @@ fn load_document(
     let mut meta = doc.meta.clone();
     // torn off windows do not come back, their tabs go to the main window
     meta.window = MAIN_WINDOW.to_owned();
-    Ok(documents.open_state(&doc.doc_type, state, meta, doc.dirty)?)
+    let files = doc.files_dir.as_ref().map(|d| dir.join(d));
+    Ok(documents.open_saved(&doc.doc_type, state, files.as_deref(), meta, doc.dirty)?)
+}
+
+/// writes the state files whose stamp changed since the last autosave, each to a temporary
+/// name first so a crash mid-write leaves the previous copy, and removes files the
+/// document no longer has
+fn write_state_files(
+    dir: &Path,
+    files: &[StateFile],
+    stamps: &mut HashMap<String, u64>,
+) -> Result<(), RecoveryError> {
+    fs::create_dir_all(dir).map_err(io_err(dir))?;
+    for file in files {
+        // a name with a separator could write outside the folder
+        if file.name.contains(['/', '\\']) || file.name.starts_with('.') {
+            tracing::warn!(
+                name = file.name,
+                "skipping a state file with an unsafe name"
+            );
+            continue;
+        }
+        let path = dir.join(&file.name);
+        if stamps.get(&file.name) == Some(&file.stamp) && path.exists() {
+            continue;
+        }
+        let temp = dir.join(format!("{}.tmp", file.name));
+        let written = (|| {
+            let out = File::create(&temp)?;
+            let mut buffered = std::io::BufWriter::new(out);
+            (file.write)(&mut buffered)?;
+            buffered.flush()?;
+            buffered.get_ref().sync_all()?;
+            drop(buffered);
+            fs::rename(&temp, &path)
+        })();
+        if let Err(err) = written {
+            let _ = fs::remove_file(&temp);
+            stamps.remove(&file.name);
+            return Err(io_err(&path)(err));
+        }
+        stamps.insert(file.name.clone(), file.stamp);
+    }
+    stamps.retain(|name, _| {
+        let keep = files.iter().any(|f| &f.name == name);
+        if !keep {
+            let _ = fs::remove_file(dir.join(name));
+        }
+        keep
+    });
+    Ok(())
 }
 
 fn remove_session(session: Pending) {
@@ -595,6 +673,7 @@ mod tests {
                 meta: DocumentMeta::for_tool("x", vec![]),
                 dirty: true,
                 state_file: "doc-1.json".into(),
+                files_dir: None,
             }],
         };
         fs::write(old.join(MANIFEST), serde_json::to_vec(&manifest).unwrap()).unwrap();
@@ -603,5 +682,81 @@ mod tests {
         let recovery = Recovery::start(root.path()).unwrap();
         assert!(recovery.restore(&manager()).is_empty());
         assert!(old.join("doc-1.json").exists());
+    }
+    /// a document whose body lives in a binary state file, like an image's pixels
+    #[derive(Default)]
+    struct Blob {
+        bytes: Vec<u8>,
+        stamp: u64,
+    }
+
+    impl crate::documents::DocumentModel for Blob {
+        const TYPE: &'static str = "blob";
+        fn commands() -> crate::command::CommandRegistry<Self> {
+            crate::command::CommandRegistry::new()
+        }
+        fn to_state(&self) -> Result<serde_json::Value, DocumentError> {
+            Ok(serde_json::json!({ "len": self.bytes.len() }))
+        }
+        fn from_state(_: serde_json::Value) -> Result<Self, DocumentError> {
+            Err(DocumentError::State("needs its file".into()))
+        }
+        fn state_files(&self) -> Vec<StateFile> {
+            let bytes = self.bytes.clone();
+            vec![StateFile::new("body.bin", self.stamp, move |out| {
+                out.write_all(&bytes)
+            })]
+        }
+        fn from_saved_state(
+            _: serde_json::Value,
+            files: Option<&Path>,
+        ) -> Result<Self, DocumentError> {
+            let dir = files.ok_or_else(|| DocumentError::State("no folder".into()))?;
+            let bytes =
+                fs::read(dir.join("body.bin")).map_err(|e| DocumentError::State(e.to_string()))?;
+            Ok(Self { bytes, stamp: 0 })
+        }
+    }
+
+    #[test]
+    fn binary_state_files_are_written_once_and_restored() {
+        let root = tempfile::tempdir().unwrap();
+        let body_path;
+        {
+            let crashed = Recovery::start(root.path()).unwrap();
+            let docs = manager();
+            docs.register_type::<Blob>();
+            let id = docs
+                .open(
+                    Blob {
+                        bytes: vec![1, 2, 3],
+                        stamp: 7,
+                    },
+                    DocumentMeta::for_file(PathBuf::from("/media/a.vellum"), FileKind::Project),
+                )
+                .unwrap()
+                .id;
+            crashed.autosave(&docs).unwrap();
+            body_path = crashed.session_dir().join(format!("{id}.files/body.bin"));
+            assert_eq!(fs::read(&body_path).unwrap(), [1, 2, 3]);
+            // an unchanged stamp is not written again
+            fs::write(&body_path, [9]).unwrap();
+            docs.mark_saved(&id).unwrap();
+            crashed.autosave(&docs).unwrap();
+            assert_eq!(fs::read(&body_path).unwrap(), [9]);
+        }
+        let recovery = Recovery::start(root.path()).unwrap();
+        let docs = manager();
+        docs.register_type::<Blob>();
+        let restored = recovery.restore(&docs);
+        assert_eq!(restored.len(), 1);
+        let bytes = docs
+            .read::<Blob, _>(&restored[0].id, |b| b.bytes.clone())
+            .unwrap();
+        assert_eq!(bytes, [9]);
+        assert!(
+            docs.read::<PlaceholderDocument, _>(&restored[0].id, |_| ())
+                .is_err()
+        );
     }
 }

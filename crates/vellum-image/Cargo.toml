@@ -8,6 +8,31 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
+vellum-core.workspace = true
+vellum-gpu.workspace = true
+vellum-media.workspace = true
+vellum-export.workspace = true
+parking_lot.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+ts-rs.workspace = true
+flate2 = "1"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+rayon = "1"
+png = "0.18"
+tempfile.workspace = true
+zip = { version = "4", default-features = false }
+moxcms = "0.9"
+fontdb = "0.24"
+rustybuzz = "0.20"
+ttf-parser = "0.25"
+ureq = "3"
+
+[dev-dependencies]
+tempfile.workspace = true
+moxcms = "0.9"
 
 [lints]
 workspace = true

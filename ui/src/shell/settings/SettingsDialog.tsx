@@ -18,6 +18,7 @@ import { useSettings } from "../../state/settings";
 import { useUi, type SettingsSection } from "../../state/ui";
 import { sectionTitles, settingsCatalog, type SettingEntry } from "./catalog";
 import { FolderControl, MarginControl, PresetsEditor, TargetControl } from "./ExportSettings";
+import { DisplayProfile, RenderDevice } from "./RenderSettings";
 import { ShortcutEditor } from "./ShortcutEditor";
 
 const sections = Object.keys(sectionTitles) as SettingsSection[];
@@ -408,6 +409,47 @@ function Control({ entry, settings }: { entry: SettingEntry; settings: AppSettin
       );
     case "cacheUsage":
       return <CacheUsage />;
+    case "useGpu":
+      return (
+        <Switch
+          id={id}
+          label="Draw with the graphics card"
+          checked={settings.render.useGpu}
+          onCheckedChange={(useGpu) => {
+            patch({ render: { useGpu } });
+          }}
+        />
+      );
+    case "renderDevice":
+      return <RenderDevice />;
+    case "gpuCache":
+      return (
+        <NumberField
+          id={id}
+          value={settings.render.gpuCacheMb}
+          min={64}
+          max={65536}
+          unit="MB"
+          onChange={(gpuCacheMb) => {
+            patch({ render: { gpuCacheMb } });
+          }}
+        />
+      );
+    case "cpuCache":
+      return (
+        <NumberField
+          id={id}
+          value={settings.render.cpuCacheMb}
+          min={64}
+          max={262144}
+          unit="MB"
+          onChange={(cpuCacheMb) => {
+            patch({ render: { cpuCacheMb } });
+          }}
+        />
+      );
+    case "displayProfile":
+      return <DisplayProfile />;
     case "exportTarget":
       return <TargetControl id={id} />;
     case "exportMargin":

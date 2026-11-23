@@ -16,11 +16,48 @@ export const sectionTitles: Record<SettingsSection, string> = {
   jobs: "Jobs",
   history: "Undo history",
   media: "Media and cache",
+  rendering: "Graphics and display",
   export: "Export and quick tools",
   about: "About",
 };
 
 export const settingsCatalog: SettingEntry[] = [
+  {
+    id: "useGpu",
+    section: "rendering",
+    label: "Draw with the graphics card",
+    description:
+      "Pictures and effects render on the graphics card when one works. Turn this off if drawing looks wrong; the processor gives the same result, slower.",
+    keywords: "gpu acceleration hardware wgpu vulkan metal directx cpu fallback",
+  },
+  {
+    id: "renderDevice",
+    section: "rendering",
+    label: "Drawing with",
+    description: "The device that draws right now. Hover for why, if it is the processor.",
+    keywords: "gpu graphics card adapter status",
+  },
+  {
+    id: "gpuCache",
+    section: "rendering",
+    label: "Graphics card memory for results",
+    description: "Rendered results kept on the graphics card so they do not have to be made again.",
+    keywords: "vram gpu cache budget",
+  },
+  {
+    id: "cpuCache",
+    section: "rendering",
+    label: "Memory for results",
+    description: "Rendered results kept in main memory, used when drawing with the processor.",
+    keywords: "ram cache budget cpu",
+  },
+  {
+    id: "displayProfile",
+    section: "rendering",
+    label: "Display colour profile",
+    description: "The ICC profile of your monitor. Without one, colours are shown as sRGB.",
+    keywords: "icc icm color management monitor calibration wide gamut p3",
+  },
   {
     id: "theme",
     section: "appearance",

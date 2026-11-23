@@ -1003,8 +1003,10 @@ pub fn slideshow(
     if target == ConvertTarget::Mp4 {
         args.extend(["-movflags".into(), "+faststart".into()]);
     }
-    args.extend(output_args(&partial));
+    // ffmpeg 8 shows the repeated last picture for a full slide, so cut at the real length
     let total = seconds * inputs.len() as f64;
+    args.extend(["-t".into(), num(total)]);
+    args.extend(output_args(&partial));
     let span = vellum_media::control::Span {
         inner: control,
         start: 0.4,

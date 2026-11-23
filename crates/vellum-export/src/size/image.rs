@@ -44,7 +44,7 @@ impl Saved {
         }
     }
 
-    fn label(self) -> &'static str {
+    pub fn label(self) -> &'static str {
         match self {
             Self::Jpeg => "JPEG",
             Self::Webp => "WebP",
@@ -54,7 +54,7 @@ impl Saved {
     }
 
     /// the quality range searched, lowest first
-    fn range(self) -> (u8, u8) {
+    pub fn range(self) -> (u8, u8) {
         match self {
             Self::Jpeg => (35, 92),
             Self::Webp => (25, 92),
@@ -192,8 +192,9 @@ pub fn fit(
     Ok(result)
 }
 
-/// the smallest change to `image` that fits, and what was changed
-fn squeeze(
+/// the smallest change to `image` that fits, and what was changed: the best quality
+/// first, then smaller sizes. the image editor's export to a size uses this too.
+pub fn squeeze(
     env: &Env,
     image: &RgbaImage,
     saved: Saved,
@@ -294,7 +295,8 @@ pub fn jpeg(image: &RgbImage, quality: u8) -> MediaResult<Vec<u8>> {
     Ok(out)
 }
 
-fn via_ffmpeg(
+/// a webp or avif of the png at `source`, encoded by ffmpeg at a quality from 0 to 100
+pub fn via_ffmpeg(
     ffmpeg: &vellum_media::ffmpeg::Ffmpeg,
     env: &Env,
     source: &Path,
@@ -363,7 +365,8 @@ fn png_fit(
     Ok((quantized.len() as u64 <= goal).then_some((Some(0), quantized)))
 }
 
-fn plain_png(image: &RgbaImage) -> MediaResult<Vec<u8>> {
+/// a plain 8 bit png, rgb when nothing is see through
+pub fn plain_png(image: &RgbaImage) -> MediaResult<Vec<u8>> {
     let opaque = image.pixels().all(|p| p[3] == 255);
     let mut out = Vec::new();
     let encoder = image::codecs::png::PngEncoder::new(&mut out);
@@ -379,7 +382,8 @@ fn plain_png(image: &RgbaImage) -> MediaResult<Vec<u8>> {
     Ok(out)
 }
 
-fn optimise(png: &[u8]) -> MediaResult<Vec<u8>> {
+/// the same png, losslessly smaller
+pub fn optimise(png: &[u8]) -> MediaResult<Vec<u8>> {
     let options = oxipng::Options::from_preset(2);
     oxipng::optimize_from_memory(png, &options)
         .map_err(|err| MediaError::Unsupported(format!("The PNG could not be optimised: {err}")))
@@ -426,11 +430,13 @@ pub fn png_quantized(image: &RgbaImage) -> MediaResult<Vec<u8>> {
         let map = quant.color_map_rgba();
         let clear = (map.len() / 4) as u8;
         let mut palette: Vec<u8> = map
-            .chunks_exact(4)
+            .as_chunks::<4>()
+            .0
+            .iter()
             .flat_map(|c| [c[0], c[1], c[2]])
             .collect();
         palette.extend([0, 0, 0]);
-        let mut alphas: Vec<u8> = map.chunks_exact(4).map(|c| c[3]).collect();
+        let mut alphas: Vec<u8> = map.as_chunks::<4>().0.iter().map(|c| c[3]).collect();
         alphas.push(0);
         let indices = image
             .pixels()

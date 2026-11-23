@@ -213,8 +213,9 @@ impl PictureFormat {
 fn iso_brand(head: &[u8]) -> Option<PictureFormat> {
     let size = u32::from_be_bytes([head[0], head[1], head[2], head[3]]) as usize;
     let end = size.clamp(12, head.len());
+    let compatible = head[16.min(end)..end].as_chunks::<4>().0;
     let brands: Vec<&[u8]> = std::iter::once(&head[8..12])
-        .chain(head[16.min(end)..end].chunks_exact(4))
+        .chain(compatible.iter().map(|b| b.as_slice()))
         .collect();
     let has = |brand: &[u8]| brands.contains(&brand);
     if has(b"crx ") {
@@ -265,6 +266,8 @@ pub struct Picture {
     pub height: u32,
     /// at least one
     pub frames: Vec<Frame>,
+    /// the colour profile embedded in the file, if the decoder found one. none means srgb.
+    pub icc: Option<Vec<u8>>,
 }
 
 impl Picture {
@@ -279,6 +282,7 @@ impl Picture {
             width,
             height,
             frames: vec![Frame { image, delay_ms: 0 }],
+            icc: None,
         }
     }
 }
@@ -405,11 +409,15 @@ fn decode_raster(
     let orientation = decoder
         .orientation()
         .map_err(|err| MediaError::decode(path, err))?;
+    // a profile that cannot be read is not worth failing the picture over
+    let icc = decoder.icc_profile().ok().flatten();
     let mut image =
         DynamicImage::from_decoder(decoder).map_err(|err| MediaError::decode(path, err))?;
     image.apply_orientation(orientation);
     let (width, height) = (image.width(), image.height());
-    Ok(Picture::still(format, width, height, image.into_rgba8()))
+    let mut picture = Picture::still(format, width, height, image.into_rgba8());
+    picture.icc = icc;
+    Ok(picture)
 }
 
 /// none when the file is not animated after all, so the caller decodes it as a still
@@ -463,6 +471,7 @@ fn decode_animation(path: &Path, format: PictureFormat) -> MediaResult<Option<Pi
         width,
         height,
         frames: out,
+        icc: None,
     }))
 }
 

@@ -13,6 +13,8 @@ publish = false
 vellum-core = { path = "crates/vellum-core" }
 vellum-media = { path = "crates/vellum-media" }
 vellum-export = { path = "crates/vellum-export" }
+vellum-gpu = { path = "crates/vellum-gpu" }
+vellum-image = { path = "crates/vellum-image" }
 
 parking_lot = "0.12"
 serde = { version = "1", features = ["derive"] }

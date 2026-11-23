@@ -18,7 +18,8 @@ describe("shortcut edits", () => {
   it("finds clashes, but not between different workspaces", () => {
     expect(clashesFor(bindings, "file.save", "Ctrl+K")).toEqual(["app.command_palette"]);
     expect(clashesFor(bindings, "image.blur", "B")).toEqual(["image.brush"]);
-    expect(clashesFor(bindings, "app.home", "B")).toEqual(["image.brush", "video.blade"]);
+    // a workspace's own command takes over a global chord inside that workspace
+    expect(clashesFor(bindings, "app.home", "B")).toEqual([]);
     expect(clashesFor(bindings, "file.save", "Ctrl+S")).toEqual([]);
   });
 

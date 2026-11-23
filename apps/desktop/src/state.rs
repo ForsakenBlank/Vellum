@@ -6,15 +6,19 @@ use tauri::{AppHandle, Manager};
 use vellum_core::app::{AppPaths, AppServices};
 use vellum_core::ui::UiReady;
 use vellum_export::service::QuickTools;
+use vellum_image::service::{DisplayFn, ImageService};
 use vellum_media::MediaService;
 
 use crate::bridge::TauriSink;
+use crate::render::Renderer;
 
 /// everything the ipc commands need, managed by tauri
 pub struct AppState {
     pub services: AppServices,
     pub media: MediaService,
     pub tools: QuickTools,
+    pub renderer: Renderer,
+    pub images: ImageService,
     pub settings_path: PathBuf,
     next_window: AtomicU64,
 }
@@ -47,10 +51,20 @@ impl AppState {
         }
 
         let tools = QuickTools::new(&services, &media);
+        let renderer = Renderer::start(&services);
+        let settings = services.settings.clone();
+        let display: DisplayFn = Arc::new(move |working| {
+            crate::render::display_transform(&settings.get().render, working)
+        });
+        let images = ImageService::start(&services, &media, renderer.hub_slot(), display);
+        let reopen = images.clone();
+        renderer.on_display_change(move || reopen.reopen_views());
         Ok(Self {
             services,
             media,
             tools,
+            renderer,
+            images,
             settings_path,
             next_window: AtomicU64::new(1),
         })

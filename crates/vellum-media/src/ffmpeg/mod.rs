@@ -11,7 +11,6 @@ pub mod process;
 use std::env;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::time::Duration;
 
 use serde::Serialize;
 use ts_rs::TS;
@@ -71,7 +70,7 @@ impl Ffmpeg {
         }
         let mut cmd = process::command(&ffmpeg);
         cmd.arg("-hide_banner").arg("-version");
-        let out = process::capture(cmd, Duration::from_secs(10))?;
+        let out = process::capture(cmd, process::QUICK_QUERY)?;
         let text = String::from_utf8_lossy(&out);
         let info = FfmpegInfo {
             path: ffmpeg.display().to_string(),

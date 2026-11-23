@@ -4,6 +4,101 @@ All notable changes to Vellum are listed here. Dates are in YYYY-MM-DD.
 
 ## Unreleased
 
+### Phase 6, first part: the engine and document side of the image editor tools (2026-11-22)
+
+Added (in the engine and documents; the panels, dialogs and tools in the window still need building, see PLAN.md phase 6)
+
+- Every adjustment from the plan as a render node with a GPU kernel and a matching CPU path: brightness/contrast, levels, curves, exposure, vibrance, hue/saturation, colour balance, black and white, photo filter, channel mixer, colour lookup (.cube files and built in looks), invert, posterize, threshold, gradient map, selective colour, shadows/highlights, HDR toning, match colour and replace colour, plus a Camera Raw node (white balance, tone, texture, clarity, dehaze, HSL, colour grading, sharpening and noise reduction, lens corrections, vignette, grain).
+- Adjustment layers with presets, and auto tone, auto contrast, auto colour, equalize and one click enhance worked out from the picture.
+- The filter gallery's filters: motion, radial, lens, tilt-shift, iris, field, path, spin and surface blur, smart sharpen, high pass, reduce noise, add noise, film grain, wave, ripple, twirl, polar coordinates, displace, chromatic aberration, glitch, emboss, find edges, glowing edges, oil paint, mosaic, colour halftone, clouds, lens flare and lighting effects. Golden images for every adjustment and filter in tests/golden/effects.
+- Fill layers (colour, gradient, pattern) and smart objects, embedded or linked, with smart filters that stay editable, can be hidden, faded, reordered and masked.
+- Retouching: clone stamp (aligned, sample all layers), healing brush, spot healing, patch, content-aware fill and move, red eye, dodge, burn, sponge, blur, sharpen and smudge. Liquify (forward warp, pucker, bloat, reconstruct, smooth, twirl) and puppet warp, both previewed on the GPU.
+- Text layers: point, paragraph and on a path, warp styles, OpenType features, variable font axes, system fonts and Google Fonts downloads, and missing fonts reported and replaceable.
+- Shape layers (rectangle with live corners, ellipse, polygon and star, line with arrowheads, custom shapes, free paths) with live path operations, vector masks and saved paths. Text, shapes and smart objects stay editable through moves, free transform and canvas changes.
+- Layer styles: drop shadow, inner shadow, outer and inner glow, bevel and emboss, satin, colour, gradient and pattern overlays and stroke, with presets and paste onto several layers.
+- Saving Photoshop files (PSD and PSB, 8, 16 and 32 bit) with layers intact, checked with psd-tools and ImageMagick. Invert, posterize, threshold and levels go out (and come back in) as real adjustment layers.
+- Artboards, export layers to files, export artboards, and save for web previews with the real encoded size.
+
+Fixed
+
+- Free transform on a text or shape layer did nothing, and smart objects could not be transformed.
+- Text had no fallback font on Linux systems without Arial. Sans serif, serif and monospace now use the first common family that is installed.
+- Pattern fills and overlays failed on Windows (DirectX 12), and a shader that failed to compile there left a broken pipeline instead of saying why.
+- Slideshows made by the converter were one slide too long with FFmpeg 8.
+
+### Phase 5, second half: transforms, crop, Photoshop files, export and view aids (2026-11-22)
+
+Added
+
+- Free transform (Ctrl+T) on the current layer, or only the selected pixels when something is selected. Drag the corners and edges to scale (Shift lets the shape go, Alt scales about the middle), outside the box to turn it (Shift in 15 degree steps), and move the pivot. Ctrl and a corner distorts, Ctrl and an edge skews, Ctrl Alt Shift and a corner adds perspective, or pick Scale, Rotate, Skew, Distort or Perspective in the options bar. Warp bends the picture with sixteen points. Type exact numbers for the position, width, height, angle and skew, flip it, and pick nearest neighbour, bilinear or bicubic. The picture follows live while you drag; Enter applies it as one undoable step and Esc cancels.
+- Transform selection changes the selection outline itself.
+- Flip and rotate: the whole canvas by a quarter or a half turn, or flipped either way, and the current layer flipped about its middle.
+- Canvas size, with an anchor and a colour for the new area, and image size, with width and height in pixels or percent, kept in proportion, and a choice of resampling.
+- The crop tool (C): drag the edges, turn outside the box to straighten, draw a line along something level with Straighten, pick a ratio (1:1, 4:3, 16:9 and more), and keep or delete what is cut away. Perspective crop (Shift+C) takes four free corners and makes them a rectangle. Crop to selection too.
+- Photoshop files (PSD and PSB) open with their layers: groups, layer masks, clipping, every blend mode, opacity and fill, hidden layers, locks, colour labels, guides, the resolution and the colour profile, at 8, 16 or 32 bits per channel. Text, shape and smart object layers come in as the pixels Photoshop stored for them and say what they were.
+- Export as PNG, JPEG, WebP or AVIF (Ctrl+Alt+Shift+W). 16 and 32 bit pictures stay 16 bit in PNG, the colour profile is kept in PNG, JPEG and WebP, and "Fit under a size" uses the same search as Export to X MB, with the same size chips. Exporting runs in the background and shows in the jobs panel.
+- Rulers (Ctrl+R), guides dragged out of them and saved with the picture (dragging one back onto a ruler deletes it, and every change undoes), the grid (Ctrl+'), and smart guides: the move tool, marquees, free transform and crop snap to guides, the grid, the canvas edges and middle, and other layers' edges and middles, with a pink line showing what lined up. Hold Ctrl to place something without snapping. Show, hide, lock and clear guides from the View commands, and set the grid size and what snaps from the buttons under the picture.
+- The Navigator panel shows the whole picture with the part in view outlined; drag in it to move around and use its slider to zoom.
+
+Changed
+
+- The commands that said "Not here yet" in the image editor now do their job.
+
+- Painting is quicker to show: pictures now keep track of changes in 64 pixel blocks, so a brush stroke redraws about half as much of the screen (on a 4K picture without a graphics card, from about 14 to 8 ms fitted to the window and 22 to 11 ms at 100%).
+
+Fixed
+
+- Layer thumbnails and the navigator now update after painting inside a layer, not only when the layer grows.
+- The image editor's dialogs (feather, colour range, new image and the new ones) had no space around their contents.
+- The Info panel no longer says a `.vellum` file cannot be read.
+- With the navigator and colour picker open, the layer list could be squeezed out of sight; it now always keeps room, and the navigator can be folded away.
+
+Notes
+
+- Found by running the app for real under a virtual display, which phase 5's first half had not been: everything listed under Fixed. Photoshop files in CMYK, Lab, bitmap or indexed colour still open flattened.
+
+### Phase 5, first half: image editor core (2026-11-22)
+
+Added
+
+- The image editor. Pictures open in it with their layers ready to edit, and File, New image makes a blank one at 8, 16 or 32 bits per channel with a white, black, coloured or see through background.
+- Layers and groups with every Photoshop blend mode, opacity and fill, layer masks, clipping masks, locks (see through pixels, painting, position, everything), colour labels and a search box that finds layers by name, colour or kind. Drag layers to reorder them or drop them into groups. Merge down, merge visible, flatten, duplicate, new layer via copy and via cut.
+- Selections: rectangle and ellipse marquees, the lasso, polygon lasso and magnetic lasso, the magic wand (tolerance, contiguous, sample all layers), the quick selection brush and colour range. Shift adds, Alt takes away, both keep the overlap. Feather, expand, contract, border, smooth, invert, select all, deselect and reselect. Save selections and load them back. Quick mask shows the selection in red and lets brushes paint it. Marching ants stay crisp at any zoom.
+- Painting: a brush and pencil with size, hardness, opacity, flow, spacing, smoothing, scatter and texture, pen pressure for size, opacity and flow, and pen tilt. An eraser, a paint bucket, gradients (linear, radial, angle, reflected and diamond) and an eyedropper that can average up to 101 by 101 pixels. [ and ] change the brush size, Shift with them the hardness. Shift click draws a straight line from the last stroke.
+- Every change undoes and redoes, including each brush stroke as one step, and shows in the History panel with its snapshots.
+- Save as a `.vellum` file, which keeps every layer, mask, saved selection and the colour profile. It is a zip of the project folder, so it is easy to look inside. Autosave and crash recovery keep image documents too, rewriting only the layers that changed.
+- Photoshop's shortcuts work in the image editor out of the box: V, M, L, W, I, B, E, G, H, Z, Q, D, X, Ctrl+T, Ctrl+J, Ctrl+G, Ctrl+E, Ctrl+D, Ctrl+Shift+I and more.
+
+Changed
+
+- A workspace's own shortcut now takes over a global one inside that workspace without counting as a conflict, so Ctrl+E merges layers in the image editor and still exports to a size everywhere else.
+- `.vellum` projects open in the image editor.
+- The command palette lists every command when nothing is typed.
+
+Notes
+
+- Crop, free transform, canvas size, image size, layered PSD import, export to PNG, JPEG, WebP and AVIF, rulers, guides and the grid come in the second half of phase 5. Until then their shortcuts say so, and PSD files open flattened.
+- Pictures open at 8 bits per channel for now.
+
+### Phase 4: render engine (2026-11-21)
+
+Added
+
+- Pictures now open in the image workspace and are drawn by Vellum's own render engine, on the graphics card when there is a usable one. Scroll to zoom around the pointer, drag to move, hold R and drag (or Shift and scroll) to turn the view, and use the bar under the picture to zoom in steps, fit, show actual pixels, straighten, mirror the view or show the pixel grid from 800%. With the picture selected, Ctrl+0 fits, Ctrl+1 shows actual pixels and Ctrl+= and Ctrl+- zoom (Cmd on a Mac). Editing arrives in phase 5.
+- Moving the view stays smooth however big the picture is: the window keeps what it has already been sent and only asks for the parts that come into view. Even very large pictures show a whole-picture preview straight away while the detail arrives.
+- Colour management: photos with an embedded colour profile (PNG, JPEG, WebP and TIFF) show their true colours, and Settings, Graphics and display can use your monitor's colour profile.
+- Settings, Graphics and display: turn the graphics card on or off, see which device is drawing and why, and set how much memory rendered results may keep.
+- Behind the scenes, the engine every later editor builds on: a graph of effects that caches every result and only redoes what changed, all 27 Photoshop blend modes, Gaussian blur, levels, hue and saturation, sharpen, transforms with perspective, gradients, masks, sRGB, Rec.709, Rec.2020 (with HDR), Display P3, Adobe RGB and ACES colour spaces, 8, 16 and 32 bit pipelines, and pictures far bigger than a graphics card can hold.
+
+Changed
+
+- The image workspace header says it is viewing only until the editor arrives.
+
+Notes
+
+- If the graphics card stops responding, Vellum reconnects to it on its own and draws with the processor in the meantime. Without a usable graphics card everything still works, just slower, and Settings says why.
+- The speed numbers in ARCHITECTURE.md were measured on a machine without a graphics card; the graphics card figures still need a run on real hardware.
+
 ### Phase 3: quick tools (2026-11-20)
 
 Added

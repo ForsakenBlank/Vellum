@@ -36,6 +36,12 @@ jobs:
         if: runner.os == 'Linux'
         run: sudo apt-get install -y ffmpeg
 
+      # no runner has a graphics card, so the render engine's gpu tests run on mesa's
+      # software vulkan driver (lavapipe) on linux. windows has warp and macos has metal.
+      - name: Install software Vulkan (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get install -y mesa-vulkan-drivers
+
       - name: Install FFmpeg (macOS)
         if: runner.os == 'macOS'
         run: brew install ffmpeg
@@ -67,6 +73,7 @@ jobs:
         env:
           VELLUM_REQUIRE_FFMPEG: "1"
           VELLUM_REQUIRE_ALL_TEST_MEDIA: ${{ runner.os == 'Linux' && '1' || '' }}
+          VELLUM_REQUIRE_GPU: ${{ runner.os == 'Linux' && '1' || '' }}
 
       - name: Generated TypeScript bindings and e2e fixtures are committed and up to date
         if: runner.os == 'Linux'

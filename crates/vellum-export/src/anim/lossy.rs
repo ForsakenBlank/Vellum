@@ -233,7 +233,9 @@ fn inspect(data: &[u8]) -> MediaResult<Option<Decoded>> {
         return Ok(None);
     };
     let palette: Vec<[u8; 3]> = palette
-        .chunks_exact(3)
+        .as_chunks::<3>()
+        .0
+        .iter()
         .map(|c| [c[0], c[1], c[2]])
         .collect();
     // encoders pad palettes to a power of two, so a full looking palette often has slots

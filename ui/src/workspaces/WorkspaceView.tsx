@@ -5,6 +5,7 @@ import type { DocumentInfo } from "../bindings/DocumentInfo";
 import type { Workspace } from "../bindings/Workspace";
 import { Button, IconButton } from "../components/Button";
 import { EmptyState } from "../components/EmptyState";
+import { GpuViewport } from "../components/viewport/GpuViewport";
 import { Skeleton } from "../components/Skeleton";
 import { inDesktopApp, ipc } from "../lib/ipc";
 import { fileName, kindOf } from "../lib/routing";
@@ -14,6 +15,7 @@ import { useUi } from "../state/ui";
 import { pickAndOpen } from "../shell/actions";
 import { quickTool } from "./quickTools";
 import { isRunnable } from "../lib/tools";
+import { ImageWorkspace } from "./image/ImageWorkspace";
 import { ToolView } from "./tools/ToolView";
 import { workspaceInfo } from "./workspaces";
 
@@ -25,6 +27,7 @@ export function WorkspaceView() {
   if (doc && doc.docType === "quick_tool" && isRunnable(doc.tool)) {
     return <ToolView key={doc.id} doc={doc} />;
   }
+  if (doc && doc.docType === "image") return <ImageWorkspace key={doc.id} doc={doc} />;
   if (doc) return <DocumentView key={doc.id} doc={doc} />;
   // the tab was just opened and the list has not caught up yet
   if (activeId) return <Loading />;
@@ -49,20 +52,34 @@ function EmptyWorkspace({ workspace }: { workspace: Workspace }) {
         icon={info.icon}
         title={`${info.label} workspace`}
         actions={
-          <Button
-            variant="primary"
-            tooltip="Pick files to open"
-            command="file.open"
-            icon={<FolderOpen className="size-4" />}
-            disabled={!inDesktopApp}
-            onClick={() => void pickAndOpen()}
-          >
-            Open files
-          </Button>
+          <>
+            {workspace === "image" && (
+              <Button
+                tooltip="Start a blank picture"
+                command="file.new"
+                disabled={!inDesktopApp}
+                onClick={() => void runCommand("file.new")}
+              >
+                New image
+              </Button>
+            )}
+            <Button
+              variant="primary"
+              tooltip="Pick files to open"
+              command="file.open"
+              icon={<FolderOpen className="size-4" />}
+              disabled={!inDesktopApp}
+              onClick={() => void pickAndOpen()}
+            >
+              Open files
+            </Button>
+          </>
         }
       >
-        {info.blurb} Drop a file anywhere to open it here. The editor itself arrives in phase{" "}
-        {info.phase}.
+        {info.blurb} Drop a file anywhere to open it here.
+        {info.id === "image"
+          ? " Or start a new picture."
+          : ` The editor itself arrives in phase ${String(info.phase)}.`}
       </EmptyState>
     </div>
   );
@@ -154,7 +171,9 @@ function DocumentView({ doc }: { doc: DocumentInfo }) {
           <span className="truncate text-xs text-fg-subtle">
             {tool
               ? `${tool.title} · arrives in phase ${tool.phase}`
-              : `${space.label} workspace · arrives in phase ${space.phase}`}
+              : showsPicture(doc)
+                ? `${space.label} workspace · viewing only, editing arrives in phase ${space.phase}`
+                : `${space.label} workspace · arrives in phase ${space.phase}`}
             {doc.path ? ` · ${doc.path}` : ""}
           </span>
         </div>
@@ -185,7 +204,11 @@ function DocumentView({ doc }: { doc: DocumentInfo }) {
       </div>
 
       <div className="flex min-h-0 flex-1 gap-4 p-4">
-        <Canvas doc={doc} />
+        {showsPicture(doc) ? (
+          <GpuViewport document={doc.id} title={doc.title} />
+        ) : (
+          <Canvas doc={doc} />
+        )}
         <aside className="flex w-72 shrink-0 flex-col gap-2">
           <label htmlFor={`notes-${doc.id}`} className="text-xs font-medium text-fg-muted">
             Notes
@@ -265,6 +288,11 @@ function TitleField({ doc, onFail }: { doc: DocumentInfo; onFail: (err: unknown)
 }
 
 /** a stand in for the real editor, shaped like the workspace that will replace it */
+/** pictures open in the gpu viewport; the editor around it arrives in phase 5 */
+function showsPicture(doc: DocumentInfo): boolean {
+  return inDesktopApp && doc.workspace === "image" && doc.path !== null && doc.tool === null;
+}
+
 function Canvas({ doc }: { doc: DocumentInfo }) {
   const space = workspaceInfo(doc.workspace);
   const tool = doc.tool ? quickTool(doc.tool) : undefined;

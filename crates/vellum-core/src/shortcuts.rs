@@ -177,7 +177,9 @@ fn normalize_key(key: &str) -> Option<String> {
 }
 
 /// the part of the app a command belongs to. commands in different workspaces may share a
-/// chord, global commands may not share one with anything.
+/// chord, and a workspace's own command may take a global command's chord: inside that
+/// workspace it wins, which is how ctrl+e merges layers in the image editor and exports to
+/// a size everywhere else.
 pub fn context_of(kind: &str) -> &str {
     const WORKSPACES: [&str; 7] = [
         "quick_tools",
@@ -196,8 +198,9 @@ pub fn context_of(kind: &str) -> &str {
     }
 }
 
+/// true when two commands would fight over the same keys
 fn contexts_overlap(a: &str, b: &str) -> bool {
-    a == "global" || b == "global" || a == b
+    a == b
 }
 
 /// every chord used by two or more commands that can fire at the same time
@@ -275,6 +278,80 @@ const VELLUM: Table = &[
     ("workspace.vector", &["Ctrl+7"]),
     ("tool.export_to_size", &["Ctrl+E"]),
     ("tool.screen_record", &["Ctrl+Shift+R"]),
+    ("file.new", &["Ctrl+N"]),
+    ("file.save_as", &["Ctrl+Shift+S"]),
+    // the image editor follows photoshop out of the box
+    ("image.export", &["Ctrl+Alt+Shift+W"]),
+    ("image.tool.move", &["V"]),
+    ("image.tool.marquee", &["M"]),
+    ("image.tool.marquee_cycle", &["Shift+M"]),
+    ("image.tool.lasso", &["L"]),
+    ("image.tool.lasso_cycle", &["Shift+L"]),
+    ("image.tool.wand", &["W"]),
+    ("image.tool.wand_cycle", &["Shift+W"]),
+    ("image.tool.crop", &["C"]),
+    ("image.tool.crop_cycle", &["Shift+C"]),
+    ("image.tool.eyedropper", &["I"]),
+    ("image.tool.brush", &["B"]),
+    ("image.tool.brush_cycle", &["Shift+B"]),
+    ("image.tool.eraser", &["E"]),
+    ("image.tool.gradient", &["G"]),
+    ("image.tool.gradient_cycle", &["Shift+G"]),
+    ("image.tool.hand", &["H"]),
+    ("image.tool.zoom", &["Z"]),
+    ("image.tool.text", &["T"]),
+    ("image.tool.shape", &["U"]),
+    ("image.tool.shape_cycle", &["Shift+U"]),
+    ("image.tool.pen", &["P"]),
+    ("image.tool.pen_cycle", &["Shift+P"]),
+    ("image.tool.path_select", &["A"]),
+    ("image.tool.clone", &["S"]),
+    ("image.tool.heal", &["J"]),
+    ("image.tool.heal_cycle", &["Shift+J"]),
+    ("image.tool.dodge", &["O"]),
+    ("image.tool.dodge_cycle", &["Shift+O"]),
+    ("image.auto_tone", &["Ctrl+Shift+L"]),
+    ("image.auto_contrast", &["Ctrl+Alt+Shift+L"]),
+    ("image.auto_color", &["Ctrl+Shift+B"]),
+    ("image.camera_raw", &["Ctrl+Shift+A"]),
+    ("image.liquify", &["Ctrl+Shift+X"]),
+    ("image.save_for_web", &["Ctrl+Alt+Shift+S"]),
+    ("image.content_aware_fill", &["Shift+F5"]),
+    ("image.transform", &["Ctrl+T"]),
+    ("image.select.all", &["Ctrl+A"]),
+    ("image.select.deselect", &["Ctrl+D"]),
+    ("image.select.reselect", &["Ctrl+Shift+D"]),
+    ("image.select.invert", &["Ctrl+Shift+I"]),
+    ("image.select.feather", &["Shift+F6"]),
+    ("image.quick_mask", &["Q"]),
+    ("image.colors.default", &["D"]),
+    ("image.colors.swap", &["X"]),
+    ("image.brush.smaller", &["["]),
+    ("image.brush.bigger", &["]"]),
+    ("image.brush.softer", &["Shift+["]),
+    ("image.brush.harder", &["Shift+]"]),
+    ("image.edit.clear", &["Delete", "Backspace"]),
+    ("image.edit.fill_foreground", &["Alt+Backspace"]),
+    ("image.edit.fill_background", &["Ctrl+Backspace"]),
+    ("image.layer.new", &["Ctrl+Shift+N"]),
+    ("image.layer.via_copy", &["Ctrl+J"]),
+    ("image.layer.via_cut", &["Ctrl+Shift+J"]),
+    ("image.layer.group", &["Ctrl+G"]),
+    ("image.layer.ungroup", &["Ctrl+Shift+G"]),
+    ("image.layer.clip", &["Ctrl+Alt+G"]),
+    ("image.layer.merge_down", &["Ctrl+E"]),
+    ("image.layer.merge_visible", &["Ctrl+Shift+E"]),
+    ("image.view.rulers", &["Ctrl+R"]),
+    ("image.view.grid", &["Ctrl+'"]),
+    ("image.view.guides", &["Ctrl+;"]),
+    ("image.view.snap", &["Ctrl+Shift+;"]),
+    ("image.view.lock_guides", &["Ctrl+Alt+;"]),
+    ("image.view.fit", &["Ctrl+0"]),
+    ("image.view.actual_pixels", &["Ctrl+1"]),
+    ("image.view.zoom_in", &["Ctrl+="]),
+    ("image.view.zoom_out", &["Ctrl+-"]),
+    ("image.canvas_size", &["Ctrl+Alt+C"]),
+    ("image.image_size", &["Ctrl+Alt+I"]),
 ];
 
 /// photoshop opens preferences with ctrl+k, exports with ctrl+alt+shift+w and hides
@@ -331,8 +408,9 @@ pub fn preset_bindings(preset: ShortcutPreset) -> Bindings {
     };
     for (kind, chords) in table_to_bindings(changes) {
         // a chord the preset gives to a command is taken away from whatever had it before
+        // in the same context
         for (other, existing) in bindings.iter_mut() {
-            if *other != kind {
+            if *other != kind && contexts_overlap(context_of(other), context_of(&kind)) {
                 existing.retain(|c| !chords.contains(c));
             }
         }
@@ -486,8 +564,16 @@ mod tests {
         assert_eq!(conflicts.len(), 1);
         assert_eq!(conflicts[0].commands, ["image.blur", "image.brush"]);
 
+        // a global command on the same keys is shadowed inside the workspace, not a clash
         bindings.insert("app.home".into(), vec!["B".into()]);
-        assert_eq!(find_conflicts(&bindings)[0].commands.len(), 4);
+        assert_eq!(find_conflicts(&bindings).len(), 1);
+        bindings.insert("file.open".into(), vec!["B".into()]);
+        let conflicts = find_conflicts(&bindings);
+        assert_eq!(conflicts.len(), 1);
+        assert_eq!(
+            conflicts[0].commands,
+            ["app.home", "file.open", "image.blur", "image.brush"]
+        );
     }
 
     #[test]

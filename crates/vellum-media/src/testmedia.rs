@@ -285,8 +285,9 @@ const FFMPEG_FILES: &[(&str, &[&str])] = &[
             "smpte2084",
             "-colorspace",
             "bt2020nc",
+            // newer ffmpeg no longer hands the colour flags to x265, so they go here too
             "-x265-params",
-            "log-level=error:hdr10=1:master-display=G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,16450)L(10000000,50):max-cll=1000,400",
+            "log-level=error:hdr10=1:colorprim=bt2020:transfer=smpte2084:colormatrix=bt2020nc:master-display=G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,16450)L(10000000,50):max-cll=1000,400",
         ],
     ),
     (
@@ -515,7 +516,7 @@ pub fn mp4_rotated_90(mut mp4: Vec<u8>) -> MediaResult<Vec<u8>> {
     let slot = mp4
         .get_mut(matrix..matrix + 36)
         .ok_or_else(|| MediaError::Unsupported("the mp4 track header is cut short".into()))?;
-    for (chunk, value) in slot.chunks_exact_mut(4).zip(values) {
+    for (chunk, value) in slot.as_chunks_mut::<4>().0.iter_mut().zip(values) {
         chunk.copy_from_slice(&value.to_be_bytes());
     }
     Ok(mp4)

@@ -18,8 +18,10 @@ export function contextOf(kind: string): string {
   return workspaceContexts.includes(first) ? first : "global";
 }
 
+/** the same rule as shortcuts::contexts_overlap: a workspace command may take a global
+ * command's keys, and wins inside its workspace */
 function overlaps(a: string, b: string): boolean {
-  return a === "global" || b === "global" || a === b;
+  return a === b;
 }
 
 /** the commands that already use a chord where it would clash with `kind` */

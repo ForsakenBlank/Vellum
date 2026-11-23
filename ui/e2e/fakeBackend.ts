@@ -600,6 +600,141 @@ export function installFakeBackend({ fixture, fileKinds, windowLabel }: FakeOpti
     state: { state: "ready", file: null, meta: null },
   });
 
+  // a stand in for crates/vellum-gpu/src/view.rs: the same tile choice and binary frames,
+  // with a procedural picture instead of a render graph
+  const VIEW_W = 6000;
+  const VIEW_H = 4000;
+  const TILE = 256;
+  interface FakeView {
+    centerX: number;
+    centerY: number;
+    zoom: number;
+    rotation: number;
+    flipX: boolean;
+    width: number;
+    height: number;
+  }
+  const views = new Map<string, Set<string>>();
+  const atLevel = (n: number, level: number) => Math.ceil(n / 2 ** level);
+  const viewLevel = (zoom: number) =>
+    zoom >= 1 || zoom <= 0 ? 0 : Math.min(24, Math.floor(Math.log2(1 / zoom)));
+  const overview = () => {
+    let level = 0;
+    while (Math.max(atLevel(VIEW_W, level), atLevel(VIEW_H, level)) > 1024) level++;
+    return level;
+  };
+  const visible = (v: FakeView) => {
+    const r = (v.rotation * Math.PI) / 180;
+    const [s, c] = [Math.sin(r), Math.cos(r)];
+    const pts = [
+      [0, 0],
+      [v.width, 0],
+      [0, v.height],
+      [v.width, v.height],
+    ].map(([sx = 0, sy = 0]) => {
+      const px = sx - v.width / 2;
+      const py = sy - v.height / 2;
+      return [
+        v.centerX + ((px * c + py * s) / v.zoom) * (v.flipX ? -1 : 1),
+        v.centerY + (-px * s + py * c) / v.zoom,
+      ];
+    });
+    const xs = pts.map((p) => p[0] ?? 0);
+    const ys = pts.map((p) => p[1] ?? 0);
+    return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
+  };
+  const tilesIn = (box: number[], level: number) => {
+    const [x0 = 0, y0 = 0, x1 = 0, y1 = 0] = box.map((v) => v / 2 ** level);
+    const out: [number, number, number][] = [];
+    const cols = Math.ceil(atLevel(VIEW_W, level) / TILE);
+    const rows = Math.ceil(atLevel(VIEW_H, level) / TILE);
+    for (
+      let row = Math.max(0, Math.floor(y0 / TILE));
+      row <= Math.min(rows - 1, Math.floor(y1 / TILE));
+      row++
+    ) {
+      for (
+        let col = Math.max(0, Math.floor(x0 / TILE));
+        col <= Math.min(cols - 1, Math.floor(x1 / TILE));
+        col++
+      ) {
+        out.push([level, col, row]);
+      }
+    }
+    return out;
+  };
+  const tilePixels = (level: number, col: number, row: number) => {
+    const lw = atLevel(VIEW_W, level);
+    const lh = atLevel(VIEW_H, level);
+    const x0 = Math.max(0, col * TILE - 1);
+    const y0 = Math.max(0, row * TILE - 1);
+    const x1 = Math.min(lw, col * TILE + TILE + 1);
+    const y1 = Math.min(lh, row * TILE + TILE + 1);
+    const w = x1 - x0;
+    const h = y1 - y0;
+    const px = new Uint8Array(w * h * 4);
+    const s = 2 ** level;
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const dx = (x0 + x) * s;
+        const dy = (y0 + y) * s;
+        const ring = Math.sin(Math.hypot(dx - VIEW_W / 2, dy - VIEW_H / 2) * 0.02) * 0.5 + 0.5;
+        const line = dx % 500 < s * 2 || dy % 500 < s * 2 ? 1 : 0;
+        const i = (y * w + x) * 4;
+        px[i] = line ? 255 : Math.round((dx / VIEW_W) * 255);
+        px[i + 1] = line ? 255 : Math.round(ring * 200);
+        px[i + 2] = line ? 255 : Math.round((dy / VIEW_H) * 255);
+        px[i + 3] = 255;
+      }
+    }
+    return { x: x0, y: y0, w, h, px };
+  };
+  const viewFrame = (args: Json) => {
+    const id = String(args.document);
+    const sent = views.get(id);
+    if (!sent) throw new Error("that picture is not open");
+    if (args.reset) sent.clear();
+    for (const t of args.evicted as { level: number; col: number; row: number }[]) {
+      sent.delete(`${String(t.level)}/${String(t.col)}/${String(t.row)}`);
+    }
+    const v = args.view as FakeView;
+    const over = overview();
+    const level = Math.min(viewLevel(v.zoom), over);
+    const wanted = tilesIn([0, 0, VIEW_W, VIEW_H], over);
+    if (level !== over) {
+      const [bx0 = 0, by0 = 0, bx1 = 0, by1 = 0] = visible(v);
+      const pad = TILE * 2 ** level;
+      wanted.push(...tilesIn([bx0 - pad, by0 - pad, bx1 + pad, by1 + pad], level));
+    }
+    const missing = wanted.filter(
+      ([l, c, r]) => !sent.has(`${String(l)}/${String(c)}/${String(r)}`),
+    );
+    const now = missing.slice(0, 24);
+    const tiles = now.map(([l, c, r]) => ({ id: [l, c, r], ...tilePixels(l, c, r) }));
+    const size = 20 + tiles.reduce((n, t) => n + 28 + t.px.byteLength, 0);
+    const buffer = new ArrayBuffer(size);
+    const view = new DataView(buffer);
+    [86, 84, 76, 49].forEach((b, i) => {
+      view.setUint8(i, b);
+    });
+    view.setUint32(4, tiles.length, true);
+    view.setUint32(8, 0, true);
+    view.setUint32(12, missing.length - now.length, true);
+    view.setUint32(16, level, true);
+    let at = 20;
+    for (const t of tiles) {
+      const [l = 0, c = 0, r = 0] = t.id;
+      sent.add(`${String(l)}/${String(c)}/${String(r)}`);
+      for (const [k, value] of [l, c, r, t.x, t.y, t.w, t.h].entries()) {
+        view.setInt32(at + k * 4, value, true);
+      }
+      at += 28;
+      new Uint8Array(buffer, at, t.px.byteLength).set(t.px);
+      at += t.px.byteLength;
+    }
+    return buffer;
+  };
+
   const handlers: Record<string, (args: Json) => unknown> = {
     app_info: () => ({ version: "0.1.0", settingsPath: "/fake/settings.json", os: "linux" }),
     get_settings: () => state.settings,
@@ -792,6 +927,28 @@ export function installFakeBackend({ fixture, fileKinds, windowLabel }: FakeOpti
       return sampleVideo(path);
     },
     strip_metadata: () => 900,
+    open_view: (args) => {
+      const doc = findDoc(args.document);
+      if (!doc.path || !/\.(png|jpe?g|webp|tiff?)$/i.test(doc.path)) {
+        throw new Error("the e2e backend can only show png, jpeg, webp and tiff pictures");
+      }
+      views.set(String(args.document), new Set());
+      return { width: VIEW_W, height: VIEW_H, profile: "Display P3" };
+    },
+    view_frame: viewFrame,
+    close_view: (args) => {
+      views.delete(String(args.document));
+      return null;
+    },
+    render_status: () => ({
+      backend: "gpu",
+      adapter: "Fake adapter",
+      software: false,
+      note: null,
+      gpuCacheBytes: 0,
+      cpuCacheBytes: 0,
+      recoveries: 0,
+    }),
     media_thumbnail: (args) => noPreview(args, "thumbnail"),
     media_filmstrip: (args) => noPreview(args, "filmstrip"),
     media_waveform: (args) => noPreview(args, "waveform"),

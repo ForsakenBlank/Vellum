@@ -3,7 +3,9 @@
 //! so it can also run from the cli and in tests without a window.
 
 mod bridge;
+mod image;
 mod ipc;
+mod render;
 mod state;
 mod tools;
 
@@ -86,6 +88,43 @@ pub fn run() {
             ipc::strip_metadata,
             ipc::media_cache_stats,
             ipc::clean_media_cache,
+            render::open_view,
+            render::view_frame,
+            render::close_view,
+            render::render_status,
+            image::image_new,
+            image::image_command,
+            image::image_stroke_begin,
+            image::image_stroke,
+            image::image_stroke_end,
+            image::image_stroke_cancel,
+            image::image_preview,
+            image::image_outline,
+            image::image_magnetic_begin,
+            image::image_magnetic,
+            image::image_magnetic_end,
+            image::image_pick_color,
+            image::image_thumbnails,
+            image::image_save_as,
+            image::image_transform_box,
+            image::image_transform,
+            image::image_export,
+            image::image_catalogue,
+            image::image_filter_thumbnails,
+            image::image_warp_begin,
+            image::image_liquify,
+            image::image_puppet,
+            image::image_warp_end,
+            image::image_fonts,
+            image::image_font_previews,
+            image::image_google_fonts,
+            image::image_download_font,
+            image::image_missing_fonts,
+            image::image_place,
+            image::image_save_psd,
+            image::image_export_layers,
+            image::image_export_artboards,
+            image::image_web_preview,
             tools::run_quick_tool,
             tools::size_plan,
             tools::anim_estimate,

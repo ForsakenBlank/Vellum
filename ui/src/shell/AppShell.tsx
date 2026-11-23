@@ -7,6 +7,7 @@ import { useDocuments } from "../state/documents";
 import { useSettings } from "../state/settings";
 import { useUi } from "../state/ui";
 import { quickTools } from "../workspaces/quickTools";
+import { ImageShell } from "../workspaces/image/ImageShell";
 import { WorkspaceView } from "../workspaces/WorkspaceView";
 import { workspaces } from "../workspaces/workspaces";
 import {
@@ -149,6 +150,7 @@ export function AppShell() {
       <ConfirmDialog />
       {isMainWindow && <RecoveryPrompt />}
       <Toasts />
+      <ImageShell />
       <DropOverlay />
     </div>
   );

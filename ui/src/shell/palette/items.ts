@@ -115,8 +115,9 @@ export function buildItems(sources: PaletteSources): PaletteItem[] {
 const sectionOrder: PaletteSection[] = ["Recent", "Commands", "Files", "Settings", "Presets"];
 
 /**
- * with no query: recent commands, then recent files, then everything else in order.
- * with a query: the best matches first, with recent duplicates dropped.
+ * with no query: recent commands, then recent files, then every command in order, all of
+ * them so the list doubles as a menu of everything vellum can do.
+ * with a query: the best `limit` matches first, with recent duplicates dropped.
  */
 export function searchItems(
   items: PaletteItem[],
@@ -129,7 +130,6 @@ export function searchItems(
       i.section === "Files" ? 1 : sectionOrder.indexOf(i.section) * 2;
     return [...shown]
       .sort((a, b) => order(a) - order(b))
-      .slice(0, limit)
       .map((item) => ({ item, score: 0, positions: [] }));
   }
   const pool = items.filter((i) => i.section !== "Recent");

@@ -42,7 +42,7 @@ describe("palette items", () => {
     expect(titles("undo")[0]).toBe("Undo");
     expect(titles("holiday")[0]).toBe("holiday.mp4");
     expect(titles("compact")).toContain("Compact mode");
-    expect(titles("photoshop")[0]).toBe("Use Photoshop shortcuts");
+    expect(titles("photoshop")).toContain("Use Photoshop shortcuts");
     expect(titles("colour grading")[0]).toBe("Colour grading layout");
   });
 

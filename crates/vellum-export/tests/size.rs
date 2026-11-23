@@ -206,6 +206,9 @@ fn photos_fit_in_every_format() {
     assert!(!small_png.notes.is_empty());
 
     for format in [ImageTarget::Webp, ImageTarget::Avif] {
+        if format == ImageTarget::Webp && !fixture().unwrap().has_encoder("libwebp") {
+            continue;
+        }
         let options = SizeOptions {
             image_format: format,
             ..SizeOptions::default()

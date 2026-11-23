@@ -32,6 +32,16 @@ impl Fixture {
         self.dir.join(name)
     }
 
+    /// whether this ffmpeg build has an encoder, eg homebrew's ffmpeg 8 has no libwebp
+    pub fn has_encoder(&self, name: &str) -> bool {
+        let out = std::process::Command::new(&self.ffmpeg.info().path)
+            .args(["-hide_banner", "-encoders"])
+            .output()
+            .unwrap();
+        let list = String::from_utf8_lossy(&out.stdout);
+        list.split_whitespace().any(|word| word == name)
+    }
+
     pub fn probe(&self, name: &str) -> (PathBuf, MediaInfo) {
         let path = self.file(name);
         let info = probe::probe(&path, Some(&self.ffmpeg)).expect("test files probe");

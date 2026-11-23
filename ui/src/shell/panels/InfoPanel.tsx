@@ -40,7 +40,9 @@ export function InfoPanel() {
   const doc = useDocuments(activeDocument);
   const summary = useDocuments((s) => (s.activeId ? s.summaries[s.activeId] : undefined));
   const recent = useRecent((s) => s.files);
-  const probe = useMediaInfo(doc?.path ?? null);
+  // a vellum project is not a media file; probing it would only report an error
+  const probed = doc?.path && kindOf(doc.path)?.kind !== "project" ? doc.path : null;
+  const probe = useMediaInfo(probed);
 
   if (!doc) {
     return (

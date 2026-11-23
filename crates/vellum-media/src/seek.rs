@@ -128,8 +128,10 @@ impl FrameIndex {
             return None;
         }
         let times = body
-            .chunks_exact(8)
-            .filter_map(|c| c.try_into().ok().map(f64::from_le_bytes))
+            .as_chunks::<8>()
+            .0
+            .iter()
+            .map(|c| f64::from_le_bytes(*c))
             .collect();
         Some(Self { times, start })
     }

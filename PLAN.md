@@ -23,48 +23,101 @@ One desktop app that replaces Photoshop/Photopea, Premiere Pro, DaVinci Resolve,
 ## 1. How to use this file
 
 1. Make an empty folder for the project and save this file in its root as `PLAN.md`.
-2. Work through the phases **in order**. Each phase has a goal, scope, a "done when" checklist, a recommended model and effort level, and a prompt.
-3. Start a **fresh coding session** for each phase (Claude Code works best for this). Paste the phase prompt in. Each prompt tells the model to read `PLAN.md` first, so it always has the full picture.
-4. When a phase finishes, run the **Phase review prompt** (section 10) before moving on. Fixing problems early is far cheaper than fixing them five phases later.
+2. Work through the phases **in order**. Each phase (from phase 6 on, each step) has a goal, a "done when" checklist, a recommended model and effort level, and a prompt.
+3. Start a **fresh coding session** for each phase or step (Claude Code works best for this). Paste the phase prompt in. Each prompt tells the model to read `PLAN.md` first, so it always has the full picture.
+4. When a phase finishes (its last step), run the **Phase review prompt** (section 10) before moving on. Fixing problems early is far cheaper than fixing them five phases later.
 5. Tick off the "done when" boxes in this file as you go so every future session knows where things stand.
 
-**Fable 5.2 tip:** you said you only have Fable for a while, so the plan front-loads it onto the hardest foundation work (architecture, GPU engine, image canvas, timeline engine, colour pipeline). Do those phases first while you have it. If access ends early, use **Opus 5.5 at max** for any remaining Fable phase.
+**Session size:** phases 0 to 5 were each one big session, and phase 6 ran out of usage twice. From phase 6 on, every phase is split into lettered steps (6a, 6b, ...) that each fit in one session. Run one step per session, in order, and read "How a step runs" at the top of the phase 6 part of section 9.
 
 ---
 
 ## 2. Model and effort cheat sheet
 
-| Phase | What | Model | Effort |
-|---|---|---|---|
-| 0 | Repo bootstrap and architecture | Fable 5.2 | high |
-| 1 | App shell and UX foundations | Opus 5.5 | high |
-| 2 | Media core (decode, probe, cache, job queue) | Opus 5.5 | xhigh |
-| 3 | Quick Tools: convert, Export to X MB, video to GIF | Opus 5.5 | high |
-| 4 | GPU render engine and colour management | Fable 5.2 | max |
-| 5 | Image editor core (canvas, layers, selections, brushes) | Fable 5.2 | xhigh |
-| 6 | Image editor tools (adjustments, filters, text, PSD) | Opus 5.5 | high |
-| 7 | AI toolkit (background remover, inpaint, upscale) | Opus 5.5 | xhigh |
-| 8 | Video timeline engine (playback, proxies, scrubbing) | Fable 5.2 | max |
-| 9 | Video editing tools (trim, transitions, titles, keyframes) | Opus 5.5 | high |
-| 10 | Colour grading page | Fable 5.2 | xhigh |
-| 11 | Audio editor and timeline audio | Opus 5.5 | high |
-| 12 | Motion graphics and compositing | Opus 5.5 | xhigh |
-| 13 | Export / render queue / share targets | Sonnet 5.5 | high |
-| 14 | Capture: screen recorder, screenshots, clipping | Sonnet 5.5 | high |
-| 15 | Vector, design and PDF tools | Sonnet 5.5 | high |
-| 16 | Automation: batch, macros, CLI, plugins | Opus 5.5 | high |
-| 17 | Polish: onboarding, accessibility, performance | Sonnet 5.5 | high |
-| 18 | Packaging, installer, auto-update, release | Sonnet 5.5 | medium |
-| any | Bug fixing on a single feature | Sonnet 5.5 | medium |
-| any | Docs, changelogs, README, small copy fixes | Haiku 5.5 | low |
-| any | Weird crash / memory leak / race condition | Fable 5.2 (or Opus 5.5) | max |
+Fable 5.2 is no longer available, so every remaining step uses Opus 5.5 or Sonnet 5.5. Steps marked "(was)" record what built them.
+
+| Step | What | Status | Model | Effort | Weight | Done after it |
+|---|---|---|---|---|---|---|
+| 0 | Repo bootstrap | Done (Windows and macOS not checked by hand) | Fable 5.2 (was) | high | 3% | 3% |
+| 1 | App shell | Done | Opus 5.5 | high | 4% | 7% |
+| 2 | Media core | Done | Opus 5.5 | xhigh | 5% | 12% |
+| 3 | Quick Tools | Done | Opus 5.5 | high | 5% | 17% |
+| 4 | GPU render engine and colour | Done | Fable 5.2 (was) | max | 8% | 25% |
+| 5 | Image editor core | Done | Fable 5.2 (was) | xhigh | 8% | 33% |
+| 6a | Image tools: engine and document side | Done | Opus 5.5 | high | 2.4% | 35.4% |
+| 6b | Adjustments panel and Camera Raw | Not started | Sonnet 5.5 | high | 0.6% | 36% |
+| 6c | Filter gallery, smart objects, smart filters | Not started | Sonnet 5.5 | high | 0.6% | 36.6% |
+| 6d | Retouching tools, liquify, puppet warp | Not started | Sonnet 5.5 | high | 0.6% | 37.2% |
+| 6e | Text tool and fonts | Not started | Opus 5.5 | high | 0.6% | 37.8% |
+| 6f | Shapes, pen tools and paths | Not started | Opus 5.5 | high | 0.6% | 38.4% |
+| 6g | Layer styles, PSD saving, export dialogs | Not started | Sonnet 5.5 | high | 0.6% | 39% |
+| 7a | AI runtime and model manager | Not started | Opus 5.5 | high | 1% | 40% |
+| 7b | Background remover | Not started | Opus 5.5 | high | 1.2% | 41.2% |
+| 7c | Click to select (SAM 2) | Not started | Opus 5.5 | high | 1% | 42.2% |
+| 7d | Batch background removal, AI selection extras | Not started | Sonnet 5.5 | high | 0.8% | 43% |
+| 7e | Object remover, upscale, face restore | Not started | Sonnet 5.5 | high | 1% | 44% |
+| 7f | Colourise, depth blur, sky replace, OCR | Not started | Sonnet 5.5 | high | 1% | 45% |
+| 8a | Timeline data model | Not started | Opus 5.5 | xhigh | 1.8% | 46.8% |
+| 8b | Playback engine | Not started | Opus 5.5 | xhigh | 2% | 48.8% |
+| 8c | Scrubbing, frame cache, proxies | Not started | Opus 5.5 | high | 1.5% | 50.3% |
+| 8d | Media pool and source monitor | Not started | Sonnet 5.5 | high | 1% | 51.3% |
+| 8e | Timeline UI | Not started | Opus 5.5 | high | 1.7% | 53% |
+| 8f | Sequence export and stress test | Not started | Sonnet 5.5 | high | 1% | 54% |
+| 9a | Edit tools | Not started | Opus 5.5 | high | 1.2% | 55.2% |
+| 9b | Transitions and effects | Not started | Sonnet 5.5 | high | 1% | 56.2% |
+| 9c | Keyframe editor and speed | Not started | Opus 5.5 | high | 1% | 57.2% |
+| 9d | Titles and templates | Not started | Sonnet 5.5 | high | 0.8% | 58% |
+| 9e | Auto subtitles, text based editing | Not started | Opus 5.5 | high | 1.2% | 59.2% |
+| 9f | Smart tools, part one | Not started | Sonnet 5.5 | high | 0.8% | 60% |
+| 9g | Smart tools, part two | Not started | Opus 5.5 | high | 1% | 61% |
+| 10a | Grading nodes and primaries | Not started | Opus 5.5 | xhigh | 1.5% | 62.5% |
+| 10b | Secondaries | Not started | Opus 5.5 | high | 1.2% | 63.7% |
+| 10c | Scopes | Not started | Opus 5.5 | high | 1% | 64.7% |
+| 10d | LUTs, colour management, HDR, shot match | Not started | Opus 5.5 | high | 1.3% | 66% |
+| 11a | Audio engine | Not started | Opus 5.5 | high | 1% | 67% |
+| 11b | Audio workspace | Not started | Sonnet 5.5 | high | 1% | 68% |
+| 11c | Audio effects | Not started | Opus 5.5 | high | 1% | 69% |
+| 11d | Loudness and timeline mixer | Not started | Opus 5.5 | high | 1% | 70% |
+| 11e | AI audio and extras | Not started | Sonnet 5.5 | high | 1% | 71% |
+| 12a | Compositions | Not started | Opus 5.5 | high | 1.2% | 72.2% |
+| 12b | Shape and text animation | Not started | Opus 5.5 | high | 1% | 73.2% |
+| 12c | Graph editor and expressions | Not started | Opus 5.5 | high | 1% | 74.2% |
+| 12d | Masks, mattes, AI roto | Not started | Opus 5.5 | high | 1% | 75.2% |
+| 12e | Node view, particles, camera | Not started | Opus 5.5 | high | 1% | 76.2% |
+| 12f | Lottie and templates | Not started | Sonnet 5.5 | high | 0.8% | 77% |
+| 13a | Export dialog and presets | Not started | Sonnet 5.5 | high | 1.5% | 78.5% |
+| 13b | Render queue and after export | Not started | Sonnet 5.5 | high | 1.5% | 80% |
+| 14a | Screenshots, hotkeys, tray | Not started | Sonnet 5.5 | high | 1.2% | 81.2% |
+| 14b | Screen recorder | Not started | Opus 5.5 | high | 1.6% | 82.8% |
+| 14c | Replay buffer and screen tools | Not started | Sonnet 5.5 | high | 1.2% | 84% |
+| 15a | Vector workspace | Not started | Sonnet 5.5 | high | 1.2% | 85.2% |
+| 15b | Trace, templates, mockups | Not started | Sonnet 5.5 | high | 1% | 86.2% |
+| 15c | PDF tools | Not started | Sonnet 5.5 | high | 1% | 87.2% |
+| 15d | Misc tools | Not started | Sonnet 5.5 | medium | 0.8% | 88% |
+| 16a | Macros, recipes, watch folders | Not started | Sonnet 5.5 | high | 1.3% | 89.3% |
+| 16b | CLI and context menus | Not started | Sonnet 5.5 | high | 1% | 90.3% |
+| 16c | Plugin API | Not started | Opus 5.5 | high | 1.5% | 91.8% |
+| 16d | Asset library | Not started | Sonnet 5.5 | high | 1.2% | 93% |
+| 17a | Onboarding and help | Not started | Sonnet 5.5 | high | 1% | 94% |
+| 17b | Accessibility | Not started | Sonnet 5.5 | high | 1% | 95% |
+| 17c | Performance | Not started | Opus 5.5 | high | 1.2% | 96.2% |
+| 17d | Copy and consistency review | Not started | Sonnet 5.5 | medium | 0.8% | 97% |
+| 18a | Installers and release workflow | Not started | Sonnet 5.5 | medium | 1.5% | 98.5% |
+| 18b | Updates, crash reports, licences, README | Not started | Sonnet 5.5 | medium | 1.5% | 100% |
+
+| Other work | Model | Effort |
+|---|---|---|
+| Phase review (after the last step of a phase) | Opus 5.5 | high |
+| Bug fixing on a single feature | Sonnet 5.5 | medium |
+| Docs, changelogs, README, small copy fixes | Haiku 5.5 | low |
+| Weird crash / memory leak / race condition | Opus 5.5 | high (xhigh if high fails twice) |
 
 **Rule of thumb:**
-- **Fable 5.2** for anything where a wrong design decision is expensive later (engines, data models, threading, GPU).
-- **Opus 5.5** for big features built on top of a solid core.
-- **Sonnet 5.5** for UI-heavy features, wiring, polish, and most bug fixes.
+- **Opus 5.5** for engines, data models, threading, GPU and anything where a wrong design is expensive later.
+- **Sonnet 5.5** for UI on top of an engine that already exists, wiring, polish and most bug fixes.
 - **Haiku 5.5** for docs and tiny edits.
-- Turn effort **up** if a phase keeps failing tests; turn it **down** if it is just moving buttons around.
+- **high** is the default effort. **xhigh** only for the three steps marked above (8a, 8b, 10a), or when a step has failed twice at high. Never use **max**: it burns usage far faster than it helps.
+- If a step runs out of usage, start a new session with the same prompt. The step rules make it commit as it goes and leave unticked boxes for what is left.
 
 ---
 
@@ -581,12 +634,19 @@ follow section 5 of PLAN.md exactly. tick the phase 3 boxes and update CHANGELOG
 **Goal:** one fast GPU node graph that the image editor, video editor, colour page and motion graphics all share.
 
 **Done when:**
-- [ ] wgpu renderer drawing into the Tauri window (native surface or shared texture) at 60+ fps
-- [ ] Node graph: sources, effects, blend, mask, transform, output; cached and invalidated correctly
-- [ ] All Photoshop blend modes in WGSL with golden tests
-- [ ] Colour management: linear working space, sRGB/Rec.709/Rec.2020/P3/ACES transforms, ICC profiles, 16f and 32f pipelines
-- [ ] Tiled rendering for huge images, CPU fallback path
-- [ ] Benchmarks recorded in `ARCHITECTURE.md`
+- [x] wgpu renderer drawing into the Tauri window (native surface or shared texture) at 60+ fps (as display tiles drawn with WebGL, see below)
+- [x] Node graph: sources, effects, blend, mask, transform, output; cached and invalidated correctly
+- [x] All Photoshop blend modes in WGSL with golden tests
+- [x] Colour management: linear working space, sRGB/Rec.709/Rec.2020/P3/ACES transforms, ICC profiles, 16f and 32f pipelines
+- [x] Tiled rendering for huge images, CPU fallback path
+- [x] Benchmarks recorded in `ARCHITECTURE.md` (measured without a graphics card; the GPU rows need a run on real hardware)
+
+**How it was built, where it differs from the prompt below** (details and reasons in `ARCHITECTURE.md` section 24):
+- Frames reach the window as 256 pixel display tiles that the webview draws with WebGL2, not through a native child surface or a shared texture. Pan, zoom and rotate never wait for Rust, and overlays drawn in the page (phase 5's selections, handles and guides) can never drift from the picture. Full-rate video playback in phase 8 will want a native surface presenter for the playback viewer; the engine side is ready for either.
+- Every node has a WGSL kernel and a CPU twin of the same maths in one file, and the tests compare them, so the CPU fallback always gives the same picture.
+- ICC profiles use moxcms (pure Rust) rather than lcms2. Profiles embedded in PNG, JPEG, WebP and TIFF are read; the display profile is a file picked in Settings, Graphics and display, since reading the monitor's profile needs per-OS code.
+- The image workspace now shows the opened picture through the engine (view only; editing is phase 5), so the renderer can be tried in the real app.
+- Not exact yet: Photoshop's special handling of Fill for eight blend modes (Color Burn, Linear Burn, Color Dodge, Linear Dodge, Vivid Light, Linear Light, Hard Mix, Difference) below 100 percent. Phase 5 should compare those with Photoshop's own output.
 
 **Model:** Fable 5.2 · **Effort:** max
 
@@ -613,13 +673,24 @@ think carefully about threading, gpu memory, and how video playback will feed fr
 **Goal:** a Photopea-grade canvas: documents, layers, masks, selections, transforms, brushes.
 
 **Done when:**
-- [ ] Raster documents with layers, groups, masks, clipping masks, blend modes, opacity/fill
-- [ ] Selection tools: marquee, lasso, polygon, magnetic lasso, magic wand, quick selection, colour range
-- [ ] Free transform, warp, perspective, rotate, flip, canvas/image size, crop with straighten
-- [ ] Brush engine with pressure/tilt, smoothing, eraser, gradient, bucket, eyedropper
-- [ ] Undo/redo for everything, history panel with snapshots
-- [ ] PSD import with layers; native `.vellum` save; PNG/JPG/WebP export
-- [ ] Rulers, guides, smart guides, grid
+- [x] Raster documents with layers, groups, masks, clipping masks, blend modes, opacity/fill
+- [x] Selection tools: marquee, lasso, polygon, magnetic lasso, magic wand, quick selection, colour range, transform selection
+- [x] Free transform, warp, perspective, rotate, flip, canvas/image size, crop with straighten
+- [x] Brush engine with pressure/tilt, smoothing, eraser, gradient, bucket, eyedropper
+- [x] Undo/redo for everything, history panel with snapshots
+- [x] PSD import with layers; native `.vellum` save; PNG/JPG/WebP export (and AVIF, PSB and export to X MB)
+- [x] Rulers, guides, smart guides, grid (and the navigator)
+
+**How it was built, where it differs from the prompt below** (details and reasons in `ARCHITECTURE.md` section 25):
+- Phase 5 was split in two to keep each session a sensible size. The first half is the document model, compositing through the phase 4 engine, every selection tool and modifier, the brush engine and painting tools, undo for everything, the native file and the workspace UI. The second half is transforms, crop, canvas and image size, transform selection, layered PSD import, export with export to X MB, rulers, guides, smart guides, the grid and the navigator.
+- Free transform and warp preview through the phase 4 transform node and commit by rendering the same graph, so the preview is the result. The node gained a mesh mode (a grid saying where each output point reads from) so warps cost what a matrix costs.
+- PSD and PSB are read by Vellum's own reader, since the `psd` crate has no masks, fill or 16 and 32 bit layers. CMYK, Lab, bitmap and indexed files still open flattened. Text layers keep Photoshop's pixels and are marked as text (editable type is phase 6).
+- Export embeds the colour profile in PNG, JPEG and WebP. AVIF is converted to sRGB instead, because FFmpeg cannot write a profile into it.
+- Guides are part of the document and undo; rulers, the grid and snapping are view settings per window.
+- The `.vellum` file is a zip holding the project folder (manifest, one file per raster, profile, thumbnail) rather than a bare folder, so it can be picked in an open dialog and attached to an email; an unzipped one opens too.
+- Undo keeps the document before and after each command, which costs a few pointer copies because tiles are shared and copied only when written.
+- A workspace's own shortcut now takes over a global one inside that workspace (Ctrl+E merges down in the image editor, exports to a size elsewhere). The window already behaved this way; the conflict checker now agrees.
+- Brush latency on a 4K canvas, without a graphics card: about 8 ms median from pointer samples to finished display tiles fitted to the screen, 11 ms at 100%, after the second half gave rasters a revision per 64 pixel block (it was 14 and 22 ms).
 
 **Model:** Fable 5.2 · **Effort:** xhigh
 
@@ -641,32 +712,169 @@ write golden image tests for layer compositing and selection maths, and benchmar
 
 ---
 
+### How a step runs (every step prompt points here)
+
+From phase 6 on, each phase is split into lettered steps (6a, 6b, ...). One step is one session. The phase numbers did not change, so notes elsewhere that say "phase 16" still mean the same thing.
+
+- Do only your step. Do not start the next one, even if there is time left.
+- Read only what you need: section 5, your step, the section 8 part it names, and the `ARCHITECTURE.md` sections it names. Find your way around the code by searching it (or `graphify-out/` if it exists) rather than reading whole crates.
+- Work on a branch named after the step (for example `step-6b-adjustments`), started from `main`.
+- Commit after each numbered item and push. A session that runs out of usage then loses nothing.
+- Before the last commit, run `cargo fmt --all`, `cargo clippy --workspace --all-targets -- -D warnings` and `cargo test` for the crates you touched, and `pnpm typecheck`, `pnpm lint`, `pnpm format:check` and `pnpm test` if the UI changed. Fix what fails.
+- If you are running low, stop at a clean commit and write what is left as unticked boxes under your step, so the same prompt can finish it next session.
+- When done: tick the step's boxes, add a short `CHANGELOG.md` entry, add to `ARCHITECTURE.md` only when you made a design decision worth keeping, and open a pull request to `main`.
+
+---
+
 ### Phase 6: Image editor tools
 
 **Goal:** fill in the long tail: adjustments, filters, retouching, text, shapes, layer styles, smart objects, PSD export.
 
+The first session built the engine and document side of the whole phase (now step 6a). The window side is split into 6b to 6g.
+
+#### 6a: Engine and document side (done)
+
+- [x] Every adjustment and a Camera Raw node, as render nodes with GPU and CPU paths, with golden images
+- [x] The filter gallery's filters as render nodes, with golden images
+- [x] Fill layers, smart objects (embedded and linked) and smart filters in the document
+- [x] Retouching, liquify and puppet warp engines
+- [x] Text, shape and path layers, vector masks, fonts and Google Fonts downloads
+- [x] Layer styles, PSD and PSB saving with layers, artboards, export layers and artboards, save for web previews
+- [x] IPC commands, app commands and shortcuts for all of the above
+
+**Model:** Opus 5.5 · **Effort:** high
+
+#### 6b: Adjustments panel and Camera Raw
+
 **Done when:**
-- [ ] All adjustment layers from section 8.2, plus a Camera RAW style panel
-- [ ] Filter gallery with smart filters
-- [ ] Clone, healing, spot healing, patch, dodge/burn/sponge, blur/sharpen/smudge, liquify
-- [ ] Text tool with paragraph text, warp, Google Fonts browser
-- [ ] Shapes, pen tool, vector masks
-- [ ] Layer styles, smart objects, PSD export
+- [ ] Adjustments panel adds any adjustment layer; a Properties panel edits it live, with presets
+- [ ] Curves and levels have proper graph editors with histograms
+- [ ] Camera Raw dialog with every section and a before and after view
+- [ ] Auto tone, auto contrast, auto colour, equalize and one click enhance in the Image menu
+
+**Model:** Sonnet 5.5 · **Effort:** high
+
+```text
+read PLAN.md section 5, "how a step runs" in section 9, step 6b, and section 8.2 (adjustments). read ARCHITECTURE.md sections 24 and 25. you are doing step 6b of vellum.
+
+the engine side already exists (adjustment nodes, adjustment layers, presets, auto tone and friends, the node catalogue ipc that describes every parameter). build the window side in ui/src/workspaces/image:
+1. an adjustments panel that adds any adjustment layer above the current layer, and a properties panel that edits the selected adjustment layer live. build controls from the node catalogue so new adjustments need no new ui code. presets: pick, save, delete.
+2. curves (per channel, add and drag points, histogram behind) and levels (input, output, gamma, per channel, histogram) as proper editors, not sliders.
+3. the camera raw dialog: every section from the plan, a before and after toggle and split view, and apply as a smart filter or an adjustment layer.
+4. auto tone, auto contrast, auto colour, equalize and enhance in the image menu and the palette.
+
+add vitest tests for the control builders and curve maths, and a playwright test that adds a curves layer and changes it.
+```
+
+#### 6c: Filter gallery, smart objects and smart filters
+
+**Done when:**
+- [ ] Filter gallery dialog with live thumbnails of every filter on the current picture
+- [ ] Filter dialogs preview live on the canvas
+- [ ] Layers panel shows smart objects and their smart filters (edit, hide, fade, reorder, mask)
+- [ ] Convert to smart object, place embedded or linked, edit contents, relink missing files
+
+**Model:** Sonnet 5.5 · **Effort:** high
+
+```text
+read PLAN.md section 5, "how a step runs" in section 9, step 6c, and section 8.2 (filters, smart objects). read ARCHITECTURE.md sections 24 and 25. you are doing step 6c of vellum.
+
+the engine side exists: filter nodes, filter thumbnails ipc, live filter preview through the preview request, smart objects and smart filters in the document, image_place. build the window side:
+1. the filter gallery: categories, a grid of live thumbnails of the current layer, search, and a settings pane built from the node catalogue. the canvas previews live while you drag; ok applies it as one undoable step.
+2. in the layers panel, smart objects show a badge and their smart filters underneath, each with an eye, a blend and fade option, drag to reorder, double click to edit, and the smart filter mask.
+3. convert to smart object, place embedded, place linked, edit contents (opens the inner document in a tab and updates the parent on save), relink when a linked file is missing, rasterize.
+
+add vitest tests for the filter list logic and a playwright test that applies a smart filter, edits it and hides it.
+```
+
+#### 6d: Retouching tools, liquify and puppet warp
+
+**Done when:**
+- [ ] Clone, healing, spot healing, patch, content-aware move, red eye, dodge, burn, sponge, blur, sharpen and smudge in the toolbox with their options
+- [ ] Clone and healing show the source point and an overlay while painting
+- [ ] Liquify dialog (forward warp, pucker, bloat, reconstruct, smooth, twirl, freeze mask)
+- [ ] Puppet warp with pins on the canvas
+
+**Model:** Sonnet 5.5 · **Effort:** high
+
+```text
+read PLAN.md section 5, "how a step runs" in section 9, step 6d, and section 8.2 (retouching). read ARCHITECTURE.md section 25 (brush engine, live tools). you are doing step 6d of vellum.
+
+the engines exist (retouch settings in the brush, heal, liquify and puppet warp sessions over ipc). build the window side:
+1. toolbox groups and options bar for clone stamp (aligned, sample all layers, alt click to set the source), healing brush, spot healing, patch, content-aware move, red eye, dodge, burn, sponge, blur, sharpen and smudge, with photoshop shortcuts (s, j, o and their shift cycles).
+2. a source crosshair and a clone overlay that follows the brush.
+3. the liquify dialog: tools on the left, brush size, pressure and rate, a freeze mask brush, reconstruct and restore all. the preview runs through the existing gpu session; ok commits it as one step.
+4. puppet warp: a mesh shown over the layer, click to add pins, drag to bend, alt click to remove, rigidity and density options.
+
+vitest for the tool settings and pin maths, and a playwright test that clones a few dabs.
+```
+
+#### 6e: Text tool and fonts
+
+**Done when:**
+- [ ] Point and paragraph text typed straight on the canvas, with a caret, selection and IME support
+- [ ] Character and paragraph panels, OpenType features and variable font axes
+- [ ] Text on a path and warp text
+- [ ] Font browser with previews, favourites and Google Fonts download; missing fonts dialog
 
 **Model:** Opus 5.5 · **Effort:** high
 
 ```text
-read PLAN.md (section 8.2) and ARCHITECTURE.md first. phase 5 built the image editor core. you are building phase 6: the rest of the photoshop/photopea toolset. reuse the gpu effect node pattern from phase 4 for every adjustment and filter.
+read PLAN.md section 5, "how a step runs" in section 9, step 6e, and section 8.2 (text). read ARCHITECTURE.md section 25. you are doing step 6e of vellum.
 
-1. every adjustment layer listed in section 8.2, non destructive, with live preview and presets, plus a camera raw style panel (white balance, tone, texture, clarity, dehaze, hsl, colour grading wheels, detail, lens corrections, vignette, grain). auto tone, auto contrast, auto colour and one click enhance.
-2. filters from section 8.2 with a filter gallery showing live thumbnails. smart objects (embedded and linked) with smart filters that stay editable and maskable.
-3. retouching: clone stamp (with aligned and sample all layers), healing brush, spot healing, patch, content aware move, red eye, dodge, burn, sponge, blur, sharpen, smudge, liquify (forward warp, pucker, bloat, reconstruct, face aware sliders can wait for phase 7), puppet warp.
-4. text: point and paragraph text, text on path, warp text, variable fonts, opentype features, a font browser with previews and google fonts download, and missing font handling.
-5. shapes and paths: rectangle (live corners), ellipse, polygon, line, custom shapes, pen and curvature pen, path selection, booleans, vector masks.
-6. layer styles: drop shadow, inner shadow, outer and inner glow, bevel and emboss, stroke, colour/gradient/pattern overlay, satin. copy and paste styles, style presets.
-7. psd export that photoshop and photopea can open with layers intact. export layers to files, export artboards, save for web with side by side comparison.
+text layers, warp, opentype, variable axes, the font library and google fonts downloads exist in the engine and over ipc. build the window side:
+1. the type tool (t): click for point text, drag for a paragraph box, type on the canvas with a caret, selection, arrow keys, copy and paste, and ime input for non latin scripts. enter commits, esc cancels, double click a text layer to edit.
+2. character and paragraph panels: font, style, size, leading, tracking, kerning, colour, alignment, indents, spacing, opentype features and variable font axes as sliders.
+3. text on a path (click a path with the type tool) and the warp text dialog.
+4. a font browser: live previews in the chosen font, search, filters, favourites, recent, and google fonts with a download button that runs as a job. when a file uses fonts you do not have, a dialog lists them and offers to download or replace each.
 
-golden image tests for every adjustment and filter. follow section 5 of PLAN.md exactly. tick the phase 6 boxes and update CHANGELOG.md.
+vitest for caret and selection maths, and a playwright test that types, styles and edits a text layer.
+```
+
+#### 6f: Shapes, pen tools and paths
+
+**Done when:**
+- [ ] Rectangle (live corners), ellipse, polygon and star, line and custom shape tools
+- [ ] Pen and curvature pen, path selection and direct selection, anchor add and delete
+- [ ] Paths panel, path booleans, vector masks
+- [ ] Shape fill and stroke options in the options bar
+
+**Model:** Opus 5.5 · **Effort:** high
+
+```text
+read PLAN.md section 5, "how a step runs" in section 9, step 6f, and section 8.2 (shapes and paths). read ARCHITECTURE.md section 25. you are doing step 6f of vellum.
+
+shape layers, vector paths, path operations, vector masks and saved paths exist in the engine. build the window side:
+1. shape tools (u and shift u): rectangle with live corner handles, ellipse, polygon and star, line with arrowheads, custom shapes from a small built in library. shift and alt work like photoshop. fill, stroke, stroke width, dashes and alignment in the options bar.
+2. pen (p) and curvature pen: click for corners, drag for curves, close on the first point, alt to break handles. path selection (a) and direct selection to move whole paths, anchors and handles.
+3. a paths panel: work path, saved paths, make selection from path, stroke and fill a path, and booleans (combine, subtract, intersect, exclude).
+4. vector masks: add from the current path, edit with the pen tools, shown in the layers panel next to pixel masks.
+
+vitest for the bezier hit testing and handle maths, and a playwright test that draws a pen path and turns it into a shape.
+```
+
+#### 6g: Layer styles, Photoshop saving and export dialogs
+
+**Done when:**
+- [ ] Layer style dialog with every effect, live on the canvas, with presets
+- [ ] Copy, paste and clear styles, and a styles panel
+- [ ] Save as PSD or PSB, export layers to files, export artboards, artboard tool
+- [ ] Save for web with a side by side comparison and the real file size
+- [ ] Phase 6 checked in the real app; all phase 6 boxes ticked
+
+**Model:** Sonnet 5.5 · **Effort:** high
+
+```text
+read PLAN.md section 5, "how a step runs" in section 9, step 6g, and section 8.2 (layer styles, export). read ARCHITECTURE.md section 25. you are doing step 6g of vellum, the last step of phase 6.
+
+the engine side exists (layer styles, style presets, psd saving, artboards, export layers and artboards, web previews). build the window side:
+1. the layer style dialog: a list of effects with checkboxes on the left (drop shadow, inner shadow, outer and inner glow, bevel and emboss, satin, colour, gradient and pattern overlay, stroke), settings on the right, live on the canvas, ok and cancel as one step. fx badges in the layers panel.
+2. copy, paste and clear styles from the layer menu, and a styles panel with presets (apply, save, delete).
+3. file menu: save as psd or psb, export layers to files, export artboards, and the artboard tool (shift v). all saving runs as jobs.
+4. save for web: original and optimised side by side with a shared zoom and pan, format and quality controls, the real encoded size and time, and the export to x mb option.
+5. run the app, open a psd, use a tool from each of steps 6b to 6f, save as psd and reopen it. fix what you find, then tick the phase 6 boxes.
+
+playwright test for the layer style dialog and save for web.
 ```
 
 ---
@@ -675,31 +883,127 @@ golden image tests for every adjustment and filter. follow section 5 of PLAN.md 
 
 **Goal:** local, offline AI tools, led by the background remover where **you choose what gets deleted**.
 
-**Done when:**
-- [ ] ONNX Runtime with GPU backends and a model manager (download on first use, progress, verify, delete)
-- [ ] Background remover with keep/erase brushes, click-to-keep/remove (SAM 2), edge and hair refine, decontamination, background replacement
-- [ ] Smart Select (click to add, Alt-click to subtract)
-- [ ] Object remover (LaMa), upscale (Real-ESRGAN), face restore, colourise, depth blur, sky replace, OCR
-- [ ] Batch background removal
+#### 7a: AI runtime and model manager
 
-**Model:** Opus 5.5 · **Effort:** xhigh
+**Done when:**
+- [ ] ONNX Runtime (`ort`) with DirectML, CUDA, CoreML and CPU, picked automatically
+- [ ] Model manager: download on first use with progress, checksum, a settings page with sizes and delete
+- [ ] `THIRD_PARTY_LICENSES.md` lists every model and whether its licence allows shipping
+- [ ] Out of GPU memory falls back to tiles, then the CPU, with a clear message
+
+**Model:** Opus 5.5 · **Effort:** high
 
 ```text
-read PLAN.md (sections 8.2 background remover and ai extras) and ARCHITECTURE.md first. you are building phase 7 of vellum: the ai toolkit in crates/vellum-ai, plus its ui in the image editor.
+read PLAN.md section 5, "how a step runs" in section 9, step 7a, and section 8.2 (background remover, ai extras). read ARCHITECTURE.md sections 22 and 24. you are doing step 7a of vellum, in crates/vellum-ai.
 
-1. onnx runtime (ort crate) with directml on windows, cuda where available, coreml on mac, and cpu fallback. a model manager: models download on first use with a progress bar, checksum verification, a settings page listing installed models and their disk size, and delete buttons. verify each model's licence allows use in a distributed app and list them in THIRD_PARTY_LICENSES.md.
-2. background remover (this is a headline feature, make the ux excellent):
-   - one click auto removal (birefnet or u2net, pick the best quality permissive model).
-   - result shown as an editable mask overlay. the user chooses what is deleted with: keep brush, erase brush, and click to keep / click to remove objects using sam 2 (clicks become prompts, live preview while hovering).
-   - edge softness slider, hair and fur refine, colour decontamination.
-   - new background options: transparent, solid colour, blurred original, replacement image. shadow options: keep, add drop shadow, remove.
-   - always outputs a layer mask so it stays editable. batch mode for many product photos.
-3. smart select tool using sam 2: hover highlights objects, click adds, alt click subtracts, outputs a normal selection.
-4. object remover using lama: paint over something, it disappears. works on the selection too.
-5. upscale 2x and 4x (real-esrgan), face restore, denoise, colourise, depth map with fake portrait blur, sky replacement, ocr to copy text from an image.
-6. every ai tool runs as a job with progress and cancel, never freezes the ui, and shows a clear message if the gpu runs out of memory (then retries on cpu or in tiles).
+1. onnx runtime through the ort crate, with directml on windows, cuda where present, coreml on macos and a cpu fallback. pick the best provider at start, and let settings override it.
+2. a model registry and manager: each model has a name, url, size, sha256, licence and what it is for. models download on first use as jobs with progress and cancel, are verified, and live in the app data folder. a settings page lists installed models with their size and a delete button.
+3. tiling helpers for big images, and out of memory handling: retry in tiles, then on the cpu, and tell the user what happened.
+4. check the licence of every model the later steps need (birefnet or u2net, sam 2, lama, real-esrgan, gfpgan or codeformer, a colouriser, depth anything, an ocr model) and record them in THIRD_PARTY_LICENSES.md. flag any that cannot ship and suggest a replacement.
 
-measure speed on gpu and cpu for a 12 megapixel image and record results. follow section 5 of PLAN.md exactly. tick the phase 7 boxes and update CHANGELOG.md.
+tests for the registry, checksum checking and tiling maths. no ui beyond the settings page.
+```
+
+#### 7b: Background remover
+
+**Done when:**
+- [ ] One click background removal into a layer mask
+- [ ] Keep and erase brushes on the mask with a live overlay
+- [ ] Edge softness, hair refine and colour decontamination
+- [ ] New background: transparent, colour, blurred original, image; shadow keep, add or remove
+
+**Model:** Opus 5.5 · **Effort:** high
+
+```text
+read PLAN.md section 5, "how a step runs" in section 9, step 7b, and section 8.2 (background remover). read the ARCHITECTURE.md section step 7a added. you are doing step 7b of vellum. this is a headline feature, so the ux must be excellent.
+
+1. one click remove background on the current layer with the best quality permissive model from 7a. the result is always a layer mask, never deleted pixels.
+2. a remove background mode: the mask shown as an overlay, a keep brush and an erase brush, and a toggle to see the result on a checkerboard, colour or the original.
+3. edge softness, hair and fur refine (guided or matting refinement on the mask edge) and colour decontamination.
+4. new background options (transparent, solid colour, blurred original, an image) and shadow options (keep, add a drop shadow, remove).
+5. the remove background quick tool card on the home screen opens this mode.
+
+runs as a job with progress and cancel. tests for the mask refine maths; a playwright test of the mode with a fake model result.
+```
+
+#### 7c: Click to select with SAM 2
+
+**Done when:**
+- [ ] SAM 2 encoder and decoder running, image embedding cached per layer
+- [ ] Click to keep and click to remove in the background remover, with a hover preview
+- [ ] Smart Select tool: hover highlights, click adds, Alt click subtracts, gives a normal selection
+
+**Model:** Opus 5.5 · **Effort:** high
+
+```text
+read PLAN.md section 5, "how a step runs" in section 9, step 7c, and section 8.2 (smart select). read the ARCHITECTURE.md sections 7a and 7b added. you are doing step 7c of vellum.
+
+1. sam 2 through vellum-ai: run the image encoder once per layer as a job and cache the embedding; the prompt decoder must be fast enough to run on hover.
+2. in the background remover from 7b: click to keep and click to remove objects, with a live preview of what the click would pick while hovering.
+3. a smart select tool in the image toolbox: hover highlights the object under the cursor, click adds it to the selection, alt click subtracts, shift click adds more. the result is an ordinary selection mask that every other tool understands.
+
+tests for prompt building and mask merging. measure hover latency on cpu and record it.
+```
+
+#### 7d: Batch background removal and AI selection extras
+
+**Done when:**
+- [ ] Batch remove background for many photos with per file results
+- [ ] Select subject and select sky in the Select menu
+- [ ] Liquify face-aware sliders (eyes, nose, mouth, face shape)
+
+**Model:** Sonnet 5.5 · **Effort:** high
+
+```text
+read PLAN.md section 5, "how a step runs" in section 9, step 7d, and section 8.2. read the ARCHITECTURE.md sections steps 7a to 7c added. you are doing step 7d of vellum.
+
+1. batch remove background: drop many files, pick the background option and output format, see a list with per file progress and thumbnails, and open any result in the editor to fix its mask. reuse the phase 3 batch list.
+2. select subject and select sky in the select menu, using the 7b and 7c models.
+3. face aware liquify: detect faces and landmarks with a small permissive model, and add sliders for eyes, nose, mouth and face shape to the 6d liquify dialog.
+
+tests for the batch list and landmark to warp maths.
+```
+
+#### 7e: Object remover, upscale and face restore
+
+**Done when:**
+- [ ] Object remover (LaMa): paint over something or use the selection, it disappears
+- [ ] Upscale 2x and 4x (Real-ESRGAN), tiled for big images
+- [ ] Face restore and denoise
+
+**Model:** Sonnet 5.5 · **Effort:** high
+
+```text
+read PLAN.md section 5, "how a step runs" in section 9, step 7e, and section 8.2 (ai extras). read the ARCHITECTURE.md section step 7a added. you are doing step 7e of vellum.
+
+1. object remover with lama: a brush that marks what to remove, or use the current selection. the result goes on a new layer so it can be undone or masked.
+2. upscale 2x and 4x with real-esrgan, tiled with overlap so seams never show, as an image menu command and a quick tool.
+3. face restore (gfpgan or codeformer, whichever can ship) and ai denoise.
+
+all as jobs with progress and cancel. tests for tile overlap blending. measure each on a 12 megapixel image on cpu (and gpu if present) and record the numbers.
+```
+
+#### 7f: Colourise, depth blur, sky replace and OCR
+
+**Done when:**
+- [ ] Colourise black and white photos
+- [ ] Depth map with fake portrait blur
+- [ ] Sky replacement with colour matching
+- [ ] OCR to copy text out of an image
+- [ ] Phase 7 checked in the real app; all phase 7 boxes ticked
+
+**Model:** Sonnet 5.5 · **Effort:** high
+
+```text
+read PLAN.md section 5, "how a step runs" in section 9, step 7f, and section 8.2 (ai extras). read the ARCHITECTURE.md section step 7a added. you are doing step 7f of vellum, the last step of phase 7.
+
+1. colourise, as a new layer.
+2. depth map (depth anything) and a portrait blur that uses it, with a focus point you click and a blur amount, as a smart filter if possible.
+3. sky replacement: find the sky (7d select sky), swap in a picked image, match the foreground colour to it, all on layers.
+4. ocr on the whole image or a selection, with the text shown in a panel to copy.
+5. run the app, try every phase 7 tool once, fix what you find and tick the phase 7 boxes.
+
+tests where the maths is ours (blur weights, colour matching).
 ```
 
 ---
@@ -708,27 +1012,122 @@ measure speed on gpu and cpu for a 12 megapixel image and record results. follow
 
 **Goal:** the beating heart of the video editor: data model, smooth playback, scrubbing, proxies, frame cache, audio sync.
 
-**Done when:**
-- [ ] NLE data model: sequences, tracks, clips, nested sequences, transitions, effects, keyframes
-- [ ] Real-time playback of multi-track 4K with GPU compositing
-- [ ] Instant scrubbing with frame cache and automatic proxies
-- [ ] Audio/video sync with drift correction, variable frame rate handled
-- [ ] Media pool with bins and source monitor
-- [ ] Basic timeline UI: drag clips, trim edges, razor, snapping, zoom
+#### 8a: Timeline data model
 
-**Model:** Fable 5.2 · **Effort:** max
+**Done when:**
+- [ ] Projects, sequences, tracks, clips, nested sequences, adjustment layers, transitions and effect stacks
+- [ ] A keyframe system with bezier easing that any parameter can use
+- [ ] Rational time maths that is frame and sample exact, with tests
+- [ ] Every change is a vellum-core command; projects save and load
+
+**Model:** Opus 5.5 · **Effort:** xhigh
 
 ```text
-read PLAN.md (section 8.3) and ARCHITECTURE.md first, including how the phase 4 gpu engine and phase 2 media core work. you are building phase 8 of vellum: the video timeline engine in crates/vellum-timeline. this must be rock solid, everything in phases 9 to 13 builds on it.
+read PLAN.md section 5, "how a step runs" in section 9, step 8a, and section 8.3. read ARCHITECTURE.md sections 22 and 24. you are doing step 8a of vellum in crates/vellum-timeline. everything in phases 9 to 13 builds on this model, so design it carefully and write down the reasons in ARCHITECTURE.md.
 
-1. data model: projects, sequences (resolution, fps, colour space), unlimited video and audio tracks, clips (source range, timeline range, speed), nested sequences, adjustment layers, transitions, effects stacks, and a generic keyframe system (with bezier easing) that any parameter can use. everything goes through vellum-core commands so it is undoable.
-2. playback scheduler: decode ahead on background threads, composite through the gpu node graph, present at the right time locked to the audio clock. handle mixed frame rates, variable frame rate sources and drift correction. real time multi track 4k on a decent machine; drop frames gracefully on weak ones and show a dropped frame indicator.
-3. scrubbing: frame cache with memory budget, instant response while dragging the playhead, audio scrub. automatic proxy generation for heavy codecs (h265, raw, long gop 4k+) as background jobs, switched transparently.
-4. media pool with bins, smart bins, metadata columns, hover scrub thumbnails, and a source monitor with in/out points and markers.
-5. timeline ui: clips with filmstrip and waveform, drag, trim edges, razor, snapping, zoom and scroll, playhead, j/k/l shuttle, frame step, track mute/solo/lock, track height presets. keep it smooth with 1000+ clips (virtualise rendering).
-6. a simple export path through the media core so a sequence can be rendered to a file (the full render queue comes in phase 13).
+1. rational time (no floats for positions): frame rates like 23.976 and 29.97 drop frame, sample rates, conversions and rounding rules.
+2. the model: projects, sequences (resolution, fps, colour space), unlimited video and audio tracks, clips (source range, timeline range, speed), nested sequences, adjustment layers, transitions and effect stacks.
+3. a generic keyframe system with linear, hold and bezier easing that any parameter can use.
+4. every change as a vellum-core command so it is undoable and recordable; save and load the project inside the .vellum format.
 
-write tests for timing maths (frame and sample accuracy), and a stress test project. record playback benchmarks in ARCHITECTURE.md. follow section 5 of PLAN.md exactly. tick the phase 8 boxes and update CHANGELOG.md.
+no ui and no playback in this step. thorough tests for the time maths and for the model's invariants (no overlaps on a track, ranges stay inside the source).
+```
+
+#### 8b: Playback engine
+
+**Done when:**
+- [ ] Decode ahead on background threads, composite through the phase 4 graph
+- [ ] Frames presented locked to the audio clock, with drift correction
+- [ ] Mixed frame rates and variable frame rate sources play correctly
+- [ ] Dropped frames counted and shown; a viewer in the video workspace
+
+**Model:** Opus 5.5 · **Effort:** xhigh
+
+```text
+read PLAN.md section 5, "how a step runs" in section 9, step 8b, and section 8.3. read ARCHITECTURE.md section 24 (render engine, getting pixels into the window) and the step 8a section. you are doing step 8b of vellum.
+
+1. a playback scheduler: decode ahead on background threads through vellum-media, composite each frame through the phase 4 render graph, and present at the right time locked to the audio clock (a simple cpal output is enough for now; phase 11 builds the full audio engine).
+2. mixed frame rates, variable frame rate sources and drift correction.
+3. drop frames gracefully on weak machines and show a dropped frame counter.
+4. a viewer in the video workspace. phase 4 noted full rate playback may need a native surface presenter instead of display tiles; measure first and pick, and record why in ARCHITECTURE.md.
+
+tests for the scheduler's timing decisions with a fake clock. record playback numbers for 1080p and 4k.
+```
+
+#### 8c: Scrubbing, frame cache and proxies
+
+**Done when:**
+- [ ] Frame cache with a memory budget
+- [ ] Instant scrubbing while dragging the playhead, with audio scrub
+- [ ] Automatic proxies for heavy codecs as background jobs, switched in without the user noticing
+
+**Model:** Opus 5.5 · **Effort:** high
+
+```text
+read PLAN.md section 5, "how a step runs" in section 9, step 8c, and section 8.3. read the ARCHITECTURE.md sections steps 8a and 8b added. you are doing step 8c of vellum.
+
+1. a frame cache with a memory budget from settings, keyed so edits invalidate only what changed.
+2. scrubbing: the viewer answers instantly while dragging, showing the nearest cached or keyframe first and refining; short audio snippets play while scrubbing.
+3. proxies: detect heavy sources (h265, raw, long gop 4k and up), make proxies as background jobs, use them for playback and the original for export, with a toggle in the viewer.
+
+tests for cache eviction and proxy selection.
+```
+
+#### 8d: Media pool and source monitor
+
+**Done when:**
+- [ ] Media pool with bins, smart bins, list and grid views and metadata columns
+- [ ] Hover scrub thumbnails
+- [ ] Source monitor with in and out points and markers
+
+**Model:** Sonnet 5.5 · **Effort:** high
+
+```text
+read PLAN.md section 5, "how a step runs" in section 9, step 8d, and section 8.3. read the ARCHITECTURE.md sections steps 8a to 8c added. you are doing step 8d of vellum, in ui/src/workspaces/video.
+
+1. a media pool panel: import by drop or dialog, bins, smart bins (rules on metadata), list and grid views, metadata columns from mediainfo, sort and search.
+2. hover scrub on grid thumbnails using the phase 2 filmstrips.
+3. a source monitor using the 8b viewer: play, in and out points, markers with notes, and drag to the timeline area (the timeline itself is 8e).
+
+vitest for smart bin rules, playwright for importing and setting in and out.
+```
+
+#### 8e: Timeline UI
+
+**Done when:**
+- [ ] Clips with filmstrips and waveforms; drag, trim edges, razor, snapping
+- [ ] Zoom, scroll, playhead, J/K/L shuttle, frame step
+- [ ] Track mute, solo, lock and height presets
+- [ ] Smooth with 1000+ clips
+
+**Model:** Opus 5.5 · **Effort:** high
+
+```text
+read PLAN.md section 5, "how a step runs" in section 9, step 8e, and section 8.3. read the ARCHITECTURE.md sections steps 8a to 8d added. you are doing step 8e of vellum.
+
+1. a timeline panel drawing tracks and clips with filmstrips and waveforms. virtualise drawing so it stays smooth with 1000 or more clips.
+2. drag clips, trim edges, razor, snapping to clips, the playhead and markers, all through 8a commands.
+3. zoom and scroll, the playhead, j, k and l shuttle, frame step, home and end.
+4. track headers with mute, solo, lock and height presets; add and remove tracks.
+
+vitest for hit testing and snapping maths, playwright for drag, trim and razor. measure frame times with a 1000 clip project.
+```
+
+#### 8f: Sequence export and stress test
+
+**Done when:**
+- [ ] A sequence renders to a file through the media core
+- [ ] A stress test project and recorded playback and export benchmarks
+- [ ] Phase 8 checked in the real app; all phase 8 boxes ticked
+
+**Model:** Sonnet 5.5 · **Effort:** high
+
+```text
+read PLAN.md section 5, "how a step runs" in section 9, step 8f, and section 8.3. read the ARCHITECTURE.md sections steps 8a to 8e added. you are doing step 8f of vellum, the last step of phase 8.
+
+1. a simple export: render a sequence (or its in to out range) to h264 or h265 through vellum-media as a job. the full export dialog and render queue come in phase 13.
+2. a generated stress test project (many tracks, mixed frame rates, a nested sequence) and benchmarks for playback and export, recorded in ARCHITECTURE.md.
+3. run the app, build a small edit by hand, play, scrub and export it. fix what you find, then tick the phase 8 boxes.
 ```
 
 ---
@@ -737,27 +1136,133 @@ write tests for timing maths (frame and sample accuracy), and a stress test proj
 
 **Goal:** Premiere-level editing on top of the engine.
 
+#### 9a: Edit tools
+
 **Done when:**
-- [ ] Ripple, roll, slip, slide, rate stretch, insert/overwrite, 3 and 4 point edits, lift/extract
-- [ ] Transitions with timeline handles, effects library, keyframe curve editor
-- [ ] Speed ramps, reverse, freeze frame, optical-flow slow motion
-- [ ] Titles and templates, auto subtitles with styling, text-based editing
-- [ ] Scene detection, silence removal, beat markers, auto-reframe, multicam, chroma key, stabiliser, tracking, face blur
+
+- [ ] Ripple, roll, slip, slide, rate stretch, track select forward and back
+- [ ] Insert, overwrite, replace, fit to fill, three and four point edits, lift and extract, ripple delete, close gaps
+- [ ] Magnetic timeline option; markers with colours and notes
 
 **Model:** Opus 5.5 · **Effort:** high
 
 ```text
-read PLAN.md (section 8.3) and ARCHITECTURE.md first. the timeline engine exists from phase 8. you are building phase 9 of vellum: the full editing toolset.
+read PLAN.md section 5, "how a step runs" in section 9, step 9a, and section 8.3. read the phase 8 sections of ARCHITECTURE.md. you are doing step 9a of vellum.
 
-1. edit tools: selection, ripple, roll, slip, slide, razor, track select forward and back, rate stretch. insert, overwrite, replace, fit to fill, three and four point editing, lift and extract, ripple delete, close all gaps. magnetic timeline mode as an option. markers with colours and notes.
-2. transitions library (dissolves, dips, wipes, slides, zooms, whip pan, glitch, light leaks) with drag handles on the timeline. effects library (section 8.3) as gpu nodes, drag onto multiple clips, copy/paste attributes, presets and favourites.
-3. keyframe curve editor with bezier handles and easing presets, shown both inline on clips and in a dedicated panel.
-4. speed: constant, speed ramps with a curve, reverse, freeze frame, optical flow slow motion using rife via vellum-ai.
-5. titles: editable templates (lower thirds, end cards, captions), text with all phase 6 text features.
-6. auto subtitles with whisper: transcript panel, edit text, word level timing, styles (word by word highlight, karaoke, classic), translate, export srt/vtt or burn in. text based editing: deleting words in the transcript cuts the video.
-7. smart tools: scene cut detection, silence removal with preview, beat detection markers and cut to beat, auto reframe for vertical/square versions, multicam with audio sync, chroma key with spill suppression, stabiliser, point and planar tracking (attach text/effects to tracked objects), automatic face blur.
+build every edit operation listed in step 9a as a timeline command with its tool and shortcut (premiere defaults). edge cases matter: ripple and roll at track ends, linked audio, locked tracks, gaps, nested sequences. write a test for every operation and its edge cases before wiring the ui.
+```
 
-tests for every edit operation (especially ripple and roll edge cases). follow section 5 of PLAN.md exactly. tick the phase 9 boxes and update CHANGELOG.md.
+#### 9b: Transitions and effects
+
+**Done when:**
+
+- [ ] Transitions library with handles on the timeline
+- [ ] Effects library from section 8.3 as GPU nodes, drag onto one or many clips
+- [ ] Copy and paste attributes, presets and favourites
+
+**Model:** Sonnet 5.5 · **Effort:** high
+
+```text
+read PLAN.md section 5, "how a step runs" in section 9, step 9b, and section 8.3. read ARCHITECTURE.md section 24 (adding an effect) and the phase 8 sections. you are doing step 9b of vellum.
+
+1. transitions (dissolves, dips, wipes, slides, zooms, whip pan, glitch, light leaks) as gpu nodes, dragged between clips, with length handles.
+2. the effects library from section 8.3 as gpu nodes, reusing phase 6 nodes where they exist. drag onto one or many clips; an effect controls panel built from the node catalogue.
+3. copy and paste attributes, effect presets and favourites.
+
+golden frame tests for each new node.
+```
+
+#### 9c: Keyframe editor and speed
+
+**Done when:**
+
+- [ ] Keyframe curve editor, inline on clips and in its own panel
+- [ ] Constant speed, speed ramps, reverse, freeze frame
+- [ ] Optical flow slow motion (RIFE)
+
+**Model:** Opus 5.5 · **Effort:** high
+
+```text
+read PLAN.md section 5, "how a step runs" in section 9, step 9c, and section 8.3. read the phase 8 sections of ARCHITECTURE.md. you are doing step 9c of vellum.
+
+1. a keyframe curve editor with bezier handles and easing presets, shown inline on clips and in its own panel, over the 8a keyframe system.
+2. speed: constant, ramps drawn as a curve, reverse, freeze frame, with audio pitch kept or not.
+3. optical flow slow motion with rife through vellum-ai as a job, cached.
+
+tests for time remapping maths (a ramp must land on exact frames).
+```
+
+#### 9d: Titles and templates
+
+**Done when:**
+
+- [ ] Title layers with all phase 6 text features
+- [ ] Editable templates: lower thirds, end cards, captions
+
+**Model:** Sonnet 5.5 · **Effort:** high
+
+```text
+read PLAN.md section 5, "how a step runs" in section 9, step 9d, and section 8.3. read the phase 6 and 8 sections of ARCHITECTURE.md. you are doing step 9d of vellum.
+
+1. title clips that reuse the phase 6 text engine (fonts, paragraph, warp, styles), edited in the viewer.
+2. a template system: lower thirds, end cards and caption styles with editable fields in a simple form, plus save your own.
+
+golden frame tests for a few templates.
+```
+
+#### 9e: Auto subtitles and text based editing
+
+**Done when:**
+
+- [ ] Whisper transcription with word timing as a job
+- [ ] Transcript panel, caption styles, translate, SRT and VTT export, burn in
+- [ ] Deleting words in the transcript cuts the video
+
+**Model:** Opus 5.5 · **Effort:** high
+
+```text
+read PLAN.md section 5, "how a step runs" in section 9, step 9e, and section 8.3. read the phase 7 and 8 sections of ARCHITECTURE.md. you are doing step 9e of vellum.
+
+1. whisper through vellum-ai: transcribe a sequence or clip with word level timing, as a job.
+2. a transcript panel: edit text, speakers, styles (word by word highlight, karaoke, classic), translate, export srt or vtt, or burn in as caption clips.
+3. text based editing: selecting and deleting words in the transcript ripple deletes that media.
+
+tests for word timing to frame mapping and the cut list.
+```
+
+#### 9f: Smart tools, part one
+
+**Done when:**
+
+- [ ] Scene cut detection
+- [ ] Silence removal with a preview
+- [ ] Beat detection markers and cut to the beat
+- [ ] Auto reframe for vertical and square
+
+**Model:** Sonnet 5.5 · **Effort:** high
+
+```text
+read PLAN.md section 5, "how a step runs" in section 9, step 9f, and section 8.3. read the phase 8 sections of ARCHITECTURE.md. you are doing step 9f of vellum.
+
+build scene cut detection (cuts the clip or adds markers), silence removal with a threshold and a preview before it cuts, beat detection that adds markers and a cut to the beat command, and auto reframe that follows the subject to make vertical and square versions. each runs as a job. tests against small generated media.
+```
+
+#### 9g: Smart tools, part two
+
+**Done when:**
+
+- [ ] Multicam with audio sync
+- [ ] Chroma key with spill suppression
+- [ ] Stabiliser
+- [ ] Point and planar tracking, face blur
+- [ ] Phase 9 checked in the real app; all phase 9 boxes ticked
+
+**Model:** Opus 5.5 · **Effort:** high
+
+```text
+read PLAN.md section 5, "how a step runs" in section 9, step 9g, and section 8.3. read the phase 8 sections of ARCHITECTURE.md. you are doing step 9g of vellum, the last step of phase 9.
+
+build multicam (sync angles by audio, switch live while playing), chroma key with spill suppression as a gpu node, a stabiliser, point and planar tracking that text and effects can attach to, and automatic face blur that follows faces. then run the app, try every phase 9 tool once, fix what you find and tick the phase 9 boxes.
 ```
 
 ---
@@ -766,27 +1271,76 @@ tests for every edit operation (especially ripple and roll edge cases). follow s
 
 **Goal:** a Resolve-style colour page.
 
-**Done when:**
-- [ ] Node-based grading (serial, parallel, layer) per clip, grade versions, copy grade
-- [ ] Wheels, log wheels, all curve types, HSL qualifier, power windows with tracking
-- [ ] Scopes: waveform, parade, vectorscope, histogram, CIE
-- [ ] LUT import/export, colour-managed workflow, HDR support
-- [ ] Shot match, gallery stills with wipe compare
+#### 10a: Grading nodes and primaries
 
-**Model:** Fable 5.2 · **Effort:** xhigh
+**Done when:**
+
+- [ ] Per clip node graph (serial, parallel, layer), grade versions, copy and apply to many
+- [ ] Lift, gamma, gain, offset wheels, log wheels, contrast, pivot, saturation, temperature, tint
+- [ ] All curve types
+
+**Model:** Opus 5.5 · **Effort:** xhigh
 
 ```text
-read PLAN.md (section 8.3, colour) and ARCHITECTURE.md first. you are building phase 10 of vellum: a davinci resolve style colour page, using the phase 4 gpu engine and the phase 8 timeline.
+read PLAN.md section 5, "how a step runs" in section 9, step 10a, and section 8.3 (colour). read ARCHITECTURE.md section 24 (colour) and the phase 8 sections. you are doing step 10a of vellum.
 
-1. per clip node graph for grading: serial, parallel and layer nodes, node labels, enable/disable, grade versions, copy and paste grades, apply grade to many clips, timeline level grade.
-2. primaries: lift, gamma, gain, offset wheels, log wheels, contrast, pivot, saturation, temperature, tint. curves: custom rgb, hue vs hue, hue vs sat, hue vs lum, lum vs sat, sat vs sat.
-3. secondaries: hsl qualifier with matte view and refine, power windows (circle, linear, polygon, bezier) with tracking, colour warper.
-4. scopes computed on the gpu in real time: waveform, rgb parade, vectorscope, histogram, cie chromaticity, plus false colour and zebras in the viewer.
-5. luts: import and export .cube, apply as nodes. colour managed workflow with input transforms per clip, timeline space, and output transform (rec.709, rec.2020, p3, hdr pq/hlg). make sure hdr sources preview and export correctly.
-6. shot match between two clips, auto colour, gallery stills with split and wipe compare.
-7. the same grading tools should be usable on a still image in the image editor as an adjustment layer.
+1. a colour page with a per clip grading graph: serial, parallel and layer nodes, labels, enable and disable, grade versions, copy and paste grades, apply to many clips, and a timeline level grade.
+2. primaries: lift, gamma, gain and offset wheels, log wheels, contrast, pivot, saturation, temperature and tint.
+3. curves: custom rgb, hue vs hue, hue vs sat, hue vs lum, lum vs sat, sat vs sat.
 
-maths must be accurate: write tests comparing against known reference values. keep everything real time at 4k on a decent gpu. follow section 5 of PLAN.md exactly. tick the phase 10 boxes and update CHANGELOG.md.
+the maths must match reference values; write those tests first.
+```
+
+#### 10b: Secondaries
+
+**Done when:**
+
+- [ ] HSL qualifier with matte view and refine
+- [ ] Power windows (circle, linear, polygon, bezier) with tracking
+- [ ] Colour warper
+
+**Model:** Opus 5.5 · **Effort:** high
+
+```text
+read PLAN.md section 5, "how a step runs" in section 9, step 10b, and section 8.3 (colour). read the step 10a section of ARCHITECTURE.md. you are doing step 10b of vellum.
+
+build the hsl qualifier with a matte view and refine controls, power windows (circle, linear, polygon, bezier) drawn in the viewer with softness and tracking (reuse 9g tracking), and the colour warper. all as nodes in the 10a graph. tests for qualifier and window mask maths.
+```
+
+#### 10c: Scopes
+
+**Done when:**
+
+- [ ] Waveform, RGB parade, vectorscope, histogram and CIE on the GPU in real time
+- [ ] False colour and zebras in the viewer
+
+**Model:** Opus 5.5 · **Effort:** high
+
+```text
+read PLAN.md section 5, "how a step runs" in section 9, step 10c, and section 8.3 (colour). read ARCHITECTURE.md section 24. you are doing step 10c of vellum.
+
+compute waveform, rgb parade, vectorscope, histogram and cie chromaticity on the gpu in real time at 4k, draw them in dockable panels, and add false colour and zebras to the viewer. tests comparing gpu scope output with a cpu reference on test patterns.
+```
+
+#### 10d: LUTs, colour management, HDR and shot match
+
+**Done when:**
+
+- [ ] LUT import and export (.cube), LUT nodes
+- [ ] Input transforms per clip, timeline space, output transform, HDR PQ and HLG preview and export
+- [ ] Shot match, auto colour, gallery stills with wipe compare
+- [ ] Grading tools usable as an image adjustment layer; all phase 10 boxes ticked
+
+**Model:** Opus 5.5 · **Effort:** high
+
+```text
+read PLAN.md section 5, "how a step runs" in section 9, step 10d, and section 8.3 (colour). read ARCHITECTURE.md section 24 and the phase 10 sections. you are doing step 10d of vellum, the last step of phase 10.
+
+1. luts: import and export .cube, apply as nodes.
+2. a colour managed workflow: input transform per clip, timeline space, output transform (rec.709, rec.2020, p3, hdr pq and hlg). hdr sources must preview and export correctly.
+3. shot match between two clips, auto colour, gallery stills with split and wipe compare.
+4. the grade as an adjustment layer in the image editor.
+5. run the app, grade a short edit, export it, fix what you find and tick the phase 10 boxes.
 ```
 
 ---
@@ -795,27 +1349,85 @@ maths must be accurate: write tests comparing against known reference values. ke
 
 **Goal:** Audacity/Audition-level audio editing plus a proper mixer in the video editor.
 
+#### 11a: Audio engine
+
 **Done when:**
-- [ ] Standalone audio workspace with waveform and spectral views, spectral editing
-- [ ] Effects list from section 8.4, real-time preview
-- [ ] AI noise removal, voice isolation, stem separation, filler-word removal
-- [ ] Timeline mixer with buses, sends, LUFS meters, auto ducking, loudness normalisation
-- [ ] Recording (mic and system audio)
+
+- [ ] cpal playback and recording, device choice, buffer size
+- [ ] Sample rate conversion (rubato), mic and system audio recording
 
 **Model:** Opus 5.5 · **Effort:** high
 
 ```text
-read PLAN.md (section 8.4 and the fairlight part of 8.3) and ARCHITECTURE.md first. you are building phase 11 of vellum: audio, in crates/vellum-audio and ui/src/workspaces/audio.
+read PLAN.md section 5, "how a step runs" in section 9, step 11a, and section 8.4. read the step 8b section of ARCHITECTURE.md (the audio clock). you are doing step 11a of vellum in crates/vellum-audio.
 
-1. real time audio engine with cpal: low latency playback and recording, device selection, sample rate conversion with rubato, buffer size setting.
-2. audio workspace: waveform and spectral views, selection editing (cut, copy, paste, trim, silence, fades, crossfades, envelope), zero crossing snapping, spectral editing (paint/select and attenuate regions), single file and multitrack modes.
-3. effects from section 8.4, each with a live preview, presets, and bypass. pitch shift and time stretch must sound good (use a proper algorithm, not naive resampling).
-4. ai: noise removal, voice isolation, stem separation with demucs (vocals, drums, bass, other), transcription and filler word removal ("um", "uh"), all through vellum-ai as jobs.
-5. loudness: lufs meters (momentary, short term, integrated), true peak, normalise to presets (youtube, spotify, podcast, broadcast).
-6. video timeline audio: clip gain, keyframed volume, crossfades, a mixer with pan, sends, buses, meters, auto ducking, voiceover recording with punch in.
-7. extras: batch convert and normalise, tag and cover art editor, bpm and key detection, ringtone maker.
+build a real time audio engine with cpal: low latency playback and recording, device selection, buffer size setting, sample rate conversion with rubato, and system audio capture where the os allows. move the 8b playback clock onto it. tests for the mixing graph and resampling against reference output.
+```
 
-tests for dsp correctness (compare against reference outputs) and sync with video. follow section 5 of PLAN.md exactly. tick the phase 11 boxes and update CHANGELOG.md.
+#### 11b: Audio workspace
+
+**Done when:**
+
+- [ ] Waveform and spectral views, single file and multitrack modes
+- [ ] Selection editing: cut, copy, paste, trim, silence, fades, crossfades, envelope, zero crossing snap
+- [ ] Spectral editing
+
+**Model:** Sonnet 5.5 · **Effort:** high
+
+```text
+read PLAN.md section 5, "how a step runs" in section 9, step 11b, and section 8.4. read the step 11a section of ARCHITECTURE.md. you are doing step 11b of vellum in ui/src/workspaces/audio.
+
+build the audio workspace: waveform and spectral views, single file and multitrack modes, selection editing (cut, copy, paste, trim, silence, fades, crossfades, envelope) with zero crossing snapping, and spectral editing (select or paint a region and turn it down). every edit is a command. tests for the edit maths.
+```
+
+#### 11c: Audio effects
+
+**Done when:**
+
+- [ ] Every effect in section 8.4 with live preview, presets and bypass
+- [ ] Good pitch shift and time stretch
+
+**Model:** Opus 5.5 · **Effort:** high
+
+```text
+read PLAN.md section 5, "how a step runs" in section 9, step 11c, and section 8.4. read the step 11a section of ARCHITECTURE.md. you are doing step 11c of vellum.
+
+build every effect in section 8.4 with a live preview, presets and bypass. pitch shift and time stretch must use a proper algorithm (phase vocoder with phase locking, or a library that does it well), not resampling. tests comparing each effect with reference output.
+```
+
+#### 11d: Loudness and the timeline mixer
+
+**Done when:**
+
+- [ ] LUFS meters (momentary, short term, integrated), true peak, normalise presets
+- [ ] Clip gain, keyframed volume, crossfades on the video timeline
+- [ ] Mixer with pan, sends, buses, meters, auto ducking, voiceover with punch in
+
+**Model:** Opus 5.5 · **Effort:** high
+
+```text
+read PLAN.md section 5, "how a step runs" in section 9, step 11d, and sections 8.3 (fairlight) and 8.4. read the phase 8 and 11 sections of ARCHITECTURE.md. you are doing step 11d of vellum.
+
+1. loudness: lufs meters (momentary, short term, integrated), true peak, and normalise to presets (youtube, spotify, podcast, broadcast). check against the ebu r128 test signals.
+2. timeline audio: clip gain, keyframed volume, crossfades, a mixer with pan, sends, buses and meters, auto ducking, and voiceover recording with punch in.
+```
+
+#### 11e: AI audio and extras
+
+**Done when:**
+
+- [ ] Noise removal, voice isolation, stem separation (Demucs), filler word removal
+- [ ] Batch convert and normalise, tags and cover art, BPM and key, ringtone maker
+- [ ] All phase 11 boxes ticked
+
+**Model:** Sonnet 5.5 · **Effort:** high
+
+```text
+read PLAN.md section 5, "how a step runs" in section 9, step 11e, and section 8.4. read the step 7a and phase 11 sections of ARCHITECTURE.md. you are doing step 11e of vellum, the last step of phase 11.
+
+1. through vellum-ai, as jobs: noise removal, voice isolation, stem separation with demucs (vocals, drums, bass, other), and filler word removal ("um", "uh") using 9e's transcription.
+2. extras: batch convert and normalise, a tag and cover art editor, bpm and key detection, a ringtone maker.
+3. run the app, try each phase 11 feature once, fix what you find and tick the phase 11 boxes.
 ```
 
 ---
@@ -824,26 +1436,96 @@ tests for dsp correctness (compare against reference outputs) and sync with vide
 
 **Goal:** After Effects-lite and Fusion-lite.
 
-**Done when:**
-- [ ] Composition mode with shape and text layers, graph editor
-- [ ] Text animators and presets, shape animation (trim paths, repeaters, wiggle)
-- [ ] Masks, track mattes, AI rotoscoping
-- [ ] Node view, particles, 2.5D camera
-- [ ] Lottie import/export, templates usable on the video timeline
+#### 12a: Compositions
 
-**Model:** Opus 5.5 · **Effort:** xhigh
+**Done when:**
+
+- [ ] Composition documents, standalone or as a live linked timeline clip
+- [ ] Solid, image, video, null, shape and text layers with parenting
+
+**Model:** Opus 5.5 · **Effort:** high
 
 ```text
-read PLAN.md (section 8.5) and ARCHITECTURE.md first. you are building phase 12 of vellum: motion graphics and compositing, reusing the phase 4 render graph and the phase 8 keyframe system.
+read PLAN.md section 5, "how a step runs" in section 9, step 12a, and section 8.5. read ARCHITECTURE.md section 24 and the phase 8 sections. you are doing step 12a of vellum.
 
-1. composition documents that can be used standalone or dropped onto the video timeline as a clip (live linked, editing updates the timeline).
-2. layers: shape layers with animated paths, trim paths, repeaters, wiggle; text layers with animators (per character position, scale, rotation, opacity, blur, range selectors) and presets (typewriter, bounce in, fade up, glitch); solid, image, video and null layers with parenting.
-3. graph editor showing value and speed curves, easy ease, and expressions lite (wiggle, loop, time based maths) in a safe sandbox.
-4. masks, track mattes (alpha, luma, inverted), and ai rotoscoping: sam 2 selection propagated across frames with manual correction keyframes.
-5. a node view for advanced compositing over the same graph, simple particle emitter, lights and a 2.5d camera with depth of field.
-6. lottie import and export, and a template system: mark parameters as editable so templates show a simple form on the video timeline.
+build composition documents that render through the phase 4 graph and use the 8a keyframes: solid, image, video, null, shape and text layers, parenting, a comp viewer and layer stack. a comp can be dropped on the video timeline as a clip that stays live linked. golden frame tests.
+```
 
-golden frame tests for animation output. follow section 5 of PLAN.md exactly. tick the phase 12 boxes and update CHANGELOG.md.
+#### 12b: Shape and text animation
+
+**Done when:**
+
+- [ ] Trim paths, repeaters, wiggle on shape layers
+- [ ] Text animators with range selectors, and presets
+
+**Model:** Opus 5.5 · **Effort:** high
+
+```text
+read PLAN.md section 5, "how a step runs" in section 9, step 12b, and section 8.5. read the step 12a section of ARCHITECTURE.md. you are doing step 12b of vellum.
+
+add animated shape paths, trim paths, repeaters and wiggle, and text animators (per character position, scale, rotation, opacity, blur with range selectors) with presets (typewriter, bounce in, fade up, glitch). golden frame tests.
+```
+
+#### 12c: Graph editor and expressions
+
+**Done when:**
+
+- [ ] Graph editor with value and speed curves and easy ease
+- [ ] Expressions lite (wiggle, loop, time maths) in a safe sandbox
+
+**Model:** Opus 5.5 · **Effort:** high
+
+```text
+read PLAN.md section 5, "how a step runs" in section 9, step 12c, and section 8.5. read the phase 12 sections of ARCHITECTURE.md. you are doing step 12c of vellum.
+
+build a graph editor (value and speed graphs, easy ease, handles) and expressions lite: wiggle, loop, time based maths, and links between properties, run in a sandbox with no file or network access and a time limit. tests for the expression evaluator.
+```
+
+#### 12d: Masks, mattes and AI roto
+
+**Done when:**
+
+- [ ] Layer masks and track mattes (alpha, luma, inverted)
+- [ ] AI rotoscoping with SAM 2 across frames, with correction keyframes
+
+**Model:** Opus 5.5 · **Effort:** high
+
+```text
+read PLAN.md section 5, "how a step runs" in section 9, step 12d, and section 8.5. read the step 7c and phase 12 sections of ARCHITECTURE.md. you are doing step 12d of vellum.
+
+add masks and track mattes (alpha, luma, inverted), and ai rotoscoping: a sam 2 selection on one frame propagated across frames as a job, with correction keyframes the user can add. tests for matte maths.
+```
+
+#### 12e: Node view, particles and camera
+
+**Done when:**
+
+- [ ] Node view over the same graph
+- [ ] Simple particle emitter
+- [ ] Lights and a 2.5D camera with depth of field
+
+**Model:** Opus 5.5 · **Effort:** high
+
+```text
+read PLAN.md section 5, "how a step runs" in section 9, step 12e, and section 8.5. read ARCHITECTURE.md section 24 and the phase 12 sections. you are doing step 12e of vellum.
+
+add a node view that shows and edits the same composition graph, a simple particle emitter, lights, and a 2.5d camera with depth of field. golden frame tests.
+```
+
+#### 12f: Lottie and templates
+
+**Done when:**
+
+- [ ] Lottie import and export
+- [ ] Templates with editable fields used on the video timeline
+- [ ] All phase 12 boxes ticked
+
+**Model:** Sonnet 5.5 · **Effort:** high
+
+```text
+read PLAN.md section 5, "how a step runs" in section 9, step 12f, and section 8.5. read the phase 12 sections of ARCHITECTURE.md. you are doing step 12f of vellum, the last step of phase 12.
+
+add lottie import and export for the features lottie supports (say clearly what is dropped), and a template system: mark parameters as editable so templates show a simple form on the video timeline. then run the app, build one animated title, use it as a template, fix what you find and tick the phase 12 boxes.
 ```
 
 ---
@@ -852,26 +1534,43 @@ golden frame tests for animation output. follow section 5 of PLAN.md exactly. ti
 
 **Goal:** one great export experience for every workspace.
 
+#### 13a: Export dialog and presets
+
 **Done when:**
-- [ ] Unified export dialog with presets, live size estimate and Export to X MB built in
-- [ ] Render queue with background rendering, smart render, hardware encoding
-- [ ] Platform presets (YouTube, TikTok/Reels/Shorts, Discord, X, Instagram, ProRes, DNxHR, image sequence)
-- [ ] Export ranges, individual clips, markers as stills
-- [ ] Post-export actions (copy as file, open folder, notify, shut down)
+
+- [ ] One export dialog for every workspace with a live size and time estimate and Export to X MB built in
+- [ ] Platform presets, saved, edited, imported and exported
 
 **Model:** Sonnet 5.5 · **Effort:** high
 
 ```text
-read PLAN.md (sections 8.1 and 8.3 delivery) and ARCHITECTURE.md first. you are building phase 13 of vellum: a single export system for every workspace in crates/vellum-export.
+read PLAN.md section 5, "how a step runs" in section 9, step 13a, and sections 8.1 and 8.3 (delivery). read ARCHITECTURE.md section 23. you are doing step 13a of vellum in crates/vellum-export.
 
-1. one export dialog component used by the image, video, audio, motion and vector workspaces, with format specific options, a live estimate of file size and render time, and the export to x mb engine from phase 3 built in as a toggle.
-2. preset system: youtube (several resolutions), tiktok/reels/shorts vertical, discord (size targeted), x/twitter, instagram feed and story, prores master, dnxhr, lossless, image sequence, audio only. look up current recommended upload specs for each platform. users can save, edit, import and export presets.
-3. render queue: background rendering while you keep editing, smart render (copy unchanged gop segments when possible), hardware encoding with a speed vs quality slider, queue reordering, and "shut down when done".
-4. export variants: in/out range, every selected clip as its own file, every marker as a still, current frame as image, multiple presets at once from one render.
-5. post export actions: copy as file to clipboard, show in folder, open in default app, notification with a thumbnail.
-6. file naming templates with tokens and never overwrite by default.
+1. one export dialog used by the image, video, audio, motion and vector workspaces, with format options, a live estimate of size and time, and the phase 3 export to x mb engine as a toggle.
+2. presets: youtube (several sizes), tiktok, reels and shorts, discord, x, instagram feed and story, prores, dnxhr, lossless, image sequence, audio only. look up current upload specs. users can save, edit, import and export presets.
 
-tests for presets and naming. follow section 5 of PLAN.md exactly. tick the phase 13 boxes and update CHANGELOG.md.
+tests for presets.
+```
+
+#### 13b: Render queue and after export
+
+**Done when:**
+
+- [ ] Background render queue, smart render, hardware encoding speed and quality slider
+- [ ] Ranges, each clip, markers as stills, several presets from one render
+- [ ] Copy as file, show in folder, notify, shut down when done; naming templates
+
+**Model:** Sonnet 5.5 · **Effort:** high
+
+```text
+read PLAN.md section 5, "how a step runs" in section 9, step 13b, and section 8.3 (delivery). read the step 13a section of ARCHITECTURE.md. you are doing step 13b of vellum, the last step of phase 13.
+
+1. a render queue: renders in the background while you edit, smart render (copy unchanged gop segments), hardware encoding with a speed and quality slider, reordering, shut down when done.
+2. variants: in to out, every selected clip, every marker as a still, the current frame, several presets in one go.
+3. after export: copy as file, show in folder, open, a notification with a thumbnail. file naming templates with tokens, never overwriting by default.
+4. tick the phase 13 boxes.
+
+tests for naming and variants.
 ```
 
 ---
@@ -880,25 +1579,52 @@ tests for presets and naming. follow section 5 of PLAN.md exactly. tick the phas
 
 **Goal:** ShareX/OBS-lite built in.
 
+#### 14a: Screenshots, hotkeys and tray
+
 **Done when:**
-- [ ] Screenshots (region, window, full, scrolling, delayed) with instant annotation
-- [ ] Screen recorder with system audio, mic, webcam overlay, cursor and click effects
-- [ ] Instant replay buffer with hotkey save then one-click Export to 10 MB
-- [ ] Record to GIF, screen colour picker, ruler, screen OCR
-- [ ] Global hotkeys and tray menu
+
+- [ ] Region (with magnifier), window, full screen, all screens, scrolling and delayed screenshots
+- [ ] Instant annotate overlay, then copy, save or open in the editor
+- [ ] Global hotkeys (conflict checked) and a tray menu
 
 **Model:** Sonnet 5.5 · **Effort:** high
 
 ```text
-read PLAN.md (section 8.7) and ARCHITECTURE.md first. you are building phase 14 of vellum: capture tools in crates/vellum-capture.
+read PLAN.md section 5, "how a step runs" in section 9, step 14a, and section 8.7. you are doing step 14a of vellum in crates/vellum-capture.
 
-1. screenshots: region (with magnifier and pixel coordinates), window, full screen, all screens, scrolling capture, delayed capture. after capture, an instant annotate overlay: arrows, boxes, highlight, blur/pixelate, numbered steps, text, crop. then copy, save, or open in the image editor.
-2. screen recording: region, window or screen, system audio and mic (with separate tracks), webcam overlay, cursor highlight, click ripples, keystroke display, pause/resume. use the best native capture api per os (windows graphics capture, screencapturekit, pipewire) and hardware encoding.
-3. instant replay buffer: keeps the last n seconds in memory or a ring file, a global hotkey saves it, then a toast offers "export to 10 mb" and "open in editor".
-4. record straight to gif, screen colour picker, on screen ruler, ocr any screen region (via vellum-ai).
-5. global hotkeys (customisable, conflict checked) and a tray icon menu with all capture actions.
+build screenshots (region with a magnifier and pixel coordinates, window, full screen, all screens, scrolling, delayed), an annotate overlay (arrows, boxes, highlight, blur and pixelate, numbered steps, text, crop) and copy, save or open in the image editor. add customisable global hotkeys with conflict checks and a tray menu. explain macos permission prompts clearly.
+```
 
-handle permissions prompts on macos gracefully with clear instructions. follow section 5 of PLAN.md exactly. tick the phase 14 boxes and update CHANGELOG.md.
+#### 14b: Screen recorder
+
+**Done when:**
+
+- [ ] Region, window or screen with system audio and mic on separate tracks
+- [ ] Webcam overlay, cursor highlight, click ripples, keystrokes, pause and resume
+- [ ] Native capture per OS with hardware encoding
+
+**Model:** Opus 5.5 · **Effort:** high
+
+```text
+read PLAN.md section 5, "how a step runs" in section 9, step 14b, and section 8.7. read the step 14a section of ARCHITECTURE.md. you are doing step 14b of vellum.
+
+build screen recording with the best native api per os (windows graphics capture, screencapturekit, pipewire) and hardware encoding: region, window or screen, system audio and mic on separate tracks, webcam overlay, cursor highlight, click ripples, keystroke display, pause and resume. note which parts you could only test on one os.
+```
+
+#### 14c: Replay buffer and screen tools
+
+**Done when:**
+
+- [ ] Instant replay buffer with a hotkey, then Export to 10 MB
+- [ ] Record to GIF, screen colour picker, on screen ruler, screen OCR
+- [ ] All phase 14 boxes ticked
+
+**Model:** Sonnet 5.5 · **Effort:** high
+
+```text
+read PLAN.md section 5, "how a step runs" in section 9, step 14c, and section 8.7. read the phase 14 sections of ARCHITECTURE.md. you are doing step 14c of vellum, the last step of phase 14.
+
+build the instant replay buffer (last n seconds in memory or a ring file, a hotkey saves it, a toast offers export to 10 mb and open in editor), record straight to gif, a screen colour picker, an on screen ruler and ocr of any screen region. tick the phase 14 boxes.
 ```
 
 ---
@@ -907,24 +1633,66 @@ handle permissions prompts on macos gracefully with clear instructions. follow s
 
 **Goal:** Illustrator/Figma-lite plus everyday document tools.
 
+#### 15a: Vector workspace
+
 **Done when:**
-- [ ] Vector workspace: pen, shapes, booleans, gradients, align, image trace, clean SVG export
-- [ ] Template artboards (thumbnails, banners, overlays) and mockup generator
-- [ ] PDF tools: merge, split, reorder, compress, convert, sign, annotate
-- [ ] Misc: QR, collage, meme maker, sprite sheets, palette extractor, 3D viewer turntable
+
+- [ ] Pen, pencil, shapes, booleans, gradients, stroke profiles, align and distribute, layers, artboards
+- [ ] SVG import and clean SVG export
 
 **Model:** Sonnet 5.5 · **Effort:** high
 
 ```text
-read PLAN.md (sections 8.6 and 8.8) and ARCHITECTURE.md first. you are building phase 15 of vellum: vector, design and document tools.
+read PLAN.md section 5, "how a step runs" in section 9, step 15a, and section 8.6. read the phase 6 sections of ARCHITECTURE.md (paths and shapes). you are doing step 15a of vellum in crates/vellum-vector.
 
-1. vector workspace (crates/vellum-vector): pen, pencil, shapes, boolean operations, gradients, stroke profiles, align and distribute, layers, artboards. svg import and clean, minimal svg export. image trace (bitmap to vector) with presets.
-2. design templates: artboard presets for youtube thumbnail, discord banner and avatar, twitch overlays, instagram posts and stories, profile pictures. a mockup generator that places a design onto phone, laptop and t-shirt mockups with perspective.
-3. palette extractor from images, gradient generator, icon and favicon pack export.
-4. pdf tools: merge, split, reorder pages with thumbnails, compress, pdf to images, images to pdf, add signature, annotate.
-5. misc tools: qr generator and reader, collage and contact sheet maker, meme maker, sprite sheet maker, before/after comparison export, a 3d model viewer (glb, obj, fbx) with a turntable render to video or gif.
+build a vector workspace that reuses the phase 6 path code: pen, pencil, shapes, booleans, gradients, stroke profiles, align and distribute, layers and artboards, svg import and a clean, minimal svg export. tests for svg round trips.
+```
 
-all of these should appear as quick tool cards and in the command palette. follow section 5 of PLAN.md exactly. tick the phase 15 boxes and update CHANGELOG.md.
+#### 15b: Trace, templates and mockups
+
+**Done when:**
+
+- [ ] Image trace with presets
+- [ ] Template artboards (thumbnails, banners, overlays, posts, avatars)
+- [ ] Mockup generator; palette extractor, gradient generator, icon and favicon packs
+
+**Model:** Sonnet 5.5 · **Effort:** high
+
+```text
+read PLAN.md section 5, "how a step runs" in section 9, step 15b, and section 8.6. read the step 15a section of ARCHITECTURE.md. you are doing step 15b of vellum.
+
+build image trace (bitmap to vector) with presets, template artboards (youtube thumbnail, discord banner and avatar, twitch overlays, instagram posts and stories, profile pictures), a mockup generator (phone, laptop, t-shirt with perspective), a palette extractor, a gradient generator, and icon and favicon pack export. each as a quick tool card and in the palette.
+```
+
+#### 15c: PDF tools
+
+**Done when:**
+
+- [ ] Merge, split, reorder pages with thumbnails, compress
+- [ ] PDF to images, images to PDF, sign, annotate
+
+**Model:** Sonnet 5.5 · **Effort:** high
+
+```text
+read PLAN.md section 5, "how a step runs" in section 9, step 15c, and section 8.8. you are doing step 15c of vellum.
+
+build pdf tools: merge, split, reorder pages with thumbnails, compress, pdf to images, images to pdf, add a signature, annotate. pick a pdf library with a licence that can ship and record it. as quick tool cards and in the palette. tests on small generated pdfs.
+```
+
+#### 15d: Misc tools
+
+**Done when:**
+
+- [ ] QR generator and reader, collage and contact sheet, meme maker, sprite sheets, before and after export
+- [ ] 3D model viewer with a turntable render
+- [ ] All phase 15 boxes ticked
+
+**Model:** Sonnet 5.5 · **Effort:** medium
+
+```text
+read PLAN.md section 5, "how a step runs" in section 9, step 15d, and section 8.8. you are doing step 15d of vellum, the last step of phase 15.
+
+build a qr generator and reader, collage and contact sheet maker, meme maker, sprite sheet maker, before and after comparison export, and a 3d model viewer (glb, obj, fbx) with a turntable render to video or gif. each as a quick tool card and in the palette. tick the phase 15 boxes.
 ```
 
 ---
@@ -933,29 +1701,67 @@ all of these should appear as quick tool cards and in the command palette. follo
 
 **Goal:** power-user superpowers.
 
+#### 16a: Macros, recipes and watch folders
+
 **Done when:**
-- [ ] Macro recorder and editor
-- [ ] Batch recipe builder with saved recipes
-- [ ] Watch folders
-- [ ] CLI covering quick tools and recipes
-- [ ] Explorer/Finder context menu entries
-- [ ] Plugin API with sandbox, example plugins, docs
-- [ ] Asset library with AI tagging and duplicate finder
+
+- [ ] Macro recorder and editor with parameters
+- [ ] Batch recipe builder, saved and shared as files
+- [ ] Watch folders with a log
+
+**Model:** Sonnet 5.5 · **Effort:** high
+
+```text
+read PLAN.md section 5, "how a step runs" in section 9, step 16a, and section 8.10. read ARCHITECTURE.md (the command system and jobs). you are doing step 16a of vellum in crates/vellum-automation.
+
+build a macro recorder over vellum-core commands (record, edit steps, parameterise values, replay on a file or a batch), a batch recipe builder (a visual list of steps saved as shareable files), and watch folders that run a recipe on new files with a log. tests for record and replay.
+```
+
+#### 16b: CLI and context menus
+
+**Done when:**
+
+- [ ] `vellum` CLI for every quick tool and for recipes
+- [ ] Explorer and Finder context menu entries
+
+**Model:** Sonnet 5.5 · **Effort:** high
+
+```text
+read PLAN.md section 5, "how a step runs" in section 9, step 16b, and section 8.10. read the step 16a section of ARCHITECTURE.md. you are doing step 16b of vellum.
+
+build a vellum cli sharing the app's engine: a subcommand for every quick tool and for running recipes (for example `vellum compress clip.mp4 --size 10mb`, `vellum gif clip.mp4 --start 3 --end 8`), with progress output and exit codes. add explorer and finder context menu entries for the main quick tools (phase 3 left this here). tests for the cli.
+```
+
+#### 16c: Plugin API
+
+**Done when:**
+
+- [ ] Plugins in TypeScript or JavaScript (sandboxed) or WASM, with permissions
+- [ ] Plugins can add tools, effects, importers, exporters and panels
+- [ ] Docs and three example plugins
 
 **Model:** Opus 5.5 · **Effort:** high
 
 ```text
-read PLAN.md (sections 8.9 and 8.10) and ARCHITECTURE.md first. you are building phase 16 of vellum: automation and extensibility in crates/vellum-automation.
+read PLAN.md section 5, "how a step runs" in section 9, step 16c, and section 8.10. read ARCHITECTURE.md (commands, events, the render engine). you are doing step 16c of vellum.
 
-1. macro recorder: record any sequence of vellum-core commands, edit steps, parameterise values, replay on the current file or a batch.
-2. batch recipe builder: a visual list of steps (resize, watermark, convert, remove background, compress to x mb, rename...) saved as recipes and shareable as files.
-3. watch folders that run a recipe on new files, with a log.
-4. cli: `vellum` command with subcommands for every quick tool and for running recipes (eg `vellum compress clip.mp4 --size 10mb`, `vellum gif clip.mp4 --start 3 --end 8`), sharing the same engine as the app.
-5. explorer and finder context menu integration for the main quick tools (if phase 3 did not already).
-6. plugin api: plugins written in typescript/javascript (sandboxed) or wasm, able to add tools, effects, importers, exporters and panels, with a permission model. write docs and three example plugins.
-7. asset library: index of media, fonts, luts, presets, brushes, templates and sounds, tags, collections, ratings, local ai tagging so searching "dog" finds dog photos, and a visually similar duplicate finder.
+design and build a plugin api: plugins in typescript or javascript (sandboxed) or wasm that can add tools, effects, importers, exporters and panels, with a permission model the user approves. write the design reasons in ARCHITECTURE.md, docs for plugin authors, and three example plugins. tests for the sandbox and permissions.
+```
 
-tests for macros and the cli. follow section 5 of PLAN.md exactly. tick the phase 16 boxes and update CHANGELOG.md.
+#### 16d: Asset library
+
+**Done when:**
+
+- [ ] Index of media, fonts, LUTs, presets, brushes, templates and sounds, with tags, collections and ratings
+- [ ] Local AI tagging and a duplicate finder
+- [ ] All phase 16 boxes ticked
+
+**Model:** Sonnet 5.5 · **Effort:** high
+
+```text
+read PLAN.md section 5, "how a step runs" in section 9, step 16d, and section 8.9. read the step 7a section of ARCHITECTURE.md. you are doing step 16d of vellum, the last step of phase 16.
+
+build the asset library: an index of media, fonts, luts, presets, brushes, templates and sounds with tags, collections and ratings; local ai tagging (a small clip style model) so searching "dog" finds dog photos; and a visually similar duplicate finder. tick the phase 16 boxes.
 ```
 
 ---
@@ -964,26 +1770,65 @@ tests for macros and the cli. follow section 5 of PLAN.md exactly. tick the phas
 
 **Goal:** turn a big app into a lovely app.
 
+#### 17a: Onboarding and help
+
 **Done when:**
-- [ ] First-run onboarding (pick your background: Photoshop/Premiere/Resolve/new) that sets shortcuts and layout
-- [ ] Interactive tool tips with short demo clips, contextual "What can I do with this?"
-- [ ] Accessibility pass (keyboard navigation, screen reader labels, contrast)
-- [ ] Performance pass: startup under 2 s, memory audit, no UI jank
-- [ ] UX copy review, empty states, error messages
+
+- [ ] First run: pick what you are coming from, which sets shortcuts and layouts; a skippable tour
+- [ ] Rich tooltips with short demo clips, "What can I do with this?", help in the palette
 
 **Model:** Sonnet 5.5 · **Effort:** high
 
 ```text
-read PLAN.md (sections 5, 6 and 7) and ARCHITECTURE.md first. every major feature now exists. you are doing phase 17 of vellum: polish.
+read PLAN.md sections 5, 6 and 7, and "how a step runs" in section 9, step 17a. you are doing step 17a of vellum.
 
-1. first run onboarding: ask what the user is coming from (photoshop, photopea, premiere, resolve, audacity, nothing) and set shortcut presets and layouts to match. a skippable 60 second tour.
-2. help everywhere: rich tooltips with short looping demo clips for complex tools, a "what can i do with this?" button that suggests tools for the current file, searchable help in the command palette.
-3. accessibility: full keyboard navigation, focus rings, screen reader labels, contrast checks for all themes, reduced motion respected.
-4. performance: measure and fix startup time (target under 2 seconds), idle cpu and memory usage, panel animation jank, large project load times. record before and after numbers.
-5. ux copy review of every button, tooltip, dialog, empty state and error. plain words, consistent terms, errors that say what to do next. no em dashes.
-6. go through every workspace looking for inconsistencies (shortcuts, icon styles, spacing, naming) and fix them. list anything you could not fix.
+build first run onboarding (coming from photoshop, photopea, premiere, resolve, audacity or nothing, which sets shortcut presets and layouts) with a skippable 60 second tour, rich tooltips with short looping demo clips for complex tools, a "what can i do with this?" button that suggests tools for the current file, and searchable help in the command palette.
+```
 
-follow section 5 of PLAN.md exactly. tick the phase 17 boxes and update CHANGELOG.md.
+#### 17b: Accessibility
+
+**Done when:**
+
+- [ ] Full keyboard navigation and focus rings
+- [ ] Screen reader labels, contrast checks for every theme, reduced motion respected
+
+**Model:** Sonnet 5.5 · **Effort:** high
+
+```text
+read PLAN.md sections 5 and 6, and "how a step runs" in section 9, step 17b. you are doing step 17b of vellum.
+
+go through every workspace: full keyboard navigation, visible focus rings, screen reader labels, contrast checks for every theme, reduced motion respected everywhere. add axe checks to the playwright tests. list anything you could not fix.
+```
+
+#### 17c: Performance
+
+**Done when:**
+
+- [ ] Startup under 2 seconds, idle CPU and memory audited
+- [ ] No panel animation jank, large projects load fast; before and after numbers recorded
+
+**Model:** Opus 5.5 · **Effort:** high
+
+```text
+read PLAN.md section 5 and "how a step runs" in section 9, step 17c. read ARCHITECTURE.md (benchmarks). you are doing step 17c of vellum.
+
+measure, then fix: startup time (target under 2 seconds), idle cpu and memory, panel animation jank, and load times for big projects in each workspace. record before and after numbers in ARCHITECTURE.md.
+```
+
+#### 17d: Copy and consistency review
+
+**Done when:**
+
+- [ ] Every button, tooltip, dialog, empty state and error reviewed
+- [ ] Shortcuts, icons, spacing and naming consistent across workspaces
+- [ ] All phase 17 boxes ticked
+
+**Model:** Sonnet 5.5 · **Effort:** medium
+
+```text
+read PLAN.md sections 5 and 6, and "how a step runs" in section 9, step 17d. you are doing step 17d of vellum, the last step of phase 17.
+
+review every button, tooltip, dialog, empty state and error message: plain words, consistent terms, errors that say what to do next, no em dashes. then look across workspaces for inconsistent shortcuts, icons, spacing and naming and fix them. list anything you could not fix, and tick the phase 17 boxes.
 ```
 
 ---
@@ -992,26 +1837,37 @@ follow section 5 of PLAN.md exactly. tick the phase 17 boxes and update CHANGELO
 
 **Goal:** installers, auto-update, crash reporting (opt-in), licences, website-ready README.
 
+#### 18a: Installers and release workflow
+
 **Done when:**
-- [ ] Signed installers for Windows (MSI/NSIS), macOS (DMG, notarised), Linux (AppImage, deb, Flatpak)
-- [ ] Auto-update with release notes and rollback
-- [ ] Opt-in crash reports, no telemetry by default
-- [ ] `THIRD_PARTY_LICENSES.md` complete (FFmpeg LGPL compliance, AI model licences)
-- [ ] README with screenshots and feature list
+
+- [ ] Windows MSI and NSIS, macOS DMG (signing and notarisation documented), Linux AppImage, deb and Flatpak
+- [ ] File associations for media and `.vellum`
+- [ ] GitHub Actions release workflow on a version tag
 
 **Model:** Sonnet 5.5 · **Effort:** medium
 
 ```text
-read PLAN.md and ARCHITECTURE.md first. you are doing phase 18 of vellum: packaging and release.
+read PLAN.md section 5 and "how a step runs" in section 9, step 18a. you are doing step 18a of vellum.
 
-1. installers: windows msi and nsis, macos dmg with signing and notarisation steps documented, linux appimage, deb and flatpak. file associations for common media types and .vellum projects.
-2. auto update using the tauri updater with release notes shown in app and a way to roll back one version.
-3. opt in crash reporting only, nothing sent by default, clear privacy text in settings.
-4. licence compliance: check ffmpeg is an lgpl build linked correctly, list every dependency and ai model licence in THIRD_PARTY_LICENSES.md, flag anything that is not compatible with distribution.
-5. a github actions release workflow that builds and uploads all installers on a version tag.
-6. a README with a feature list, screenshots placeholders, install instructions and build instructions.
+set up installers (windows msi and nsis, macos dmg with signing and notarisation steps documented, linux appimage, deb and flatpak), file associations for common media types and .vellum projects, and a github actions workflow that builds and uploads all installers when a version tag is pushed.
+```
 
-follow section 5 of PLAN.md exactly (no em dashes, comment style). tick the phase 18 boxes and update CHANGELOG.md.
+#### 18b: Updates, crash reports, licences and README
+
+**Done when:**
+
+- [ ] Auto update with release notes and roll back one version
+- [ ] Opt in crash reports, nothing sent by default
+- [ ] `THIRD_PARTY_LICENSES.md` complete (FFmpeg LGPL, AI models); README with features and install steps
+- [ ] All phase 18 boxes ticked
+
+**Model:** Sonnet 5.5 · **Effort:** medium
+
+```text
+read PLAN.md section 5 and "how a step runs" in section 9, step 18b. you are doing step 18b of vellum, the last step of the plan.
+
+add auto update with the tauri updater (release notes in the app, roll back one version), opt in crash reporting with clear privacy text and nothing sent by default, finish THIRD_PARTY_LICENSES.md (ffmpeg lgpl compliance, every dependency and ai model, flag anything that cannot ship), and write the README (features, screenshot placeholders, install and build steps). tick the phase 18 boxes.
 ```
 
 ---
@@ -1020,7 +1876,7 @@ follow section 5 of PLAN.md exactly (no em dashes, comment style). tick the phas
 
 ### Phase review prompt (run after every phase)
 
-**Model:** Opus 5.5 · **Effort:** high (use Fable 5.2 at high for phases 0, 4, 5, 8 and 10)
+**Model:** Opus 5.5 · **Effort:** high
 
 ```text
 read PLAN.md and ARCHITECTURE.md. phase [N] was just completed. review it as a strict senior engineer who did not write it.
@@ -1057,7 +1913,7 @@ first, tell me in a few bullets how you plan to build it and which existing syst
 
 ### Nightmare bug prompt (crashes, leaks, heisenbugs)
 
-**Model:** Fable 5.2 (or Opus 5.5) · **Effort:** max
+**Model:** Opus 5.5 · **Effort:** high (xhigh if high fails twice)
 
 ```text
 read ARCHITECTURE.md. there is a hard bug: [describe it, include logs, how often it happens, which os and gpu].
@@ -1083,4 +1939,4 @@ read CHANGELOG.md and the git log since the last release tag. write user friendl
 - **Platform upload limits change.** That is why all size presets are editable and looked up during phase 3 and 13.
 - **Model sizes.** AI models can be hundreds of MB each. Download on first use, never bundle them in the installer.
 - **Patents and codecs.** H.265 and AAC can have licensing implications for commercial distribution. Use OS-provided encoders where possible and keep AV1/Opus/VP9 as free options.
-- **Fable access window.** Prioritise phases 0, 4, 5, 8 and 10 while you have it.
+- **Session size.** Keep each step to one session. If a step keeps running out, split it in this file before trying again rather than turning the effort up.
