@@ -498,7 +498,9 @@ fn read_record<R: Read + Seek>(r: &mut Reader<R>) -> Res<Record> {
                 if chars * 2 + 4 <= len as usize {
                     let raw = r.bytes(chars * 2)?;
                     let units: Vec<u16> = raw
-                        .as_chunks::<2>().0.iter()
+                        .as_chunks::<2>()
+                        .0
+                        .iter()
                         .map(|c| u16::from_be_bytes([c[0], c[1]]))
                         .collect();
                     let name = String::from_utf16_lossy(&units);

@@ -712,7 +712,9 @@ pub fn filter_raster(
     let mut out = Raster::gray(base.depth(), base.fill());
     let px = rendered.read(rect);
     let values: Vec<f32> = px
-        .as_chunks::<4>().0.iter()
+        .as_chunks::<4>()
+        .0
+        .iter()
         .map(|p| {
             (0.2126 * p[0] + 0.7152 * p[1] + 0.0722 * p[2]) * p[3] + base.fill() * (1.0 - p[3])
         })

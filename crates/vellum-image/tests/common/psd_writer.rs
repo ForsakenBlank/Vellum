@@ -177,7 +177,9 @@ fn predict(data: &mut [u8], w: usize, h: usize, bytes: usize) {
         match bytes {
             2 => {
                 let vals: Vec<u16> = line
-                    .as_chunks::<2>().0.iter()
+                    .as_chunks::<2>()
+                    .0
+                    .iter()
                     .map(|c| u16::from_be_bytes([c[0], c[1]]))
                     .collect();
                 let mut prev = 0u16;

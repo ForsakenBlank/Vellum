@@ -423,7 +423,9 @@ fn read_rgba(r: &Raster) -> (IRect, Vec<[f32; 4]>) {
     let v = r.read(rect);
     (
         rect,
-        v.as_chunks::<4>().0.iter()
+        v.as_chunks::<4>()
+            .0
+            .iter()
             .map(|c| [c[0], c[1], c[2], c[3]])
             .collect(),
     )

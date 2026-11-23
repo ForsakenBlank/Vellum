@@ -99,7 +99,9 @@ fn to_png16(img: &CpuImage) -> Vec<u16> {
 
 fn from_png16(data: &[u16]) -> CpuImage {
     let px = data
-        .as_chunks::<4>().0.iter()
+        .as_chunks::<4>()
+        .0
+        .iter()
         .map(|c| {
             let s = [0, 1, 2, 3].map(|k| f32::from(c[k]) / 65535.0);
             [s[0] * s[3], s[1] * s[3], s[2] * s[3], s[3]]

@@ -248,7 +248,9 @@ fn shared_palette(frames: &[(&RgbaImage, u32)]) -> Palette {
     let quant = NeuQuant::new(3, 255, &sample);
     let colors = quant
         .color_map_rgba()
-        .as_chunks::<4>().0.iter()
+        .as_chunks::<4>()
+        .0
+        .iter()
         .map(|c| [c[0], c[1], c[2]])
         .collect();
     Palette {

@@ -30,7 +30,9 @@ impl Block {
         Self {
             rect,
             px: v
-                .as_chunks::<4>().0.iter()
+                .as_chunks::<4>()
+                .0
+                .iter()
                 .map(|c| [c[0], c[1], c[2], c[3]])
                 .collect(),
         }

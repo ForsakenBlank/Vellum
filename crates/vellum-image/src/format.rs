@@ -566,7 +566,9 @@ fn unfiltered(bytes: &[u8], depth: Depth, n: usize) -> Result<TileData, String> 
                 return Err(bad());
             }
             let mut d: Vec<u16> = bytes
-                .as_chunks::<2>().0.iter()
+                .as_chunks::<2>()
+                .0
+                .iter()
                 .map(|c| u16::from_le_bytes([c[0], c[1]]))
                 .collect();
             for i in 0..len {
@@ -581,7 +583,9 @@ fn unfiltered(bytes: &[u8], depth: Depth, n: usize) -> Result<TileData, String> 
                 return Err(bad());
             }
             let mut bits: Vec<u32> = bytes
-                .as_chunks::<4>().0.iter()
+                .as_chunks::<4>()
+                .0
+                .iter()
                 .map(|c| u32::from_le_bytes([c[0], c[1], c[2], c[3]]))
                 .collect();
             for i in 0..len {

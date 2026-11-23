@@ -105,7 +105,9 @@ impl ColorBuf {
             let strip = raster.read(IRect::new(rect.x, y, rect.w, h));
             data.extend(
                 strip
-                    .as_chunks::<4>().0.iter()
+                    .as_chunks::<4>()
+                    .0
+                    .iter()
                     .map(|p| [q16(p[0]), q16(p[1]), q16(p[2]), q16(p[3])]),
             );
             y += h as i32;

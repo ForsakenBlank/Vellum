@@ -430,7 +430,9 @@ pub fn png_quantized(image: &RgbaImage) -> MediaResult<Vec<u8>> {
         let map = quant.color_map_rgba();
         let clear = (map.len() / 4) as u8;
         let mut palette: Vec<u8> = map
-            .as_chunks::<4>().0.iter()
+            .as_chunks::<4>()
+            .0
+            .iter()
             .flat_map(|c| [c[0], c[1], c[2]])
             .collect();
         palette.extend([0, 0, 0]);
