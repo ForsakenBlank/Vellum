@@ -341,6 +341,9 @@ impl GpuContext {
             kernel.body
         );
         let scope = self.device.push_error_scope(wgpu::ErrorFilter::Validation);
+        // a backend compiler that rejects the shader (eg fxc on dx12) reports an internal
+        // error, not a validation one
+        let internal = self.device.push_error_scope(wgpu::ErrorFilter::Internal);
         let module = self
             .device
             .create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -358,7 +361,8 @@ impl GpuContext {
                 compilation_options: Default::default(),
                 cache: None,
             });
-        if let Some(err) = pollster::block_on(scope.pop()) {
+        let internal_err = pollster::block_on(internal.pop());
+        if let Some(err) = pollster::block_on(scope.pop()).or(internal_err) {
             return Err(GpuError::Shader(format!("{}: {err}", kernel.name)));
         }
         let pipeline = Arc::new(pipeline);
