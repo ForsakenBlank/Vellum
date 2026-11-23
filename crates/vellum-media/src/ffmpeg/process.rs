@@ -20,6 +20,11 @@ use crate::error::{MediaError, MediaResult};
 /// stderr lines kept for error messages
 const STDERR_LINES: usize = 12;
 
+/// the limit for quick questions like -version and -encoders. they answer in well under a
+/// second, but the first run after boot can take over ten on windows while antivirus scans
+/// the file, and timing out then would wrongly say ffmpeg is missing.
+pub const QUICK_QUERY: Duration = Duration::from_secs(30);
+
 /// builds a command that never opens a console window on windows
 pub fn command(program: &std::path::Path) -> Command {
     #[allow(unused_mut)] // only mutated on windows

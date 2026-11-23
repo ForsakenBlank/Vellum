@@ -165,13 +165,12 @@ const AUDIO_CANDIDATES: &[&str] = &["aac", "libopus", "libmp3lame", "flac", "pcm
 pub fn detect(ffmpeg: &Ffmpeg) -> MediaResult<HardwareSupport> {
     let mut cmd = ffmpeg.command();
     cmd.arg("-encoders");
-    let listed =
-        String::from_utf8_lossy(&process::capture(cmd, Duration::from_secs(10))?).into_owned();
-    let listed = encoder_names(&listed);
+    let out = process::capture(cmd, process::QUICK_QUERY)?;
+    let listed = encoder_names(&String::from_utf8_lossy(&out));
 
     let mut cmd = ffmpeg.command();
     cmd.arg("-hwaccels");
-    let hardware_decoders = process::capture(cmd, Duration::from_secs(10))
+    let hardware_decoders = process::capture(cmd, process::QUICK_QUERY)
         .map(|out| hwaccel_names(&String::from_utf8_lossy(&out)))
         .unwrap_or_default();
 
