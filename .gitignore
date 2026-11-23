@@ -28,3 +28,6 @@ ui/playwright-report/
 
 # media made by scripts/make-test-media.sh, never committed
 /test-media/
+
+# graphify knowledge graph (rebuild with: graphify update .)
+graphify-out/
