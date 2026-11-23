@@ -873,7 +873,15 @@ mod tests {
                 "main",
             )
             .unwrap();
-        let has_ffmpeg = vellum_media::ffmpeg::Ffmpeg::locate().is_ok();
+        let ffmpeg = vellum_media::ffmpeg::Ffmpeg::locate().ok();
+        let has_ffmpeg = ffmpeg.is_some();
+        // homebrew's ffmpeg 8 has no libwebp
+        let has_webp = ffmpeg.is_some_and(|f| {
+            std::process::Command::new(&f.info().path)
+                .args(["-hide_banner", "-encoders"])
+                .output()
+                .is_ok_and(|out| String::from_utf8_lossy(&out.stdout).contains(" libwebp "))
+        });
         for format in [
             crate::export::ExportFormat::Png,
             crate::export::ExportFormat::Jpeg,
@@ -889,6 +897,9 @@ mod tests {
                     std::env::var_os("VELLUM_REQUIRE_FFMPEG").is_none(),
                     "ffmpeg is missing"
                 );
+                continue;
+            }
+            if format == crate::export::ExportFormat::Webp && !has_webp {
                 continue;
             }
             // the extension follows the format

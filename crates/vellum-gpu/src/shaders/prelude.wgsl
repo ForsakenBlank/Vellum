@@ -71,18 +71,19 @@ fn premultiply(c: vec4<f32>) -> vec4<f32> {
 }
 
 // transfer functions, ids match `Transfer::id` in color.rs
+// each case sets r and the one return is at the end: fxc (dx12) cannot follow returns
+// inside a switch once the call is inlined with a constant id
 fn decode1(id: u32, g: f32, v: f32) -> f32 {
     let s = sign(v);
     let a = abs(v);
+    var r = v;
     switch id {
         case 1u: {
-            if (a <= 0.04045) { return s * a / 12.92; }
-            return s * pow((a + 0.055) / 1.055, 2.4);
+            if (a <= 0.04045) { r = s * a / 12.92; } else { r = s * pow((a + 0.055) / 1.055, 2.4); }
         }
-        case 2u: { return s * pow(a, g); }
+        case 2u: { r = s * pow(a, g); }
         case 3u: {
-            if (a < 0.081) { return s * a / 4.5; }
-            return s * pow((a + 0.099) / 1.099, 1.0 / 0.45);
+            if (a < 0.081) { r = s * a / 4.5; } else { r = s * pow((a + 0.099) / 1.099, 1.0 / 0.45); }
         }
         case 4u: {
             let m1 = 2610.0 / 16384.0;
@@ -92,35 +93,39 @@ fn decode1(id: u32, g: f32, v: f32) -> f32 {
             let c3 = 2392.0 / 4096.0 * 32.0;
             let p = pow(max(v, 0.0), 1.0 / m2);
             let n = max(p - c1, 0.0) / (c2 - c3 * p);
-            return pow(n, 1.0 / m1) * 10000.0 / 203.0;
+            r = pow(n, 1.0 / m1) * 10000.0 / 203.0;
         }
         case 5u: {
             let x = max(v, 0.0);
             var e: f32;
             if (x <= 0.5) { e = x * x / 3.0; } else { e = (exp((x - 0.5599107) / 0.17883277) + 0.28466892) / 12.0; }
-            return e / 0.265498;
+            r = e / 0.265498;
         }
         case 6u: {
-            if (v <= 0.15525114) { return (v - 0.07290553) / 10.540238; }
-            if (v < 1.468) { return exp2(v * 17.52 - 9.72); }
-            return 65504.0;
+            if (v <= 0.15525114) {
+                r = (v - 0.07290553) / 10.540238;
+            } else if (v < 1.468) {
+                r = exp2(v * 17.52 - 9.72);
+            } else {
+                r = 65504.0;
+            }
         }
-        default: { return v; }
+        default: {}
     }
+    return r;
 }
 
 fn encode1(id: u32, g: f32, l: f32) -> f32 {
     let s = sign(l);
     let a = abs(l);
+    var r = l;
     switch id {
         case 1u: {
-            if (a <= 0.0031308) { return s * a * 12.92; }
-            return s * (1.055 * pow(a, 1.0 / 2.4) - 0.055);
+            if (a <= 0.0031308) { r = s * a * 12.92; } else { r = s * (1.055 * pow(a, 1.0 / 2.4) - 0.055); }
         }
-        case 2u: { return s * pow(a, 1.0 / g); }
+        case 2u: { r = s * pow(a, 1.0 / g); }
         case 3u: {
-            if (a < 0.018) { return s * a * 4.5; }
-            return s * (1.099 * pow(a, 0.45) - 0.099);
+            if (a < 0.018) { r = s * a * 4.5; } else { r = s * (1.099 * pow(a, 0.45) - 0.099); }
         }
         case 4u: {
             let m1 = 2610.0 / 16384.0;
@@ -129,19 +134,18 @@ fn encode1(id: u32, g: f32, l: f32) -> f32 {
             let c2 = 2413.0 / 4096.0 * 32.0;
             let c3 = 2392.0 / 4096.0 * 32.0;
             let y = pow(max(l, 0.0) * 203.0 / 10000.0, m1);
-            return pow((c1 + c2 * y) / (1.0 + c3 * y), m2);
+            r = pow((c1 + c2 * y) / (1.0 + c3 * y), m2);
         }
         case 5u: {
             let e = min(max(l, 0.0) * 0.265498, 1.0);
-            if (e <= 1.0 / 12.0) { return sqrt(3.0 * e); }
-            return 0.17883277 * log(12.0 * e - 0.28466892) + 0.5599107;
+            if (e <= 1.0 / 12.0) { r = sqrt(3.0 * e); } else { r = 0.17883277 * log(12.0 * e - 0.28466892) + 0.5599107; }
         }
         case 6u: {
-            if (l <= 0.0078125) { return 10.540238 * l + 0.07290553; }
-            return (log2(l) + 9.72) / 17.52;
+            if (l <= 0.0078125) { r = 10.540238 * l + 0.07290553; } else { r = (log2(l) + 9.72) / 17.52; }
         }
-        default: { return l; }
+        default: {}
     }
+    return r;
 }
 
 fn decode3(id: u32, g: f32, c: vec3<f32>) -> vec3<f32> {
