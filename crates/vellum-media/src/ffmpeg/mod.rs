@@ -71,7 +71,9 @@ impl Ffmpeg {
         }
         let mut cmd = process::command(&ffmpeg);
         cmd.arg("-hide_banner").arg("-version");
-        let out = process::capture(cmd, Duration::from_secs(10))?;
+        // the first run after boot can be slow on windows while antivirus scans the file,
+        // and timing out here would wrongly say ffmpeg is missing
+        let out = process::capture(cmd, Duration::from_secs(30))?;
         let text = String::from_utf8_lossy(&out);
         let info = FfmpegInfo {
             path: ffmpeg.display().to_string(),

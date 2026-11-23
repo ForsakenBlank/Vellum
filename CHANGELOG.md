@@ -22,6 +22,9 @@ Added (in the engine and documents; the panels, dialogs and tools in the window 
 Fixed
 
 - Free transform on a text or shape layer did nothing, and smart objects could not be transformed.
+- Text had no fallback font on Linux systems without Arial. Sans serif, serif and monospace now use the first common family that is installed.
+- Pattern fills and overlays failed on Windows (DirectX 12), and a shader that failed to compile there left a broken pipeline instead of saying why.
+- Slideshows made by the converter were one slide too long with FFmpeg 8.
 
 ### Phase 5, second half: transforms, crop, Photoshop files, export and view aids (2026-11-22)
 
