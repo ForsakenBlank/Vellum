@@ -105,8 +105,72 @@ fn library() -> &'static RwLock<FontLibrary> {
         {
             db.load_fonts_dir(dir);
         }
+        pick_generic_families(&mut db);
         RwLock::new(FontLibrary { db, folder })
     })
+}
+
+// common families to stand in for the generic names, best first
+const SANS_FAMILIES: [&str; 8] = [
+    "Arial",
+    "Helvetica",
+    "Segoe UI",
+    "DejaVu Sans",
+    "Noto Sans",
+    "Liberation Sans",
+    "Cantarell",
+    "Ubuntu",
+];
+const SERIF_FAMILIES: [&str; 5] = [
+    "Times New Roman",
+    "Times",
+    "DejaVu Serif",
+    "Noto Serif",
+    "Liberation Serif",
+];
+const MONO_FAMILIES: [&str; 6] = [
+    "Courier New",
+    "Menlo",
+    "Consolas",
+    "DejaVu Sans Mono",
+    "Noto Sans Mono",
+    "Liberation Mono",
+];
+
+fn has_name(face: &fontdb::FaceInfo, name: &str) -> bool {
+    let names = &face.families;
+    names.iter().any(|(n, _)| n.eq_ignore_ascii_case(name))
+}
+
+fn first_installed(db: &fontdb::Database, names: &[&str]) -> Option<String> {
+    for name in names {
+        if db.faces().any(|f| has_name(f, name)) {
+            return Some((*name).to_owned());
+        }
+    }
+    None
+}
+
+/// fontdb maps sans-serif, serif and monospace to Arial, Times New Roman and Courier New,
+/// which most linux systems lack, so point each at the first common family installed
+fn pick_generic_families(db: &mut fontdb::Database) {
+    let sans = first_installed(db, &SANS_FAMILIES);
+    let serif = first_installed(db, &SERIF_FAMILIES);
+    let mono = first_installed(db, &MONO_FAMILIES);
+    // with none of the usual names, any installed family beats drawing nothing
+    let mut any = None;
+    if let Some(face) = db.faces().next() {
+        any = face.families.first().map(|(n, _)| n.clone());
+    }
+    if let Some(name) = sans.clone().or_else(|| any.clone()) {
+        db.set_sans_serif_family(name);
+    }
+    if let Some(name) = serif.or_else(|| sans.clone()).or_else(|| any.clone()) {
+        db.set_serif_family(name);
+    }
+    if let Some(name) = mono.or(sans).or(any) {
+        db.set_monospace_family(name);
+    }
 }
 
 /// where downloaded fonts are kept. call once at start-up; it does not scan anything.

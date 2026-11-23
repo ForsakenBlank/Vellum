@@ -561,9 +561,12 @@ fn kernel(p: vec2<i32>) -> vec4<f32> {
     let w = i32(data[0]);
     let h = i32(data[1]);
     let q = (vec2<f32>(p) + vec2<f32>(0.5)) * a.z - a.xy;
-    let u = vec2<i32>(floor(q / a.w));
-    let x = ((u.x % w) + w) % w;
-    let y = ((u.y % h) + h) % h;
+    // wrap in floats: signed integer % does not compile on every backend (dx12)
+    let t = floor(q / a.w);
+    let size = vec2<f32>(f32(w), f32(h));
+    let m = t - size * floor(t / size);
+    let x = clamp(i32(m.x), 0, w - 1);
+    let y = clamp(i32(m.y), 0, h - 1);
     let i = 2u + u32((y * w + x) * 4);
     let c = vec4<f32>(data[i], data[i + 1u], data[i + 2u], data[i + 3u]);
     let rgb = encode3(F.encoding, F.gamma, decode3(1u, 1.0, c.rgb));
